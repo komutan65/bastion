@@ -33,7 +33,18 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0d1a26;color:#f0e8d6;
 #sel{position:absolute;display:flex;gap:5px;transform:translate(-50%,-120%)}
 #sel button{padding:7px 9px}
 body.nohud #hud,body.nohud #ov{display:none}
-@media(max-width:620px){#rivals{width:118px;font-size:12px}.grp span{width:100%;text-align:center}.grp button{min-width:54px}#eye{bottom:calc(164px + env(safe-area-inset-bottom,0px))}}
+#tabs{display:none}
+@media(max-width:760px){
+  #rivals{width:104px;font-size:11px}#rivals button{padding:2px 5px}#money{font-size:16px;padding:4px 9px}#rivals{top:calc(42px + env(safe-area-inset-top,0px))}
+  #bar{flex-direction:column;align-items:stretch;gap:4px;bottom:calc(4px + env(safe-area-inset-bottom,0px))}
+  #tabs{display:flex;gap:4px}#tabs button{flex:1;padding:6px;font-size:13px}
+  body[data-tab=d] #tabD,body[data-tab=a] #tabA{background:#b8862c;color:#1a1206;border-color:#ffd98a}
+  body[data-tab=d] #gTgt,body[data-tab=d] #gAtk,body[data-tab=a] #gDef{display:none}
+  .grp{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;-webkit-overflow-scrolling:touch}.grp span{display:none}
+  .grp button{flex:1 0 auto;min-width:58px;padding:5px 6px;font-size:12px}.grp small{font-size:10px}
+  #tools button{padding:5px 7px;font-size:12px}
+  #eye{width:36px;height:36px;font-size:15px;bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+}
 </style>
 </head>
 <body>
@@ -46,6 +57,7 @@ body.nohud #hud,body.nohud #ov{display:none}
   <div id="tools"><button id="bSes">Ses</button><button id="bHome">Üssüm</button><button id="bAll">Tüm harita</button></div>
   <div id="sel" hidden><button id="bUp"></button><button id="bSell"></button></div>
   <div id="bar">
+    <div id="tabs"><button id="tabD">Savunma</button><button id="tabA">Saldırı</button></div>
     <div class="grp" id="gDef"><span>SAVUNMA</span></div>
     <div class="grp" id="gTgt"><span>HEDEF</span></div>
     <div class="grp" id="gAtk"><span>GÖNDER</span></div>
