@@ -1408,7 +1408,7 @@ window.__G={setDiff:i=>setDiff(i),get score(){return score},get ageRes(){return 
 // =============== ARENA: four players online ===============
 const SEATCOL=['#f2a33a','#5cc4e8','#e878b4','#8fd65f'];
 const BTYPES=Object.keys(BT);
-const rows=A.players.map((p,i)=>({seat:i,id:p.id,name:String(p.name).slice(0,12),hp:100,wave:0,dead:false,seen:performance.now(),ghosts:new Map(),dots:[]}));
+const rows=A.players.map((p,i)=>({seat:i,id:p.id,name:String(p.name).slice(0,12),hp:100,wave:0,dead:false,seen:performance.now(),ghosts:new Map(),dots:[],bot:p.bot||0,list:[],next:0,atk:0}));
 const meRow=rows[A.seat];
 const finite=(v,d)=>typeof v==='number'&&isFinite(v)?v:d;
 let net=null,sentKills=0,lastB='',ended=false,dotMesh=null;
@@ -1441,12 +1441,37 @@ function arenaTick(){
     say('snap',snap);
     while(kills-sentKills>=6){sentKills+=6;attackRival()}
   }
-  for(const r of rows)if(r!==meRow&&!r.dead&&now-r.seen>25000)markDead(r);
+  for(const r of rows)if(r.bot&&!r.dead&&!gameOver)botTick(r);
+  for(const r of rows)if(r!==meRow&&!r.bot&&!r.dead&&now-r.seen>25000)markDead(r);
   drawDots();arenaHudDraw();checkEnd();
+}
+// A computer rival: a simple stand-in on its own square, not a full simulation.
+function botTick(r){
+  const ox=(r.seat%2)*QW,oy=(r.seat>>1)*QW,bx=44+ox,by=34+oy;
+  r.wave=wave;
+  if(!r.list.length){r.list=[[BTYPES.indexOf('archer'),bx-1,by-1,1],[BTYPES.indexOf('wheat'),bx+3,by-5,1]];syncGhosts(r,r.list)}
+  r.next--;
+  if(r.next<=0&&r.list.length<40&&wave>0){
+    r.next=10+Math.random()*12|0;
+    const type=['wheat','archer','sheep','archer','cannon','wall'][Math.random()*6|0],s=BT[type].size;
+    for(let i=0;i<20;i++){
+      const a=Math.random()*6.28,d=5+Math.random()*(6+r.list.length/2),tx=Math.round(bx+Math.cos(a)*d),ty=Math.round(by+Math.sin(a)*d);
+      let ok=true;for(let y=ty;y<ty+s;y++)for(let x=tx;x<tx+s;x++)if(terrain[x+y*GW]!==0)ok=false;
+      if(ok&&!r.list.some(b=>Math.abs(b[1]-tx)<4&&Math.abs(b[2]-ty)<4)){r.list.push([BTYPES.indexOf(type),tx,ty,1]);syncGhosts(r,r.list);break}
+    }
+  }
+  const pressure=Math.max(0,wave-(3+r.bot*2));            // later bots last longer
+  if(pressure>0&&Math.random()<.35)r.hp=Math.max(0,r.hp-Math.random()*pressure*.55);
+  r.dots=[];const n=Math.min(14,wave*2);
+  for(let i=0;i<n;i++){const k=(performance.now()/40000+i/n)%1;r.dots.push([ox+6+(38*k)+Math.sin(i)*2,oy+73-(39*k)+Math.cos(i)*2])}
+  r.atk--;
+  if(r.atk<=0&&wave>0&&!meRow.dead){r.atk=25+Math.random()*25|0;onSend({to:A.seat,from:r.seat,list:wave>=8?['spear','spear','shield','cav']:wave>=4?['spear','spear','spear']:['spear','spear']})}
+  if(r.hp<=0)markDead(r);
 }
 function attackRival(){
   const live=rows.filter(r=>r!==meRow&&!r.dead);if(!live.length)return;
   const t=live[Math.random()*live.length|0],n=Math.min(6,2+Math.floor(wave/4));
+  if(t.bot){t.hp=Math.max(0,t.hp-n);if(t.hp<=0)markDead(t);return}
   const list=[];for(let i=0;i<n;i++)list.push(wave>=8&&i%3===2?'cav':wave>=5&&i%3===1?'shield':'spear');
   say('send',{to:t.seat,from:A.seat,list});
 }

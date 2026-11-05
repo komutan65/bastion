@@ -40,7 +40,7 @@ async function enter(m){
   const seat=Array.isArray(m.players)?m.players.findIndex(p=>p.id===id):-1;
   if(seat<0)return;
   started=true;clearInterval(timer);
-  try{await ch.untrack();sb.removeChannel(ch)}catch(e){}
+  try{if(ch){await ch.untrack();sb.removeChannel(ch)}}catch(e){}
   window.ARENA={seat,id,room:String(m.room),players:m.players,sb};
   $('lStatus').textContent='Harita hazırlanıyor…';
   try{await import('./game.js');$('lobby').hidden=true}
@@ -70,6 +70,11 @@ function openRoom(c){
   join('oda-'+c);
 }
 $('lPlay').onclick=()=>join('genel');
+$('lBots').onclick=()=>{
+  try{localStorage.setItem('arena_name',nick())}catch(e){}
+  $('lHome').hidden=true;$('lQueue').hidden=false;$('lCancel').hidden=true;
+  enter({room:'bot'+Math.random().toString(36).slice(2,10),players:[{id,name:nick()},{id:'b1',name:'Yapay Zeka 1',bot:1},{id:'b2',name:'Yapay Zeka 2',bot:2},{id:'b3',name:'Yapay Zeka 3',bot:3}]});
+};
 $('lInvite').onclick=()=>openRoom(Math.random().toString(36).slice(2,8));
 $('lCancel').onclick=cancel;
 $('lStart').onclick=()=>{const l=players();if(l.length>=2)go(l.slice(0,MAXP))};
@@ -78,7 +83,7 @@ $('lCopy').onclick=async()=>{
   catch(e){$('lLink').select()}
 };
 if(invite&&/^[a-z0-9]{4,12}$/.test(invite)){
-  $('lPlay').hidden=true;$('lInvite').textContent='Odaya katıl';
+  $('lPlay').hidden=true;$('lBots').hidden=true;$('lInvite').textContent='Odaya katıl';
   $('lInvite').onclick=()=>openRoom(invite);
 }
 })();
