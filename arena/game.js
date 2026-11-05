@@ -1415,6 +1415,7 @@ let net=null,sentKills=0,lastB='',ended=false,dotMesh=null;
 const dotM=new THREE.Matrix4();
 
 function arenaBoot(){
+  try{setLang('tr')}catch(e){}
   cam.tx=BASE.tx+2;cam.tz=BASE.ty+0.5;
   dotMesh=new THREE.InstancedMesh(new THREE.SphereGeometry(0.42,8,6),new THREE.MeshLambertMaterial({color:'#c0392b'}),160);
   dotMesh.count=0;dotMesh.frustumCulled=false;scene.add(dotMesh);
