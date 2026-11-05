@@ -1,0 +1,25 @@
+<div id="lobby">
+  <div class="lbox">
+    <h1>BASTION ARENA</h1>
+    <p class="sub">Dört harita, dört kule. Son ayakta kalan kazanır.</p>
+    <div id="lHome">
+      <label for="lName">Adın</label>
+      <input id="lName" maxlength="12" autocomplete="off">
+      <button id="lPlay" class="go">OYNA</button>
+      <button id="lInvite">Arkadaşlarınla oyna</button>
+    </div>
+    <div id="lQueue" hidden>
+      <p id="lStatus">Rakip aranıyor…</p>
+      <div id="lList"></div>
+      <div id="lShare" hidden>
+        <input id="lLink" readonly aria-label="Davet linki">
+        <button id="lCopy">Linki kopyala</button>
+      </div>
+      <button id="lStart" class="go" hidden>Maçı başlat</button>
+      <button id="lCancel">Vazgeç</button>
+    </div>
+    <p id="lErr" hidden></p>
+  </div>
+</div>
+<div id="arenaHud" hidden></div>
+<div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go">Yeni maç</button><button id="aeWatch">Maçı izle</button></div></div>

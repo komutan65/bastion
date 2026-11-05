@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Bastion"><meta name="theme-color" content="#2e1d0e"><link rel="manifest" href="../manifest.webmanifest"><link rel="apple-touch-icon" href="../icon-180.png">
+<title>Bastion Arena</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#9cc3d6;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;font-family:Georgia,'Times New Roman',serif;color:#f2e2b0}
+canvas#game{display:block;position:fixed;inset:0;width:100%;height:100%}
+canvas#ov{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+.wood{background:linear-gradient(#4a3019,#2e1d0e);border:2px solid #a9823f;box-shadow:0 2px 8px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,220,150,.15);border-radius:8px}
+#top{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top) + 6px) 8px 0;display:flex;gap:6px;align-items:flex-start;pointer-events:none}
+#resbar{display:flex;gap:4px;padding:4px 6px;pointer-events:auto}
+.res{display:flex;flex-direction:column;align-items:center;min-width:56px;line-height:1.05}
+.res b{font-size:16px;color:#ffe9a8}.res span{font-size:10px;opacity:.75}.res i{font-style:normal;font-size:12px}
+#ctrls{margin-left:auto;display:grid;grid-template-columns:repeat(3,36px);gap:4px;pointer-events:auto}
+.sbtn{width:36px;height:36px;font-size:15px;color:#f2d68a;padding:0;font-family:inherit}
+#wave{position:fixed;left:8px;top:calc(env(safe-area-inset-top) + 58px);padding:5px 10px;font-size:13px;pointer-events:auto}
+#wave small{opacity:.8}
+#mini{position:fixed;right:8px;top:calc(env(safe-area-inset-top) + 92px);width:112px;height:112px;border:2px solid #a9823f;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.5);touch-action:none}
+#bottom{position:fixed;left:0;right:0;bottom:0;padding:0 12px calc(env(safe-area-inset-bottom) + 12px);display:flex;justify-content:space-between;pointer-events:none}
+.big{pointer-events:auto;width:84px;height:84px;border-radius:50%;font-family:inherit;color:#ffe9a8;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.big .ic{font-size:30px;line-height:1}
+button{cursor:pointer}button:active{filter:brightness(1.25)}
+#sheet,#placebar,#selp{position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom) + 8px);padding:10px;z-index:5}
+#sheet h3{margin:0 0 8px;font-size:16px;text-align:center;color:#ffe08a;letter-spacing:1px}
+#cards{display:flex;gap:6px}
+.card{flex:1;padding:8px 6px;border-radius:6px;border:1px solid #8a6a32;background:rgba(0,0,0,.25);text-align:center;font-family:inherit;color:#f2e2b0}
+.card .ic{font-size:26px}.card .nm{font-size:13px;font-weight:bold;margin:2px 0;color:#ffe9a8}
+.card .ds{font-size:10px;opacity:.8;min-height:26px}.card .cs{font-size:11px;margin-top:3px}.card.no{opacity:.45}
+.cost .bad{color:#ff8a7a}
+.row{display:flex;gap:6px;margin-top:8px}
+.row button{flex:1;padding:10px;font-family:inherit;font-size:14px;color:#ffe9a8}
+#placebar{text-align:center;font-size:13px}
+#selp{font-size:13px}#selp .t{font-size:16px;color:#ffe08a;font-weight:bold}
+.hpbar{height:8px;background:#3b1a12;border-radius:4px;overflow:hidden;margin:6px 0}.hpbar div{height:100%;background:linear-gradient(#7fd06a,#3f8f2f)}
+button:disabled{opacity:.45;filter:grayscale(.6)}
+.hidden{display:none!important}
+#banner{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;opacity:0;transition:opacity .8s;width:90%;text-shadow:0 2px 6px #000,0 0 18px rgba(0,0,0,.8)}
+#banner.show{opacity:1}#banner .a{font-size:28px;color:#ffd36a;letter-spacing:2px;font-weight:bold}#banner .b{font-size:15px;margin-top:6px;color:#fff3d0}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 214px);transform:translateX(-50%);padding:8px 14px;font-size:13px;opacity:0;transition:opacity .5s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+.ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(rgba(20,14,6,.45),rgba(10,7,3,.85));z-index:10}
+.ov .box{padding:22px 20px;text-align:center;max-width:340px;margin:16px}
+.ov h1{margin:0;font-size:40px;letter-spacing:6px;color:#ffd36a;text-shadow:0 3px 0 #5a3a10}
+.ov p{font-size:13px;line-height:1.5;opacity:.9}
+.ov button.go{margin-top:8px;padding:12px 28px;font-size:18px;font-family:inherit;color:#ffe9a8}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#22301a;z-index:20;font-size:18px;letter-spacing:3px;color:#ffd36a}
+*{-webkit-tap-highlight-color:transparent}
+button{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#thumb{position:fixed;right:calc(env(safe-area-inset-right) + 8px);bottom:calc(env(safe-area-inset-bottom) + 8px);width:0;height:0;z-index:6}
+.tb{position:absolute;transform:translate(-50%,-50%);border-radius:50%!important;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;font-family:inherit;color:#ffe9a8;touch-action:none;transition:transform .08s ease-out,opacity .12s,filter .08s,box-shadow .12s;line-height:1.05}
+.tb.main{width:82px;height:82px}.tb.main .ic{font-size:30px;line-height:1}.tb .lb{font-size:10px;margin-top:3px;letter-spacing:.5px}
+.tb.opt{width:88px;height:68px;border-radius:20px!important}.tb.opt .ic{font-size:23px;line-height:1}.tb .nm{font-size:9.5px;font-weight:bold;margin-top:1px}.tb .cs{font-size:9px;margin-top:2px;max-width:82px;line-height:1.15;text-align:center}
+.tb .bad{color:#ff8a7a}
+.tb.press{transform:translate(-50%,-50%) scale(.86);filter:brightness(1.4)}
+.tb.no{filter:grayscale(.75) brightness(.7)}
+.tb.selo{box-shadow:0 0 0 3px #ffd34a,0 0 18px #ffd34a}
+.tb.hide{opacity:0;pointer-events:none;transform:translate(-50%,-50%) scale(.35)}
+.tb.ok{background:linear-gradient(#4f9a36,#24561a);border-color:#b8f08a}
+.tb.armed{background:linear-gradient(#c0392b,#6e1a12)!important;border-color:#ffb0a0!important;animation:pulseR .5s infinite alternate}@keyframes pulseR{to{filter:brightness(1.35)}}
+.tb.cancel{background:linear-gradient(#a03e2c,#561a12);border-color:#f0a08a}
+#statsOv{position:fixed;inset:0;z-index:12;background:rgba(14,9,4,.94);overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+#statsBox{max-width:560px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 14px) 12px 0}
+#stHead{text-align:center;margin-bottom:10px}#stHead h1{margin:0;font-size:30px;letter-spacing:4px;color:#ffd36a;text-shadow:0 3px 0 #5a3a10}#stHead p{margin:4px 0 0;font-size:13px;color:#c3b38a}
+.stTiles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
+.stTile{background:#22160a;border:1px solid #6a4f24;border-radius:8px;padding:8px 6px;text-align:center}.stTile b{display:block;font-size:20px;color:#f6ead0}.stTile span{font-size:10px;color:#b9a882;letter-spacing:.5px}
+.stCard{background:#22160a;border:1px solid #6a4f24;border-radius:10px;padding:10px;margin-bottom:8px}.stCard h4{margin:0 0 6px;font-size:13px;color:#ffe08a;letter-spacing:.5px}.stCard h4 small{color:#b9a882;font-weight:normal}
+.stc{width:100%;height:150px;display:block;touch-action:pan-y}
+.lg{display:flex;gap:12px;font-size:11px;color:#e8dcc0;margin-bottom:4px;flex-wrap:wrap}.lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.brow{display:grid;grid-template-columns:18px 1fr 58px;align-items:center;gap:6px;font-size:12px;margin:5px 0;color:#efe3c6}.brow .bn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brow .bar{grid-column:2/4;height:7px;background:#3a2a16;border-radius:4px;overflow:hidden;margin-top:-2px}.brow .bar div{height:100%;border-radius:4px}.brow .v{text-align:right;color:#c3b38a;font-size:11px}
+.mvp{display:flex;gap:10px;align-items:center}.mvp .ic{font-size:40px}.mvp b{color:#ffd36a;font-size:16px}.mvp p{margin:2px 0;font-size:12px;color:#d8cba8}
+#stFoot{position:sticky;bottom:0;padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);background:linear-gradient(transparent,rgba(14,9,4,.98) 35%);display:flex;justify-content:center;gap:8px}
+.facts{font-size:12px;color:#e3d6b6;line-height:1.7}.facts b{color:#ffe08a}
+.wtip{position:absolute;pointer-events:none;background:rgba(10,6,2,.92);border:1px solid #a9823f;border-radius:6px;padding:5px 7px;font-size:11px;color:#f2e2b0;white-space:nowrap;z-index:3}
+#bAge{position:fixed;left:calc(env(safe-area-inset-left) + 10px);bottom:calc(env(safe-area-inset-bottom) + 10px);width:78px;height:78px;border-radius:50%!important;z-index:6;padding:0;color:#ffe9a8;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:none;transition:transform .08s,filter .2s}
+#bAge .ic{font-size:24px;line-height:1;position:relative}#bAge .nm{font-size:10px;font-weight:bold;position:relative}#bAge .cs{font-size:8.5px;position:relative;max-width:72px;text-align:center;line-height:1.1}
+#bAge .ring{position:absolute;inset:-5px;border-radius:50%;background:conic-gradient(#ffd34a calc(var(--p,0)*1turn),transparent 0);-webkit-mask:radial-gradient(circle,transparent 60%,#000 61%);mask:radial-gradient(circle,transparent 60%,#000 61%);opacity:0}
+#bAge.res .ring{opacity:1}#bAge.no{filter:grayscale(.85) brightness(.7)}#bAge.ready{animation:agePulse 1.1s infinite alternate;border-color:#ffd34a;background:linear-gradient(#9a7420,#5a3c0e)}#bAge.ready .nm{color:#fff3c0}#bAge.press{transform:scale(.88)}#bAge.max{opacity:.55}
+@keyframes agePulse{from{box-shadow:0 0 0 0 rgba(255,211,74,.0),0 2px 8px rgba(0,0,0,.5)}to{box-shadow:0 0 0 5px rgba(255,211,74,.45),0 0 22px rgba(255,211,74,.7)}}
+#bAge .bad{color:#ff8a7a}
+.diffs{display:flex;gap:5px;justify-content:center;margin:6px 0 2px}.diffs button{flex:1;max-width:74px;padding:6px 2px;border-radius:8px;border:1px solid #6a4f24;background:#2a1a0c;color:#e8dcc0;font-family:inherit;font-size:11px;line-height:1.2}.diffs button b{display:block;font-size:17px}.diffs.lang button{max-width:120px;font-size:13px;padding:7px 4px}.diffs button.on{}.diffs button.on{border-color:#ffd34a;background:#5a3c0e;color:#fff3c0;box-shadow:0 0 10px rgba(255,211,74,.5)}
+.hof{font-size:12px;text-align:left;margin-top:8px}.hof table{width:100%;border-collapse:collapse}.hof td{padding:3px 4px;border-bottom:1px solid rgba(169,130,63,.25);color:#efe3c6}.hof td.r{text-align:right;color:#ffe08a}.hof .tabs{display:flex;gap:6px;margin-bottom:4px}.hof .tabs span{font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid #6a4f24;color:#c3b38a}.hof .tabs span.on{border-color:#ffd34a;color:#ffe08a}.hof .note{font-size:10px;color:#a8987a;margin-top:4px}
+#achPop{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 64px);transform:translate(-50%,-140%);display:flex;gap:10px;align-items:center;padding:9px 14px;border-radius:12px;background:linear-gradient(#5a3c0e,#2e1d0e);border:2px solid #ffd34a;box-shadow:0 0 22px rgba(255,211,74,.5),0 4px 12px rgba(0,0,0,.6);z-index:15;transition:transform .45s cubic-bezier(.2,1.4,.4,1),opacity .3s;opacity:0;max-width:92vw;pointer-events:none}
+#achPop.show{transform:translate(-50%,0);opacity:1}#achPop .am{font-size:34px}#achPop .at{font-size:10px;letter-spacing:2px;color:#ffd36a}#achPop .at b{display:block;font-size:16px;letter-spacing:.5px;color:#fff3c0}#achPop .ad{font-size:11px;color:#e8dcc0}
+#achOv{position:fixed;inset:0;z-index:18;background:rgba(14,9,4,.95);overflow-y:auto;touch-action:pan-y}#achBox{max-width:560px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 14px) 12px 0}
+#achGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.ach{background:#22160a;border:1px solid #6a4f24;border-radius:10px;padding:8px;display:flex;gap:8px;align-items:flex-start}.ach .m{font-size:28px;line-height:1}.ach b{display:block;font-size:12px;color:#ffe08a}.ach span{font-size:10.5px;color:#d8cba8;line-height:1.3;display:block}.ach small{font-size:9.5px;color:#9fd88a}
+.ach.lock{opacity:.5;filter:grayscale(.9)}.ach.lock b{color:#c3b38a}.ach.new{border-color:#ffd34a;box-shadow:0 0 12px rgba(255,211,74,.4)}
+#achFoot{position:sticky;bottom:0;padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);background:linear-gradient(transparent,rgba(14,9,4,.98) 35%);display:flex;justify-content:center}
+
+#introOv,#helpOv{position:fixed;inset:0;z-index:19;background:radial-gradient(rgba(20,14,6,.55),rgba(10,7,3,.92));overflow-y:auto;touch-action:pan-y}
+#introOv .box,#helpOv .box{max-width:400px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 18px) 14px calc(env(safe-area-inset-bottom) + 20px);text-align:center}
+.ih{font-size:12px;letter-spacing:4px;color:#c3b38a;margin:4px 0 0}.it{margin:2px 0 4px;font-size:26px;letter-spacing:2px;color:#ffd36a;text-shadow:0 2px 0 #5a3a10}
+.isub{font-size:14px;color:#efe3c6;margin:0 0 12px;line-height:1.4}.isub b{color:#ff8a6a}
+.step{display:flex;gap:12px;align-items:center;text-align:left;background:#22160a;border:1px solid #6a4f24;border-radius:12px;padding:10px 12px;margin:8px 0}
+.step .n{flex:0 0 26px;height:26px;border-radius:50%;background:#ffd34a;color:#2e1d0e;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:15px}
+.step .e{font-size:30px;flex:0 0 36px;text-align:center}.step b{display:block;color:#ffe9a8;font-size:15px}.step span{font-size:12px;color:#d8cba8;line-height:1.35}
+.chip{display:inline-block;padding:1px 7px;border-radius:7px;border:1px solid #a9823f;background:#3a2612;color:#ffe9a8;font-size:12px;white-space:nowrap}
+.hsec{margin:14px 0 6px;font-size:12px;letter-spacing:3px;color:#c3b38a;text-align:left}
+.hg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.hi{display:flex;gap:9px;align-items:center;text-align:left;background:#22160a;border:1px solid #6a4f24;border-radius:10px;padding:7px 8px}
+.hi .ico{flex:0 0 42px;height:42px;border-radius:50%;background:radial-gradient(#4a3019,#2a1a0c);border:2px solid #a9823f;display:flex;align-items:center;justify-content:center;font-size:19px;color:#ffe9a8}
+.hi .ico svg{width:34px;height:34px}.hi b{display:block;font-size:12.5px;color:#ffe08a}.hi span{font-size:11px;color:#d8cba8;line-height:1.3}
+.hfoot .go{font-family:Georgia,'Times New Roman',serif;color:#ffe9a8;font-size:20px;padding:12px 34px}#introOv .hfoot{position:static;background:none}.hfoot{position:sticky;bottom:0;padding:12px 0 calc(env(safe-area-inset-bottom) + 6px);background:linear-gradient(transparent,rgba(10,7,3,.97) 35%)}
+</style>
+<script type="importmap">{"imports":{"three":"../three.min.js"}}</script>
+<link rel="stylesheet" href="lobby.css"></head>
+<body>
+<canvas id="game"></canvas><canvas id="ov"></canvas>
+<div id="top">
+  <div id="resbar" class="wood">
+    <div class="res"><i>🌾 Grain</i><b id="rg">0</b><span id="rgr">+0/s</span></div>
+    <div class="res"><i>🐑 Wool</i><b id="rw">0</b><span id="rwr">+0/s</span></div>
+    <div class="res"><i>🪙 Gold</i><b id="ro">0</b><span id="ror">+0/s</span></div>
+  </div>
+  <div id="ctrls">
+    <button class="sbtn wood" id="bSpeed">1×</button><button class="sbtn wood" id="bPause">❚❚</button><button class="sbtn wood" id="bMute">♪</button>
+    <button class="sbtn wood" id="bRotL">⟲</button><button class="sbtn wood" id="bHome">⌂</button><button class="sbtn wood" id="bRotR">⟳</button>
+  </div>
+</div>
+<div id="wave" class="wood"></div>
+<canvas id="mini" width="224" height="224"></canvas>
+<button id="bAge" class="wood" style="display:none"><span class="ring"></span><span class="ic">⚜️</span><span class="nm"></span><span class="cs"></span></button>
+<div id="thumb">
+  <button class="tb main wood" id="bDef" style="left:-46px;top:-46px"></button>
+  <button class="tb main wood" id="bEco" style="left:-46px;top:-136px"></button>
+  <button class="tb opt wood hide" style="left:-142px;top:-42px"></button>
+  <button class="tb opt wood hide" style="left:-150px;top:-122px"></button>
+  <button class="tb opt wood hide" style="left:-120px;top:-200px"></button>
+  <button class="tb opt wood hide" style="left:-46px;top:-226px"></button>
+  <button class="tb opt wood hide" id="bSell" style="left:-142px;top:-42px"></button>
+</div>
+<div id="banner"><div class="a"></div><div class="b"></div></div>
+<div id="toast" class="wood"></div>
+<div id="achPop"><div class="am"></div><div><div class="at"></div><div class="ad"></div></div></div>
+<div id="achOv" class="hidden"><div id="achBox"><div style="text-align:center"><h1 style="margin:0;font-size:26px;letter-spacing:3px;color:#ffd36a">ACHIEVEMENTS</h1><p id="achSum" style="margin:4px 0 10px;font-size:12px;color:#c3b38a"></p></div><div id="achGrid"></div><div style="height:80px"></div></div><div id="achFoot"><button class="go wood" id="bAchBack">◀ Back</button></div></div>
+<div id="introOv" class="hidden"><div class="box">
+  <p class="ih">⚜️ BASTION ⚜️</p><h1 class="it">YOUR REALM AWAITS</h1>
+  <p class="isub">The Red Host marches in <b>40 seconds</b>.<br>Here is how to get started:</p>
+  <div class="step"><div class="n">1</div><div class="e">🌾</div><div><b>Grow your economy</b><span>Tap <span class="chip">🌾 Economy</span> then <span class="chip">Wheat</span> then <span class="chip">✓ BUILD</span>. Grain pays for everything.</span></div></div>
+  <div class="step"><div class="n">2</div><div class="e">🏹</div><div><b>Raise a defense</b><span>Tap <span class="chip">🏹 Defense</span> and pick a tower. Drag it toward the bottom-left, where the enemy comes from.</span></div></div>
+  <div class="step"><div class="n">3</div><div class="e">⬆️</div><div><b>Upgrade and repair</b><span>Press and hold a building to upgrade it. Double-tap to repair.</span></div></div>
+  <div class="step"><div class="n">4</div><div class="e">⚜️</div><div><b>Advance the ages</b><span>The gold button, bottom left, unlocks cannons, knights and stronger tiers.</span></div></div>
+  <div class="hfoot"><button class="go wood" id="bIntroGo">⚔ To Battle!</button><div style="margin-top:8px"><button class="wood" id="bIntroHelp" style="font-family:inherit;color:#ffe08a;padding:6px 12px;font-size:13px">📖 All controls</button></div></div>
+</div></div>
+<div id="helpOv" class="hidden"><div class="box"><h1 class="it" style="font-size:24px">INSTRUCTIONS</h1><div id="helpBody"></div>
+  <div class="hfoot"><button class="go wood" id="bHelpBack">◀ Back</button></div></div></div>
+<div id="start" class="ov hidden"><div class="box wood">
+  <h1>BASTION</h1>
+  <p>Hold the high ground. Build an economy, raise towers, survive the boss waves.</p>
+  <p style="font-size:12px;opacity:.75">(iPhone: turn the silent switch off for music)</p>
+  <div style="margin:6px 0 4px;font-size:12px;opacity:.85">Your name <input id="pName" maxlength="16" style="width:120px;font-family:inherit;font-size:14px;padding:4px 6px;border-radius:6px;border:1px solid #a9823f;background:#1e1308;color:#ffe9a8;text-align:center"></div>
+  <div class="diffs" id="diffStart"></div><div id="diffDesc" style="font-size:11px;opacity:.8;min-height:28px;margin:2px 0 6px"></div>
+  <button class="go wood" id="bStart">Begin</button>
+  <div style="margin-top:8px;display:flex;gap:6px;justify-content:center"><button class="wood" id="bAchS" style="font-family:inherit;color:#ffe08a;padding:6px 12px;font-size:13px">🏅 Achievements</button><button class="wood" id="bHelpS" style="font-family:inherit;color:#ffe08a;padding:6px 12px;font-size:13px">📖 Instructions</button></div>
+  <div class="diffs lang" id="langStart" style="margin-top:8px"><button data-l="en">🇬🇧 English</button><button data-l="tr">🇹🇷 Türkçe</button></div>
+  <div id="hofStart" class="hof"></div>
+</div></div>
+<div id="pauseOv" class="ov hidden"><div class="box wood"><h1 style="font-size:30px">PAUSED</h1><p id="pauseTxt"></p>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px"><div class="diffs" id="diffPause"></div><div id="diffDescP" style="font-size:11px;opacity:.8;min-height:16px"></div><button class="go wood" id="bResume">▶ Resume</button><button class="go wood" id="bStatsP">📊 Battle Stats</button><button class="go wood" id="bAchP">🏅 Achievements</button><button class="go wood" id="bHelpP">📖 Instructions</button><button class="go wood" id="bNewP" style="color:#ffb59a">⟲ New Game</button><div class="diffs lang" id="langPause"><button data-l="en">🇬🇧 English</button><button data-l="tr">🇹🇷 Türkçe</button></div></div></div></div>
+<div id="statsOv" class="hidden"><div id="statsBox">
+  <div id="stHead"></div>
+  <div class="stTiles" id="stTiles"></div>
+  <div class="stCard" id="stMvp"></div>
+  <div class="stCard"><h4>Tower leaderboard</h4><div id="stBoard"></div></div>
+  <div class="stCard"><h4>Damage dealt over time <small>per second</small></h4><div class="lg" id="lgDmg"></div><canvas class="stc" id="cDmg"></canvas></div>
+  <div class="stCard"><h4>Economy — income over time <small>per minute</small></h4><div class="lg" id="lgEco"></div><canvas class="stc" id="cEco"></canvas></div>
+  <div class="stCard"><h4>Enemies on the field <small>⚔ = boss waves</small></h4><canvas class="stc" id="cEn"></canvas></div>
+  <div class="stCard"><h4>Damage taken by your buildings <small>per second</small></h4><canvas class="stc" id="cTaken"></canvas></div>
+  <div class="stCard"><h4>Enemies defeated by type</h4><div id="stKills"></div></div>
+  <div class="stCard"><h4>Kills by defense type</h4><div id="stKillsBy"></div></div>
+  <div class="stCard" id="stFacts"></div>
+  <div class="stCard"><h4>🏆 Hall of Fame</h4><div id="stHof" class="hof"></div></div>
+  <div style="height:90px"></div>
+</div><div id="stFoot"><button class="go wood" id="bStatsBack">▶ Back to battle</button></div></div>
+<div id="over" class="hidden"><button id="bAgain"></button></div>
+<div id="loading">RAISING THE REALM…</div>
+
+<div id="lobby">
+  <div class="lbox">
+    <h1>BASTION ARENA</h1>
+    <p class="sub">Dört harita, dört kule. Son ayakta kalan kazanır.</p>
+    <div id="lHome">
+      <label for="lName">Adın</label>
+      <input id="lName" maxlength="12" autocomplete="off">
+      <button id="lPlay" class="go">OYNA</button>
+      <button id="lInvite">Arkadaşlarınla oyna</button>
+    </div>
+    <div id="lQueue" hidden>
+      <p id="lStatus">Rakip aranıyor…</p>
+      <div id="lList"></div>
+      <div id="lShare" hidden>
+        <input id="lLink" readonly aria-label="Davet linki">
+        <button id="lCopy">Linki kopyala</button>
+      </div>
+      <button id="lStart" class="go" hidden>Maçı başlat</button>
+      <button id="lCancel">Vazgeç</button>
+    </div>
+    <p id="lErr" hidden></p>
+  </div>
+</div>
+<div id="arenaHud" hidden></div>
+<div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go">Yeni maç</button><button id="aeWatch">Maçı izle</button></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script><script src="lobby.js"></script>
+</body></html>
