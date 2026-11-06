@@ -205,7 +205,7 @@ function simDefender(D,dt){
       const d=Math.hypot(u.x-t.x,u.z-t.z);if(d<bd){bd=d;best=u}}
     if(!best)continue;
     t.cd=1/T.hiz;const dmg=T.dmg*(1+.6*(t.lvl-1));
-    best.hp-=dmg;shot(t,best);fxAt(D,t.x,t.z,t.type==='top'?'top':'okcu');
+    best.hp-=best.type==='fuze'?dmg*1.8:dmg;shot(t,best);fxAt(D,t.x,t.z,t.type==='top'?'top':'okcu');
     if(T.alan){boom(best.x,2,best.z,T.alan*.5,'#ffd27a');for(const u of D.units)if(u!==best&&!u.ret&&!flies(UNITS[u.type])&&Math.hypot(u.x-best.x,u.z-best.z)<T.alan)u.hp-=dmg*.5}
   }
   const left=[];
