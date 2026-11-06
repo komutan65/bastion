@@ -576,7 +576,7 @@ function connect(){
 // ---------- scene ----------
 const cv=$("game"),ov=$('ov'),oc=ov.getContext('2d');
 const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,powerPreference:'high-performance'});
-let DPR=Math.min(Math.min(innerWidth,innerHeight)<700?1.6:2,devicePixelRatio||1);renderer.setPixelRatio(DPR);
+let DPR=Math.min(Math.min(innerWidth,innerHeight)<700?1.6:2,devicePixelRatio||1);const DPR0=DPR;renderer.setPixelRatio(DPR);
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;
 const scene=new THREE.Scene();const SKY=new THREE.Color('#9fc9e4');scene.background=SKY;scene.fog=new THREE.Fog(SKY,430,1250);
@@ -584,7 +584,7 @@ const camera=new THREE.PerspectiveCamera(62,1,1,2500);
 scene.add(new THREE.HemisphereLight('#dff1ff','#6a5a48',1.02));
 const sun=new THREE.DirectionalLight('#fff0d8',3);sun.position.set(-175,185,125);sun.castShadow=true;
 const small=Math.min(innerWidth,innerHeight)<700;
-sun.shadow.mapSize.set(small?1536:2048,small?1536:2048);scene.add(sun.target);const SUN_DIR=new THREE.Vector3(-175,185,125).normalize();
+sun.shadow.mapSize.set(small?2048:3072,small?2048:3072);scene.add(sun.target);const SUN_DIR=new THREE.Vector3(-175,185,125).normalize();
 Object.assign(sun.shadow.camera,{left:-240,right:240,top:240,bottom:-240,near:10,far:680});sun.shadow.radius=2.5;sun.shadow.bias=-.0004;sun.shadow.normalBias=.18;scene.add(sun);
 
 function paintGround(){
@@ -630,10 +630,10 @@ function detailTile(){
   const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d'),id=g.createImageData(256,256);let d=99;const r=()=>(d=(d*16807)%2147483647)/2147483647;
   for(let i=0;i<256*256;i++){const v=118+r()*20+(r()<.08?(r()-.5)*90:0);id.data[i*4]=id.data[i*4+1]=id.data[i*4+2]=v;id.data[i*4+3]=255}
   g.putImageData(id,0,0);g.globalCompositeOperation='overlay';g.filter='blur(1px)';g.drawImage(c,0,0);
-  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=4;return t;
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=renderer.capabilities.getMaxAnisotropy();return t;
 }
 function buildGround(){
-  const N=small?300:460,geo=new THREE.PlaneGeometry(L*2+16,L*2+16,N,N);geo.rotateX(-Math.PI/2);
+  const N=small?340:600,geo=new THREE.PlaneGeometry(L*2+16,L*2+16,N,N);geo.rotateX(-Math.PI/2);
   const p=geo.attributes.position;for(let i=0;i<p.count;i++)p.setY(i,heightAt(p.getX(i),p.getZ(i)));geo.computeVertexNormals();geo.setAttribute('aDark',new THREE.BufferAttribute(new Float32Array(p.count),1));
   const c=paintGround(),map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=renderer.capabilities.getMaxAnisotropy();
   const mat=new THREE.MeshStandardMaterial({map,roughness:.95,metalness:0,bumpMap:map,bumpScale:small?.5:.9}),dtl=detailTile();
@@ -853,13 +853,26 @@ function clearProps(x,z,r){for(const p of PROPS)if(p.alive&&Math.hypot(p.x-x,p.z
 function breakProp(p,fx,fz){
   p.alive=false;const k=PROPM[p.k];mx.makeScale(0,0,0);for(const m of k)m.setMatrixAt(p.i,mx),m.instanceMatrix.needsUpdate=true;
   if(p.k==='rock'){burst(p.x,p.y+.6,p.z,9,['#8b8a80','#6e6c66','#a7a49a'],6,1.2,.35);puff(p.x,p.y+.5,p.z,1.6,1.8,.55,.6,.5);return}
-  const g=new THREE.Group();g.position.set(p.x,p.y,p.z);for(const m of k){const c=new THREE.Mesh(m.geometry,m.material.clone());if(c.material.vertexColors)c.material.color.copy(p.col);c.castShadow=true;g.add(c)}
-  g.scale.setScalar(p.s);g.rotation.y=p.rot;scene.add(g);let dx=p.x-fx,dz=p.z-fz;const l=Math.hypot(dx,dz)||1;
-  FALLP.push({g,t:0,ax:new THREE.Vector3(dz/l,0,-dx/l)});burst(p.x,p.y+6*p.s,p.z,10,['#3f6d2e','#5f9440','#2d5223'],5,1.4,.22);
+  // a falling tree reuses its own forest material, so knocking one down never builds a new shader
+  let dx=p.x-fx,dz=p.z-fz;const l=Math.hypot(dx,dz)||1;
+  if(FALLP.length>=FALLCAP)FALLP.shift();
+  FALLP.push({p,t:0,ax:new THREE.Vector3(dz/l,0,-dx/l)});burst(p.x,p.y+6*p.s,p.z,10,['#3f6d2e','#5f9440','#2d5223'],5,1.4,.22);
 }
-const FALLP=[];
-function animProps(dt){for(let i=FALLP.length-1;i>=0;i--){const f=FALLP[i];f.t+=dt;const a=Math.min(1.45,f.t*f.t*2.2);f.g.quaternion.setFromAxisAngle(f.ax,a);
-  if(f.t>.85&&!f.hit){f.hit=true;puff(f.g.position.x,f.g.position.y+1,f.g.position.z,2.4,2.2,.6,.6,1)}if(f.t>5)f.g.position.y-=dt*1.5;if(f.t>7){scene.remove(f.g);FALLP.splice(i,1)}}}
+const FALLP=[],FALLCAP=48,FALLM={},qa=new THREE.Quaternion();
+function fallPool(k){
+  if(!FALLM[k])FALLM[k]=PROPM[k].map(m=>{const f=new THREE.InstancedMesh(m.geometry,m.material,FALLCAP);f.castShadow=true;f.receiveShadow=true;f.frustumCulled=false;f.count=0;f.visible=false;if(m.instanceColor)f.setColorAt(0,new THREE.Color(1,1,1));scene.add(f);return f});
+  return FALLM[k];
+}
+function animProps(dt){
+  const n={};
+  for(let i=FALLP.length-1;i>=0;i--){const f=FALLP[i];f.t+=dt;if(f.t>7)FALLP.splice(i,1)}
+  for(const f of FALLP){const p=f.p,a=Math.min(1.45,f.t*f.t*2.2),y=p.y-(f.t>5?(f.t-5)*1.5:0);
+    if(f.t>.85&&!f.hit){f.hit=true;puff(p.x,y+1,p.z,2.4,2.2,.6,.6,1)}
+    qa.setFromAxisAngle(f.ax,a);qt.setFromAxisAngle(UP,p.rot).premultiply(qa);vp.set(p.x,y,p.z);vs.setScalar(p.s);mx.compose(vp,qt,vs);
+    const ms=fallPool(p.k),i=n[p.k]=(n[p.k]||0);n[p.k]++;for(const m of ms){m.setMatrixAt(i,mx);if(m.instanceColor)m.setColorAt(i,p.col)}}
+  vs.set(1,1,1);
+  for(const k in FALLM){const c=n[k]||0;for(const m of FALLM[k]){if(!c&&!m.visible)continue;m.count=c;m.visible=c>0;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true}}
+}
 function cobble(){const c=document.createElement('canvas');c.width=c.height=512;const g=c.getContext('2d');g.fillStyle='#6b6458';g.fillRect(0,0,512,512);
   for(let y=0;y<16;y++)for(let x=-1;x<17;x++){const v=120+Math.random()*48|0;g.fillStyle=`rgb(${v},${v-6},${v-18})`;g.beginPath();g.roundRect((x+(y%2)*.5)*32+1.5,y*32+1.5,29,29,7);g.fill()}
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=8;return t}
@@ -909,7 +922,32 @@ function mergeModel(g){
     const m=new THREE.Mesh(mg,mat);m.castShadow=m.receiveShadow=true;out.add(m)}
   return out;
 }
-const dropModel=m=>{if(!m)return;scene.remove(m);m.traverse(o=>{if(o.geometry)o.geometry.dispose()})};
+// towers are instanced too: one template per type and level, so a full base costs a handful of draw calls
+const TEAM_W=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.55}),GOLD=new THREE.MeshStandardMaterial({color:'#ffd24a',metalness:.7,roughness:.3}),TPL=new Map(),TCAP=200;
+function towerTpl(type,lvl){
+  const key=type+lvl;let T=TPL.get(key);if(T)return T;
+  const t={type,lvl,owner:-1};const g=new THREE.Group();buildTower(g,t,TEAM_W);g.updateMatrixWorld(true);
+  const by=new Map();
+  g.traverse(o=>{if(!o.isMesh)return;let a=by.get(o.material);if(!a)by.set(o.material,a=[]);const q=(o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone());q.applyMatrix4(o.matrixWorld);a.push(q)});
+  const ims=[];
+  for(const[mat,list]of by){let n=0;for(const q of list)n+=q.attributes.position.count;const P3=new Float32Array(n*3),N3=new Float32Array(n*3),U2=new Float32Array(n*2);let o=0;
+    for(const q of list){P3.set(q.attributes.position.array,o*3);N3.set(q.attributes.normal.array,o*3);if(q.attributes.uv)U2.set(q.attributes.uv.array,o*2);o+=q.attributes.position.count;q.dispose()}
+    const mg=new THREE.BufferGeometry();mg.setAttribute('position',new THREE.BufferAttribute(P3,3));mg.setAttribute('normal',new THREE.BufferAttribute(N3,3));mg.setAttribute('uv',new THREE.BufferAttribute(U2,2));mg.computeBoundingBox();mg.computeBoundingSphere();
+    const m=new THREE.InstancedMesh(mg,mat,TCAP);m.castShadow=m.receiveShadow=true;m.count=0;m.visible=false;if(mat===TEAM_W)m.setColorAt(0,tc[0]);scene.add(m);ims.push(m)}
+  g.traverse(o=>{if(o.geometry)o.geometry.dispose()});
+  T={top:t.top,ims,list:[],dirty:true};TPL.set(key,T);return T;
+}
+function drawTowers(){
+  for(const T of TPL.values()){
+    let shaking=false;for(const h of T.list)if(h.shake>0){shaking=true;break}
+    if(!T.dirty&&!shaking)continue;
+    let k=0;for(const h of T.list){if(!h.visible||k>=TCAP)continue;
+      if(h.shake>0){const a=h.shake*1.3;vp.set(h.x+Math.sin(now()*.07)*a,h.y,h.z+Math.cos(now()*.09)*a);qt.setFromAxisAngle(ZF,Math.sin(now()*.05)*a*.12)}else{vp.set(h.x,h.y,h.z);qt.identity()}
+      mx.compose(vp,qt,vs);for(const m of T.ims){m.setMatrixAt(k,mx);if(m.instanceColor)m.setColorAt(k,tc[h.owner])}k++}
+    for(const m of T.ims){m.count=k;m.visible=k>0;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;if(T.dirty&&k)m.computeBoundingSphere()}
+    T.dirty=false}
+}
+const dropModel=h=>{if(!h)return;if(h.tpl){const T=h.tpl,i=T.list.indexOf(h);if(i>=0)T.list.splice(i,1);T.dirty=true;return}scene.remove(h);h.traverse(o=>{if(o.geometry)o.geometry.dispose()})};
 const add=(g,geo,mat,x,y,z)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;g.add(m);return m};
 function buildCastle(s){
   const g=new THREE.Group(),c=castlePos(s),t=teamM[s];
@@ -921,7 +959,11 @@ function buildCastle(s){
   const mg=mergeModel(g);mg.position.set(c.x,heightAt(c.x,c.z),c.z);scene.add(mg);
 }
 function makeTowerModel(t){
-  const g=new THREE.Group(),col=teamM[t.owner];
+  const T=towerTpl(t.type,t.lvl);if(T.top!=null)t.top=T.top;
+  const h={tpl:T,x:t.x,y:heightAt(t.x,t.z),z:t.z,owner:t.owner,shake:0,_v:true,get visible(){return this._v},set visible(v){if(v!==this._v){this._v=v;T.dirty=true}}};
+  T.list.push(h);T.dirty=true;t.mesh=h;
+}
+function buildTower(g,t,col){
   if(t.type==='ok'){
     const h=4.2+t.lvl*1.1,b0=1.1,top=b0+h,w=1.25;t.top=top+1.6;
     add(g,new THREE.CylinderGeometry(1.95,2.2,b0,10),STONE,0,b0/2,0);add(g,new THREE.CylinderGeometry(2.05,2.05,.18,10),DARK,0,b0+.05,0);
@@ -943,7 +985,7 @@ function makeTowerModel(t){
     add(g,new THREE.SphereGeometry(.28,10,6,0,6.3,0,1.6),IRONM,.55,top+1.68,.55);
     const bow=add(g,new THREE.TorusGeometry(.62,.035,6,16,2.4),WOOD,.95,top+1.25,.95);bow.rotation.set(0,Math.PI/4,1.95);
     if(t.lvl>=2)add(g,new THREE.CylinderGeometry(2.25,2.25,.2,10),IRONM,0,b0*.55,0);
-    if(t.lvl>=3)add(g,new THREE.SphereGeometry(.3,10,8),new THREE.MeshStandardMaterial({color:'#ffd24a',metalness:.7,roughness:.3}),0,top+4.9,0);
+    if(t.lvl>=3)add(g,new THREE.SphereGeometry(.3,10,8),GOLD,0,top+4.9,0);
   }
   else if(t.type==='top'){add(g,new THREE.CylinderGeometry(1.8,2.2,2.6+t.lvl,8),STONE,0,(2.6+t.lvl)/2,0);const b=add(g,new THREE.CylinderGeometry(.5,.65,3.2,8),STEEL,.7,3.4+t.lvl,0);b.rotation.z=1.25;add(g,new THREE.SphereGeometry(.9,8,6),col,-.5,3+t.lvl,0)}
   else if(t.type==='roket'){
@@ -953,7 +995,6 @@ function makeTowerModel(t){
     add(g,new THREE.BoxGeometry(.2,1.6,.2),STEEL,1.6,1.8,-1);add(g,new THREE.TorusGeometry(.5,.06,6,16).rotateY(.6),STEEL,1.6,2.8,-1);t.top=3.4}
   else if(t.type==='duvar'){const h=2.6+t.lvl*.5;add(g,new THREE.BoxGeometry(WALL,h,WALL),STONE,0,h/2,0);for(const[x,z]of[[-1,-1],[1,-1],[-1,1],[1,1]])add(g,new THREE.BoxGeometry(.7,.7,.7),STONE,x,h+.35,z)}
   else{add(g,new THREE.BoxGeometry(3,1.2,3),DARK,0,.6,0);add(g,new THREE.CylinderGeometry(.9,1.1,1.6+t.lvl*.5,8),col,0,1.8,0);for(const dz of[-.55,.55]){const b=add(g,new THREE.CylinderGeometry(.14,.14,4,6),STEEL,.9,3.4+t.lvl*.3,dz);b.rotation.z=-.65}}
-  const mg=mergeModel(g);mg.position.set(t.x,heightAt(t.x,t.z),t.z);scene.add(mg);t.mesh=mg;
 }
 // units are instanced: thousands of triangles, very few draw calls
 const CAP=320,SKIN='#e8c9a0',IRON='#59626c',LEATH='#5a3a22',HORSE='#6b4426';
@@ -1013,11 +1054,24 @@ const PARTS={
     [bx(.55,.55,1.5,-.7,-1.05,.2),'#2a2a2a'],[bx(.55,.55,1.5,.7,-1.05,.2),'#2a2a2a']],
   fuze:[[new THREE.CylinderGeometry(.5,.5,4.4,14).rotateX(1.57),'#d8dde2'],[new THREE.ConeGeometry(.5,1.5,14).rotateX(1.57).translate(0,0,2.95),null],[new THREE.CylinderGeometry(.54,.54,.5,14).rotateX(1.57).translate(0,0,1.1),null],[bx(2.2,.1,.8,0,0,-1.85),'#59626c'],[bx(.1,2.2,.8,0,0,-1.85),'#59626c'],[new THREE.ConeGeometry(.38,1.5,10).rotateX(-1.57).translate(0,0,-2.9),'#ff9a30']]
 };
+// one shared material for every unit part: fixed colours ride in the vertices, team parts take the instance colour
+const UNIT_M=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.7,vertexColors:true});
+UNIT_M.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aTeam;').replace('#include <color_vertex>',THREE.ShaderChunk.color_vertex.replace('vColor.rgb *= instanceColor.rgb;','vColor.rgb *= mix(vec3(1.0),instanceColor.rgb,aTeam);'))};
+UNIT_M.customProgramCacheKey=()=>'unitTeam';
 const IM={};
 function buildUnits(){
-  for(const k of UKEYS){IM[k]=PARTS[k].map(([geo,col,swing])=>{
-    const m=new THREE.InstancedMesh(geo,new THREE.MeshStandardMaterial({color:col||'#ffffff',roughness:.7}),CAP);m.castShadow=true;m.frustumCulled=false;m.count=0;m.userData.team=!col;m.userData.swing=swing||null;
-    if(!col)m.setColorAt(0,new THREE.Color('#fff'));scene.add(m);return m})}
+  const c=new THREE.Color();
+  for(const k of UKEYS){
+    const groups=new Map();      // parts that move together are drawn together
+    for(const[geo,col,swing]of PARTS[k]){const key=swing?JSON.stringify(swing):'';let g=groups.get(key);if(!g)groups.set(key,g={swing:swing||null,list:[]});g.list.push([geo,col])}
+    IM[k]=[...groups.values()].map(({swing,list})=>{
+      let n=0;const ng=list.map(([geo,col])=>{const q=geo.index?geo.toNonIndexed():geo;n+=q.attributes.position.count;return[q,col]});
+      const P3=new Float32Array(n*3),N3=new Float32Array(n*3),C3=new Float32Array(n*3),T1=new Float32Array(n);let o=0;
+      for(const[q,col]of ng){const cnt=q.attributes.position.count;P3.set(q.attributes.position.array,o*3);N3.set(q.attributes.normal.array,o*3);c.set(col||'#ffffff');
+        for(let i=0;i<cnt;i++){C3[(o+i)*3]=c.r;C3[(o+i)*3+1]=c.g;C3[(o+i)*3+2]=c.b;T1[o+i]=col?0:1}o+=cnt}
+      const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(P3,3));g.setAttribute('normal',new THREE.BufferAttribute(N3,3));g.setAttribute('color',new THREE.BufferAttribute(C3,3));g.setAttribute('aTeam',new THREE.BufferAttribute(T1,1));
+      const m=new THREE.InstancedMesh(g,UNIT_M,CAP);m.castShadow=true;m.frustumCulled=false;m.count=0;m.visible=false;m.userData.swing=swing;
+      m.setColorAt(0,c.set('#fff'));scene.add(m);return m})}
 }
 const angLerp=(a,b,t)=>{let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return a+d*t};
 const mt=new THREE.Matrix4(),mr=new THREE.Matrix4(),mb=new THREE.Matrix4(),mo=new THREE.Matrix4(),qr=new THREE.Quaternion(),XA=new THREE.Vector3(1,0,0),mx=new THREE.Matrix4(),qt=new THREE.Quaternion(),UP=new THREE.Vector3(0,1,0),vp=new THREE.Vector3(),vs=new THREE.Vector3(1,1,1),tc=TEAM.map(c=>new THREE.Color(c));
@@ -1050,7 +1104,7 @@ function drawUnits(rdt){
         else m.setMatrixAt(i,mx)}
       else if(sw&&moving)m.setMatrixAt(i,turn(sw.p,Math.sin(walk+sw.ph)*sw.a));
       else m.setMatrixAt(i,mx);
-      if(m.userData.team)m.setColorAt(i,tc[from])}};
+      m.setColorAt(i,tc[from])}};
   for(const D of P){
     if(!D.on||D.dead)continue;
     for(const u of D.units){
@@ -1071,7 +1125,7 @@ function drawUnits(rdt){
       if((u.type==='atli'||u.type==='dalgic'||u.type==='denizalti')&&heightAt(u.x,u.z)<.2&&Math.random()<rdt*7){ripple(u.x,u.z,4.5);if(Math.random()<.5)boom(u.x,.3-heightAt(u.x,u.z),u.z,.45,'#eaf7ff')}}
     for(const o of D.remote.values()){const ox=o.x,oz=o.z;o.x=lerp(o.x,o.tx,Math.min(1,rdt*3));o.z=lerp(o.z,o.tz,Math.min(1,rdt*3));if(Math.hypot(o.x-ox,o.z-oz)>.01)o.dir=Math.atan2(o.x-ox,o.z-oz);if(o.fl&2){o.ft+=rdt;put(o.type,o.x,o.z,num(o.from,D.seat),o.dir||0,false,Math.max(1,20-13*o.ft*o.ft),o.ft*1.1)}else put(o.type,o.x,o.z,num(o.from,D.seat),o.dir||0,!(o.fl&4),null,0,o.fl&1?(now()/1200+o.sd)%1:null);if((o.type==='atli'||o.type==='dalgic'||o.type==='denizalti')&&heightAt(o.x,o.z)<.2&&Math.random()<rdt*7)ripple(o.x,o.z,4.5)}
   }
-  for(const k of UKEYS)for(const m of IM[k]){m.count=n[k];m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true}
+  for(const k of UKEYS)for(const m of IM[k]){const was=m.count;m.count=n[k];m.visible=n[k]>0;if(n[k]||was){m.instanceMatrix.needsUpdate=true;m.instanceColor.needsUpdate=true}}
 }
 // effects
 const SHOTS=240,shotPos=new Float32Array(SHOTS*6),shotLife=new Float32Array(SHOTS);let shotI=0;
@@ -1178,10 +1232,11 @@ function drawFx(dt){
   drawShells(dt);updateSites(dt);
   drawParts(dt);
   for(const s of SHOCK){if(s.t>=1)continue;s.t+=dt/.55;s.m.scale.setScalar(.5+s.t*s.r);s.m.material.opacity=.7*(1-s.t);if(s.t>=1)s.m.visible=false}
-  for(let i=wreck.length-1;i>=0;i--){const w=wreck[i];w.t+=dt;w.g.position.y-=dt*(1+w.t*7);w.g.rotation.x+=dt*w.r;w.g.rotation.z-=dt*w.r*.6;if(w.t>1.5){scene.remove(w.g);wreck.splice(i,1)}}
+  for(let i=wreck.length-1;i>=0;i--){const w=wreck[i];w.t+=dt;w.g.position.y-=dt*(1+w.t*7);w.g.rotation.x+=dt*w.r;w.g.rotation.z-=dt*w.r*.6;if(w.t>1.5){scene.remove(w.g);w.g.traverse(o=>{if(o.geometry)o.geometry.dispose()});wreck.splice(i,1)}}
   for(let i=0;i<SHOTS;i++)if(shotLife[i]>0){shotLife[i]-=dt;if(shotLife[i]<=0)shotPos.fill(0,i*6,i*6+6)}
   shotGeo.attributes.position.needsUpdate=true;
-  for(const D of P)for(const t of D.towers)if(t.shake>0&&t.mesh){t.shake-=dt;const a=Math.max(t.shake,0)*1.3;t.mesh.position.x=t.x+Math.sin(now()*.07)*a;t.mesh.position.z=t.z+Math.cos(now()*.09)*a;t.mesh.rotation.z=Math.sin(now()*.05)*a*.12}
+  for(const D of P)for(const t of D.towers)if(t.shake>0&&t.mesh){t.shake-=dt;t.mesh.shake=Math.max(t.shake,0);if(t.shake<=0)t.mesh.tpl.dirty=true}
+  drawTowers();
   drawSprites(dt);animPlaza(dt);animProps(dt);WIND.value=now()/1000;
 }
 const wreck=[];
@@ -1268,7 +1323,7 @@ function sinkGround(x,z,r){
     dk.setX(k,Math.max(dk.getX(k),clamp((1.25-d)/.55,0,1)*(.72+Math.random()*.28)))}
   for(let j=iz-R-1;j<=iz+R+1;j++)for(let i=ix-R-1;i<=ix+R+1;i++){if(i<1||j<1||i>=N||j>=N)continue;const k=at(i,j),dx=p.getY(at(i-1,j))-p.getY(at(i+1,j)),dz=p.getY(at(i,j-1))-p.getY(at(i,j+1)),l=Math.hypot(dx,2*st,dz);n.setXYZ(k,dx/l,2*st/l,dz/l)}
   const r0=clamp(iz-R-1,0,N),r1=clamp(iz+R+1,0,N),st0=r0*(N+1),cnt=(r1-r0+1)*(N+1);
-  for(const[a,k]of[[p,3],[n,3],[dk,1]]){if(a.addUpdateRange){a.clearUpdateRanges();a.addUpdateRange(st0*k,cnt*k)}a.needsUpdate=true}
+  for(const[a,k]of[[p,3],[n,3],[dk,1]]){if(a.addUpdateRange)a.addUpdateRange(st0*k,cnt*k);a.needsUpdate=true}
 }
 function crater(x,z,r,remote){
   if(shoreOf(x,z)<WL+1||onDeck(x,z))return;
@@ -1495,7 +1550,7 @@ function drawOverlay(){
 
 // ---------- main ----------
 const now=()=>performance.now();
-let ambAcc=0,lastSim=now(),snapAcc=0,hudAcc=0,lastF=now(),fps=60,slow=0;
+let ambAcc=0,lastSim=now(),snapAcc=0,hudAcc=0,lastF=now(),fps=60,slow=0,fast=0;
 setInterval(()=>{           // runs even when the tab is in the background
   const t=now(),dt=Math.min(1,(t-lastSim)/1000);lastSim=t;
   for(let r=dt;r>0;r-=.05)sim(Math.min(r,.05));
@@ -1503,7 +1558,9 @@ setInterval(()=>{           // runs even when the tab is in the background
 },33);
 function frame(t){
   const dt=Math.min(.1,(t-lastF)/1000);lastF=t;fps=lerp(fps,1/Math.max(dt,.001),.05);
-  slow=fps<34?slow+dt:0;if(slow>4&&DPR>1.1){DPR=Math.max(1,DPR-.3);renderer.setPixelRatio(DPR);size();slow=0}
+  slow=fps<24?slow+dt:0;fast=fps>55?fast+dt:0;
+  if(slow>5&&DPR>1.1){DPR=Math.max(1,DPR-.2);renderer.setPixelRatio(DPR);size();slow=0;fast=0}
+  else if(fast>8&&DPR<DPR0){DPR=Math.min(DPR0,DPR+.2);renderer.setPixelRatio(DPR);size();fast=0}
   const p=view.d*dt*1.1;
   if(keys.has('a')||keys.has('arrowleft'))view.tx-=p;if(keys.has('d')||keys.has('arrowright'))view.tx+=p;
   if(keys.has('w')||keys.has('arrowup'))view.tz-=p;if(keys.has('s')||keys.has('arrowdown'))view.tz+=p;
@@ -1520,5 +1577,15 @@ function frame(t){
 buildGround();buildOuter();buildWater();buildBridges();buildForest();buildDetail();buildUnits();buildSites();P.forEach(D=>{if(D.on)buildCastle(D.seat)});
 size();mkHud();connect();applyCam(1);
 sun.shadow.autoUpdate=true;
+// draw every kind of object once, out of sight, so no shader is ever built in the middle of a fight
+(function warmUp(){
+  for(const k in TOWERS)for(let l=1;l<=3;l++)towerTpl(k,l);for(const k in PROPM)fallPool(k);
+  const back=[];mx.makeTranslation(0,-400,0);
+  scene.traverse(o=>{if(o.isInstancedMesh&&o.count===0){back.push([o,o.visible]);o.count=1;o.visible=true;o.setMatrixAt(0,mx);o.instanceMatrix.needsUpdate=true}});
+  for(const S of[SMOKE,FIRE]){S.P3.setXYZ(0,0,-400,0);S.C4.setXYZW(0,1,1,1,0);S.S2.setXY(0,1,0);for(const a of[S.P3,S.C4,S.S2])a.needsUpdate=true;S.geo.instanceCount=1}
+  try{renderer.render(scene,camera)}catch(e){}
+  for(const[o,v]of back){o.count=0;o.visible=v}for(const S of[SMOKE,FIRE])S.geo.instanceCount=0;mx.identity();
+  for(const T of TPL.values())T.dirty=true;
+})();
 requestAnimationFrame(frame);
 window.__O={RWY,DOCK,PROPS,SHELLS,buildRunway,bridges,addBridge,breakBridge,breakFountain,get fountainDown(){return fountainDown},setAlly,allied,nav,navRoute,shoreOf,explode,fireAt,setTarget,set route(v){route=v},ALLY,P,sim,sendUnit,addTower,ME,finish,kill:eliminate,crater,sunk,heightAt,unitY,UNITS,camera,get ended(){return ended},get fps(){return fps},view};
