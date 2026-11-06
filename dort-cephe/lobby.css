@@ -17,3 +17,4 @@
 #arenaHud .r{width:132px;background:rgba(34,22,10,.82);border-left:4px solid;border-radius:4px;padding:3px 6px}
 #arenaHud .r.dead{opacity:.5;text-decoration:line-through}
 #arenaHud i{display:block;height:4px;margin-top:2px;background:#62c98f}
+#lMode{display:flex;gap:6px}#lMode button{flex:1;padding:9px;font-size:16px;opacity:.65}#lMode button.on{opacity:1;background:#5a3f16;border-color:#ffd98a;color:#fff4d0}

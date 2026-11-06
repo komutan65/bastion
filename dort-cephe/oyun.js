@@ -1604,6 +1604,7 @@ function mkHud(){
   for(const D of P){if(!D.on)continue;const b=document.createElement('button');b.style.borderLeftColor=TEAM[D.seat];b.innerHTML='<span></span><i></i>';D.row=b;
     b.onclick=()=>{if(D!==ME&&!D.dead)setTarget(D.seat)};box.append(b)}
   liveTarget();
+  if(A.duel||P.filter(D=>D.on&&D!==ME).length<2){$('gTgt').hidden=true;$('bAlly').hidden=true;$('bJoin').hidden=true}   // one rival: nothing to choose or ally with
   $('hud').hidden=false;$('eye').hidden=false;
 }
 function askAlly(from){askFrom=from;$('askT').textContent=`${P[from].name} ittifak teklif ediyor`;$('ask').hidden=false}
