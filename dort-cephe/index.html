@@ -45,11 +45,11 @@ body.nohud #hud,body.nohud #ov{display:none}
   #tabs{display:flex;gap:4px}#tabs button{flex:1;padding:6px;font-size:13px}
   body[data-tab=d] #tabD,body[data-tab=a] #tabA{background:#b8862c;color:#1a1206;border-color:#ffd98a}
   body[data-tab=d] #gTgt,body[data-tab=d] #gAtk,body[data-tab=a] #gDef{display:none}
-  .grp{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;-webkit-overflow-scrolling:touch}.grp span{display:none}
-  .grp button{flex:1 0 auto;min-width:58px;padding:5px 6px;font-size:12px}.grp small{font-size:10px}
+  .grp{flex-wrap:wrap;justify-content:stretch;gap:4px}.grp span{display:none}
+  .grp button{flex:1 1 22%;min-width:0;padding:4px 3px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.grp small{font-size:10px}
   #tools button{padding:5px 7px;font-size:12px}
   #aimBar,#ask{font-size:13px;padding:7px 9px;max-width:92vw;white-space:normal}
-  #eye{width:36px;height:36px;font-size:15px;bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+  #eye{width:36px;height:36px;font-size:15px;bottom:auto;top:calc(92px + env(safe-area-inset-top,0px))}
 }
 </style>
 </head>
@@ -73,7 +73,7 @@ body.nohud #hud,body.nohud #ov{display:none}
 </div>
 <button id="eye" title="Ekranı gizle" aria-label="Ekranı gizle" hidden>👁</button>
 
-<div id="ver">Sürüm 3</div>
+<div id="ver">Sürüm 4</div>
 <div id="lobby"><div class="lbox">
   <h1>DÖRT CEPHE</h1>
   <p class="sub">Herkese 200 para. Kuleni koru, rakiplerine asker gönder. Son ayakta kalan kazanır.</p>

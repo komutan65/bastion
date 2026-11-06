@@ -43,7 +43,7 @@ async function enter(m){
   try{if(ch){await ch.untrack();sb.removeChannel(ch)}}catch(e){}
   window.ARENA={seat,id,room:String(m.room),players:m.players,sb};
   $('lStatus').textContent='Harita hazırlanıyor…';
-  try{await import('./oyun.js?v=20261106c');$('lobby').hidden=true}
+  try{await import('./oyun.js?v=20261106d');$('lobby').hidden=true}
   catch(e){console.error(e);err('Oyun yüklenemedi. Sayfayı yenile.')}
 }
 function join(name){
