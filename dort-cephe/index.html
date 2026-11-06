@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Dört Cephe</title>
 <script type="importmap">{"imports":{"three":"../three.min.js"}}</script>
-<link rel="stylesheet" href="lobby.css?v=20261107c">
+<link rel="stylesheet" href="lobby.css?v=20261107d">
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#0d1a26;color:#f0e8d6;font-family:Georgia,'Times New Roman',serif;touch-action:none;user-select:none;-webkit-user-select:none}
 #game,#ov{position:fixed;inset:0;width:100%;height:100%;display:block}
@@ -60,26 +60,27 @@ body.nohud #hud,body.nohud #ov{display:none}
   <div id="rivals"></div>
   <div id="tip" hidden></div>
   <div id="sesP" hidden></div>
-  <div id="tools"><button id="bSes">Ses</button><button id="bHome">Üssüm</button><button id="bAll">Tüm harita</button></div>
-  <div id="aimBar" hidden><span id="aimTxt"></span><button id="aimX">Vazgeç</button></div>
-  <div id="ask" hidden><span id="askT"></span><button id="askY">Kabul</button><button id="askN">Reddet</button></div>
+  <div id="tools"><button id="bSes" data-en="Sound">Ses</button><button id="bHome" data-en="My base">Üssüm</button><button id="bAll" data-en="Whole map">Tüm harita</button></div>
+  <div id="aimBar" hidden><span id="aimTxt"></span><button id="aimX" data-en="Cancel">Vazgeç</button></div>
+  <div id="ask" hidden><span id="askT"></span><button id="askY" data-en="Accept">Kabul</button><button id="askN" data-en="Decline">Reddet</button></div>
   <div id="sel" hidden><button id="bUp"></button><button id="bSell"></button></div>
   <div id="bar">
-    <div id="tabs"><button id="tabD">Savunma</button><button id="tabA">Saldırı</button></div>
-    <div class="grp" id="gDef"><span>SAVUNMA</span></div>
-    <div class="grp" id="gTgt"><span>HEDEF</span></div>
-    <div class="grp" id="gAtk"><span>GÖNDER</span></div>
+    <div id="tabs"><button id="tabD" data-en="Defense">Savunma</button><button id="tabA" data-en="Attack">Saldırı</button></div>
+    <div class="grp" id="gDef"><span data-en="DEFENSE">SAVUNMA</span></div>
+    <div class="grp" id="gTgt"><span data-en="TARGET">HEDEF</span></div>
+    <div class="grp" id="gAtk"><span data-en="SEND">GÖNDER</span></div>
   </div>
 </div>
 <button id="eye" title="Ekranı gizle" aria-label="Ekranı gizle" hidden>👁</button>
 
-<div id="ver">Sürüm 7.1</div>
+<div id="ver" data-en="Version 8">Sürüm 8</div>
 <div id="lobby"><div class="lbox">
-  <h1>DÖRT CEPHE</h1>
+  <h1 data-en="FOUR FRONTS">DÖRT CEPHE</h1>
+  <div id="lLang"><button data-l="tr">Türkçe</button><button data-l="en">English</button></div>
   <p class="sub" id="lSub">Herkese 200 para. Kuleni koru, rakiplerine asker gönder. Son ayakta kalan kazanır.</p>
-  <div id="lMode"><button id="m4" class="on">4 kişilik</button><button id="m2">1v1</button></div>
+  <div id="lMode"><button id="m4" class="on" data-en="4 players">4 kişilik</button><button id="m2">1v1</button></div>
   <div id="lHome">
-    <label for="lName">Adın</label>
+    <label for="lName" data-en="Your name">Adın</label>
     <input id="lName" maxlength="12" autocomplete="off">
     <button id="lPlay" class="go">OYNA</button>
     <button id="lBots">Yapay zekaya karşı oyna</button>
@@ -88,14 +89,14 @@ body.nohud #hud,body.nohud #ov{display:none}
   <div id="lQueue" hidden>
     <p id="lStatus">Rakip aranıyor…</p>
     <div id="lList"></div>
-    <div id="lShare" hidden><input id="lLink" readonly aria-label="Davet linki"><button id="lCopy">Linki kopyala</button></div>
-    <button id="lStart" class="go" hidden>Maçı başlat</button>
-    <button id="lCancel">Vazgeç</button>
+    <div id="lShare" hidden><input id="lLink" readonly aria-label="Davet linki"><button id="lCopy" data-en="Copy link">Linki kopyala</button></div>
+    <button id="lStart" class="go" hidden data-en="Start match">Maçı başlat</button>
+    <button id="lCancel" data-en="Cancel">Vazgeç</button>
   </div>
   <p id="lErr" hidden></p>
 </div></div>
-<div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go">Yeni maç</button><button id="aeWatch">Maçı izle</button></div></div>
+<div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go" data-en="New match">Yeni maç</button><button id="aeWatch" data-en="Watch the match">Maçı izle</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="lobby.js?v=20261107c"></script>
+<script src="lobby.js?v=20261107d"></script>
 </body>
 </html>

@@ -13,6 +13,16 @@ try{$('lName').value=localStorage.getItem('cephe_name')||''}catch(e){}
 if(!$('lName').value)$('lName').value='Oyuncu'+(100+Math.random()*900|0);
 const nick=()=>($('lName').value.trim()||'Oyuncu').slice(0,12);
 const err=m=>{$('lErr').textContent=m;$('lErr').hidden=!m};
+// language: Turkish or English, remembered on this device
+let LANG='tr';try{LANG=localStorage.getItem('cephe_dil')||(/^tr/i.test(navigator.language||'tr')?'tr':'en')}catch(e){}
+const L=(t,e)=>LANG==='en'?e:t;
+function applyLang(){
+  window.LANG=LANG;document.documentElement.lang=LANG;
+  for(const el of document.querySelectorAll('[data-en]')){if(el.dataset.tr==null)el.dataset.tr=el.textContent;el.textContent=LANG==='en'?el.dataset.en:el.dataset.tr}
+  for(const b of document.querySelectorAll('#lLang button'))b.classList.toggle('on',b.dataset.l===LANG);
+  $('eye').title=$('eye').ariaLabel=L('Ekranı gizle','Hide the HUD');
+  if(typeof setMode==='function'&&$('m4'))setMode(duel);
+}
 
 function players(){
   if(!ch)return[];
@@ -24,7 +34,7 @@ function draw(){
   const list=players(),box=$('lList');box.textContent='';
   for(const p of list.slice(0,MAXP)){const d=document.createElement('div');d.textContent=p.name+(p.id===id?' (sen)':'');box.append(d)}
   const n=Math.min(list.length,MAXP);
-  $('lStatus').textContent=code?`Oyuncular: ${n}/${MAXP}`:`Rakip aranıyor… ${n}/${MAXP}`;
+  $('lStatus').textContent=code?`${L('Oyuncular','Players')}: ${n}/${MAXP}`:`${L('Rakip aranıyor…','Looking for opponents…')} ${n}/${MAXP}`;
   $('lStart').hidden=!(code&&list[0]&&list[0].id===id&&list.length>=2);
 }
 function tryAuto(){
@@ -33,7 +43,7 @@ function tryAuto(){
   if(list.length>=MAXP||(list.length>=2&&Date.now()-joinedAt>=FILL_MS))go(list.slice(0,MAXP));
 }
 // in a duel the two players take opposite corners, so neither has a shorter road
-const seats=list=>{const l=list.map(p=>({id:p.id,name:p.name,bot:p.bot}));return duel?[l[0],null,null,l[1]]:l};
+const seats=list=>{const l=list.map(p=>({id:p.id,name:p.name,bot:p.bot}));return duel?[l[0],l[1]]:l};
 function go(list){
   const m={room:Math.random().toString(36).slice(2,12),players:seats(list),duel};
   ch.send({type:'broadcast',event:'go',payload:m});enter(m);
@@ -45,9 +55,9 @@ async function enter(m){
   started=true;clearInterval(timer);
   try{if(ch){await ch.untrack();sb.removeChannel(ch)}}catch(e){}
   window.ARENA={seat,id,room:String(m.room),players:m.players,sb,duel:!!m.duel};
-  $('lStatus').textContent='Harita hazırlanıyor…';
-  try{await import('./oyun.js?v=20261107c');$('lobby').hidden=true}
-  catch(e){console.error(e);err('Oyun yüklenemedi. Sayfayı yenile.')}
+  $('lStatus').textContent=L('Harita hazırlanıyor…','Preparing the map…');
+  try{await import('./oyun.js?v=20261107d');$('lobby').hidden=true}
+  catch(e){console.error(e);err(L('Oyun yüklenemedi. Sayfayı yenile.','The game failed to load. Refresh the page.'))}
 }
 function join(name){
   err('');
@@ -58,7 +68,7 @@ function join(name){
   ch.on('presence',{event:'sync'},draw).on('broadcast',{event:'go'},({payload})=>enter(payload||{}));
   ch.subscribe(s=>{
     if(s==='SUBSCRIBED')ch.track({name:nick(),t:joinedAt});
-    else if(s==='CHANNEL_ERROR'||s==='TIMED_OUT')err('Sunucuya bağlanılamadı. İnternetini kontrol edip yeniden dene.');
+    else if(s==='CHANNEL_ERROR'||s==='TIMED_OUT')err(L('Sunucuya bağlanılamadı. İnternetini kontrol edip yeniden dene.',"Couldn't reach the server. Check your connection and try again."));
   });
   timer=setInterval(()=>{draw();tryAuto()},1000);
 }
@@ -76,25 +86,27 @@ $('lPlay').onclick=()=>join(duel?'teke-genel':'genel');
 $('lBots').onclick=()=>{
   try{localStorage.setItem('cephe_name',nick())}catch(e){}
   $('lHome').hidden=true;$('lMode').hidden=true;$('lQueue').hidden=false;$('lCancel').hidden=true;
-  enter(duel?{room:'bot'+Math.random().toString(36).slice(2,10),duel:true,players:[{id,name:nick()},null,null,{id:'b3',name:'Yapay Zeka',bot:3}]}
-    :{room:'bot'+Math.random().toString(36).slice(2,10),players:[{id,name:nick()},{id:'b1',name:'Yapay Zeka 1',bot:1},{id:'b2',name:'Yapay Zeka 2',bot:2},{id:'b3',name:'Yapay Zeka 3',bot:3}]});
+  enter(duel?{room:'bot'+Math.random().toString(36).slice(2,10),duel:true,players:[{id,name:nick()},{id:'b1',name:L('Yapay Zeka','Computer'),bot:1}]}
+    :{room:'bot'+Math.random().toString(36).slice(2,10),players:[{id,name:nick()},{id:'b1',name:L('Yapay Zeka','Computer')+' 1',bot:1},{id:'b2',name:L('Yapay Zeka','Computer')+' 2',bot:2},{id:'b3',name:L('Yapay Zeka','Computer')+' 3',bot:3}]});
 };
 $('lInvite').onclick=()=>openRoom(Math.random().toString(36).slice(2,8));
 $('lCancel').onclick=cancel;
 $('lStart').onclick=()=>{const l=players();if(l.length>=2)go(l.slice(0,MAXP))};
 $('lCopy').onclick=async()=>{
-  try{await navigator.clipboard.writeText($('lLink').value);$('lCopy').textContent='Kopyalandı'}
+  try{await navigator.clipboard.writeText($('lLink').value);$('lCopy').textContent=L('Kopyalandı','Copied')}
   catch(e){$('lLink').select()}
 };
 // mode switch: four corners, or one against one
 function setMode(d){
   duel=d;MAXP=d?2:4;$('m4').classList.toggle('on',!d);$('m2').classList.toggle('on',d);
-  $('lSub').textContent=d?'Teke tek: iki kule karşı köşelerde. Rakibinin kulesini ilk yıkan kazanır.':'Herkese 200 para. Kuleni koru, rakiplerine asker gönder. Son ayakta kalan kazanır.';
-  $('lBots').textContent=d?'Yapay zekaya karşı 1v1':'Yapay zekaya karşı oyna';$('lInvite').textContent=d?'Arkadaşınla 1v1':'Arkadaşlarınla oyna';$('lPlay').textContent=d?'1v1 OYNA':'OYNA';
+  $('lSub').textContent=d?L('Teke tek: iki ada, ortada boş bir ada ve köprüler. Rakibinin kulesini ilk yıkan kazanır.','One on one: two islands, an empty island between them and bridges. First to topple the other tower wins.'):L('Herkese 200 para. Kuleni koru, rakiplerine asker gönder. Son ayakta kalan kazanır.','Everyone starts with 200 gold. Guard your tower, send troops at your rivals. Last one standing wins.');
+  $('lBots').textContent=d?L('Yapay zekaya karşı 1v1','1v1 against the computer'):L('Yapay zekaya karşı oyna','Play against the computer');$('lInvite').textContent=d?L('Arkadaşınla 1v1','1v1 with a friend'):L('Arkadaşlarınla oyna','Play with friends');$('lPlay').textContent=d?L('1v1 OYNA','PLAY 1v1'):L('OYNA','PLAY');
 }
-$('m4').onclick=()=>setMode(false);$('m2').onclick=()=>setMode(true);setMode(duel);
+$('m4').onclick=()=>setMode(false);$('m2').onclick=()=>setMode(true);
+for(const b of document.querySelectorAll('#lLang button'))b.onclick=()=>{LANG=b.dataset.l;try{localStorage.setItem('cephe_dil',LANG)}catch(e){}applyLang();if(invite)$('lInvite').textContent=L('Odaya katıl','Join the room')};
+applyLang();
 if(invite&&/^[a-z0-9]{4,12}$/.test(invite)){$('lMode').hidden=true;
-  $('lPlay').hidden=true;$('lBots').hidden=true;$('lInvite').textContent='Odaya katıl';
+  $('lPlay').hidden=true;$('lBots').hidden=true;$('lInvite').textContent=L('Odaya katıl','Join the room');
   $('lInvite').onclick=()=>openRoom(invite);
 }
 })();

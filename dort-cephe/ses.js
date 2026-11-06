@@ -33,6 +33,7 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
   top(){if(this.ok('t',.16,'bomba'))this.hit(this.ctx.currentTime,'lowpass',900,120,1.1,.32)},
   bomba(){if(!this.ok('b',.14,'bomba'))return;const c=this.ctx,t=c.currentTime,o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(130,t);o.frequency.exponentialRampToValueAtTime(34,t+.5);o.connect(g);g.connect(this.sfx);this.env(g,t,.005,1.3,0,.6);o.start(t);o.stop(t+.7);this.hit(t,'lowpass',2200,160,1.2,.55)},
   atli(){if(!this.ok('a',.42,'atli'))return;const t=this.ctx.currentTime;[0,.1,.19,.27].forEach((d,i)=>this.hit(t+d,'bandpass',i%2?520:380,180,.55,.06,3))},
-  su(){if(this.ok('s',.36,'su'))this.hit(this.ctx.currentTime,'bandpass',1500,420,.55,.3,.8)},
+  // a soft slosh: low, muffled water, a little different every time
+  su(){if(!this.ok('s',.6,'su'))return;const t=this.ctx.currentTime,r=Math.random();this.hit(t,'lowpass',520+r*260,150,.22,.45,.6);this.hit(t+.14+r*.08,'lowpass',380+r*120,120,.12,.35,.6)},
   para(){if(!this.ok('p',.06))return;const c=this.ctx,t=c.currentTime,o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.setValueAtTime(1320,t);o.frequency.setValueAtTime(1760,t+.06);o.connect(g);g.connect(this.sfx);this.env(g,t,.003,.22,.05,.16);o.start(t);o.stop(t+.3)}
 };
