@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Dört Cephe</title>
 <script type="importmap">{"imports":{"three":"../three.min.js"}}</script>
-<link rel="stylesheet" href="lobby.css?v=20261106b">
+<link rel="stylesheet" href="lobby.css?v=20261106c">
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#0d1a26;color:#f0e8d6;font-family:Georgia,'Times New Roman',serif;touch-action:none;user-select:none;-webkit-user-select:none}
 #game,#ov{position:fixed;inset:0;width:100%;height:100%;display:block}
@@ -34,6 +34,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0d1a26;color:#f0e8d6;
 #sel button{padding:7px 9px}
 body.nohud #hud,body.nohud #ov{display:none}
 #tabs{display:none}
+#aimBar,#ask{position:absolute;left:50%;top:calc(52px + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;gap:10px;align-items:center;padding:9px 14px;border-radius:8px;background:rgba(150,32,20,.93);border:2px solid #ffd98a;font-size:16px;font-weight:700;white-space:nowrap;pointer-events:auto}
+#ask{background:rgba(20,62,44,.95);top:calc(100px + env(safe-area-inset-top,0px))}
+#aimBar button,#ask button{padding:6px 10px}
+#aimBar[hidden],#ask[hidden]{display:none}
+#ver{position:fixed;right:8px;top:calc(46px + env(safe-area-inset-top,0px));font:11px Georgia,serif;color:#fff;opacity:.6;text-shadow:0 1px 2px #000;pointer-events:none;z-index:7}
 @media(max-width:760px){
   #rivals{width:104px;font-size:11px}#rivals button{padding:2px 5px}#money{font-size:16px;padding:4px 9px}#rivals{top:calc(42px + env(safe-area-inset-top,0px))}
   #bar{flex-direction:column;align-items:stretch;gap:4px;bottom:calc(4px + env(safe-area-inset-bottom,0px))}
@@ -43,6 +48,7 @@ body.nohud #hud,body.nohud #ov{display:none}
   .grp{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;-webkit-overflow-scrolling:touch}.grp span{display:none}
   .grp button{flex:1 0 auto;min-width:58px;padding:5px 6px;font-size:12px}.grp small{font-size:10px}
   #tools button{padding:5px 7px;font-size:12px}
+  #aimBar,#ask{font-size:13px;padding:7px 9px;max-width:92vw;white-space:normal}
   #eye{width:36px;height:36px;font-size:15px;bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 }
 </style>
@@ -55,6 +61,8 @@ body.nohud #hud,body.nohud #ov{display:none}
   <div id="tip" hidden></div>
   <div id="sesP" hidden></div>
   <div id="tools"><button id="bSes">Ses</button><button id="bHome">Üssüm</button><button id="bAll">Tüm harita</button></div>
+  <div id="aimBar" hidden><span id="aimTxt"></span><button id="aimX">Vazgeç</button></div>
+  <div id="ask" hidden><span id="askT"></span><button id="askY">Kabul</button><button id="askN">Reddet</button></div>
   <div id="sel" hidden><button id="bUp"></button><button id="bSell"></button></div>
   <div id="bar">
     <div id="tabs"><button id="tabD">Savunma</button><button id="tabA">Saldırı</button></div>
@@ -65,9 +73,10 @@ body.nohud #hud,body.nohud #ov{display:none}
 </div>
 <button id="eye" title="Ekranı gizle" aria-label="Ekranı gizle" hidden>👁</button>
 
+<div id="ver">Sürüm 3</div>
 <div id="lobby"><div class="lbox">
   <h1>DÖRT CEPHE</h1>
-  <p class="sub">Herkese 100 para. Kuleni koru, rakiplerine asker gönder. Son ayakta kalan kazanır.</p>
+  <p class="sub">Herkese 200 para. Kuleni koru, rakiplerine asker gönder. Son ayakta kalan kazanır.</p>
   <div id="lHome">
     <label for="lName">Adın</label>
     <input id="lName" maxlength="12" autocomplete="off">
@@ -86,6 +95,6 @@ body.nohud #hud,body.nohud #ov{display:none}
 </div></div>
 <div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go">Yeni maç</button><button id="aeWatch">Maçı izle</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="lobby.js?v=20261106b"></script>
+<script src="lobby.js?v=20261106c"></script>
 </body>
 </html>
