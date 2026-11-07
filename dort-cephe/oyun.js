@@ -2123,7 +2123,7 @@ addEventListener('error',e=>{if(e&&e.error)oops(e.error)});addEventListener('unh
 try{const h=JSON.parse(localStorage.getItem('cephe_hb')||'null');if(h&&!h.clean&&Date.now()-h.at<3600e3&&Date.now()-h.at>8000)setTimeout(()=>report('donma','onceki oturum temiz kapanmadi',h),4000)}catch(e){}
 const beat=clean=>{try{localStorage.setItem('cephe_hb',JSON.stringify({at:Date.now(),clean:clean?1:0,ver:VER,t:ME.t|0,fps:Math.round(fps),dpr:DPR,duel:DUEL,un:P.map(D=>D.units.length),sh:SHELLS.length,ended}))}catch(e){}};
 setInterval(()=>{if(!document.hidden)beat(ended)},3000);
-addEventListener('pagehide',()=>beat(true));document.addEventListener('visibilitychange',()=>beat(document.hidden||ended));
+let hidAt=0;addEventListener('pagehide',()=>beat(true));document.addEventListener('visibilitychange',()=>{hidAt=now();beat(document.hidden||ended)});addEventListener('blur',()=>{hidAt=now()});
 cv.addEventListener('webglcontextlost',()=>{report('gpu','webgl context lost');tip(TL('Görüntü kısa süre kayboldu, yeniden kuruluyor…','The picture was lost for a moment, rebuilding…'))});
 cv.addEventListener('webglcontextrestored',()=>{report('gpu','webgl context restored');for(const T of TPL.values())T.dirty=T.mem=true;tip(TL('Görüntü geri geldi','The picture is back'))});
 setInterval(()=>{           // runs even when the tab is in the background
@@ -2136,7 +2136,7 @@ let longF=0;
 let lastDraw=0;const sunAt=new THREE.Vector3();
 function frame(t){requestAnimationFrame(frame);if(t-lastDraw<12)return;lastDraw=t;try{frameBody(t)}catch(e){oops(e)}}
 function frameBody(t){
-  const raw=t-lastF;if(raw>2500&&!document.hidden&&lastF>0&&longF++<3)report('takilma','uzun kare '+Math.round(raw)+' ms');
+  const raw=t-lastF;if(raw>2500&&!document.hidden&&lastF>0&&now()-hidAt>raw+500&&longF++<3)report('takilma','uzun kare '+Math.round(raw)+' ms');
   const dt=Math.min(.1,(t-lastF)/1000);lastF=t;fps=lerp(fps,1/Math.max(dt,.001),.05);
   slow=fps<24?slow+dt:0;fast=fps>55?fast+dt:0;
   if(slow>5&&DPR>1.1){DPR=Math.max(1,DPR-.2);renderer.setPixelRatio(DPR);size();slow=0;fast=0}
