@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261107h';
+import {SES} from './ses.js?v=20261107i';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -706,7 +706,7 @@ function sim(dt){
     let to=q.to;if(!P[to]||P[to].dead||allied(D.seat,to)){const f=P.filter(p=>p.on&&!p.dead&&!allied(p.seat,D.seat));to=f.length?f[Math.random()*f.length|0].seat:null}
     if(D===ME&&q.type==='gemi'){parkShip(D,'gemi');tip(TL('Gemi hazır, limanda bekliyor! Gemiye dokun, sonra gideceği yolu çiz.','Warship ready at the dock! Tap it, then draw where it should go.'));continue}
     if(to==null||!sendUnit(D,to,q.type,{built:true}))D.money+=UNITS[q.type].cost;else if(D===ME)tip((EN?`${UNITS[q.type].kisa||UNITS[q.type].ad} launched, heading for ${P[to].name}`:`${UNITS[q.type].kisa||UNITS[q.type].ad} denize indi, ${P[to].name} üstüne gidiyor`))}
-  for(const D of P)if(local(D))simDefender(D,dt);
+  for(const D of P)if(local(D)){try{simDefender(D,dt)}catch(e){oops(e)}}
   botAcc+=dt;if(botAcc>=1){botAcc=0;for(const D of P)if(D.bot)botThink(D)}
 }
 
@@ -1884,10 +1884,13 @@ const now=()=>performance.now();
 let ambAcc=0,lastSim=now(),snapAcc=0,hudAcc=0,lastF=now(),fps=60,slow=0,fast=0,ups=0;
 setInterval(()=>{           // runs even when the tab is in the background
   const t=now(),dt=Math.min(1,(t-lastSim)/1000);lastSim=t;
-  for(let r=dt;r>0;r-=.05)sim(Math.min(r,.05));
-  snapAcc+=dt;if(snapAcc>=.5){snapAcc=0;snapshot();for(const D of P)if(D.on&&D!==ME&&!D.bot&&!D.dead&&t-D.seen>25000)eliminate(D);checkEnd()}
+  try{for(let r=dt;r>0;r-=.05)sim(Math.min(r,.05))}catch(e){oops(e)}
+  try{snapAcc+=dt;if(snapAcc>=.5){snapAcc=0;snapshot();for(const D of P)if(D.on&&D!==ME&&!D.bot&&!D.dead&&t-D.seen>25000)eliminate(D);checkEnd()}}catch(e){oops(e)}
 },33);
-function frame(t){
+// a fault anywhere must never stop the game: note it, show it briefly, and carry on
+let oopsT=0;function oops(e){console.error(e);const t=performance.now();if(t-oopsT>8000){oopsT=t;try{tip(TL('Hata (bunu Claude\'a gönder): ','Error (send this to Claude): ')+String(e&&e.message||e).slice(0,90))}catch(_){}}}
+function frame(t){requestAnimationFrame(frame);try{frameBody(t)}catch(e){oops(e)}}
+function frameBody(t){
   const dt=Math.min(.1,(t-lastF)/1000);lastF=t;fps=lerp(fps,1/Math.max(dt,.001),.05);
   slow=fps<24?slow+dt:0;fast=fps>55?fast+dt:0;
   if(slow>5&&DPR>1.1){DPR=Math.max(1,DPR-.2);renderer.setPixelRatio(DPR);size();slow=0;fast=0}
@@ -1903,7 +1906,6 @@ function frame(t){
   renderer.render(scene,camera);drawOverlay();
   hudAcc+=dt;if(hudAcc>.15){hudAcc=0;drawHud()}
   tipT-=dt;if(tipT<=0&&!$('tip').hidden)$('tip').hidden=true;
-  requestAnimationFrame(frame);
 }
 buildGround();buildOuter();buildWater();buildBridges();buildForest();buildDetail();buildUnits();buildSites();P.forEach(D=>{if(D.on)buildCastle(D.seat)});
 size();mkHud();connect();applyCam(1);
