@@ -54,9 +54,9 @@ async function enter(m){
   if(seat<0)return;
   started=true;clearInterval(timer);
   try{if(ch){await ch.untrack();sb.removeChannel(ch)}}catch(e){}
-  window.ARENA={seat,id,room:String(m.room),players:m.players,sb,duel:!!m.duel};
+  window.ARENA={seat,id,room:String(m.room),players:m.players,sb,duel:!!m.duel,tutorial:!!m.tutorial};
   $('lStatus').textContent=L('Harita hazırlanıyor…','Preparing the map…');
-  try{await import('./oyun.js?v=20261107m');$('lobby').hidden=true}
+  try{await import('./oyun.js?v=20261107p');$('lobby').hidden=true}
   catch(e){console.error(e);err(L('Oyun yüklenemedi. Sayfayı yenile.','The game failed to load. Refresh the page.'))}
 }
 function join(name){
@@ -90,6 +90,12 @@ $('lBots').onclick=()=>{
     :{room:'bot'+Math.random().toString(36).slice(2,10),players:[{id,name:nick()},{id:'b1',name:L('Yapay Zeka','Computer')+' 1',bot:1},{id:'b2',name:L('Yapay Zeka','Computer')+' 2',bot:2},{id:'b3',name:L('Yapay Zeka','Computer')+' 3',bot:3}]});
 };
 $('lInvite').onclick=()=>openRoom(Math.random().toString(36).slice(2,8));
+$('lTut').onclick=()=>{
+  try{localStorage.setItem('cephe_name',nick())}catch(e){}
+  $('lHome').hidden=true;$('lMode').hidden=true;$('lQueue').hidden=false;$('lCancel').hidden=true;
+  enter({room:'egitim'+Math.random().toString(36).slice(2,10),duel:true,tutorial:true,players:[{id,name:nick()},{id:'b1',name:L('Eğitim rakibi','Practice rival'),bot:1}]});
+};
+try{if(!localStorage.getItem('cephe_egitim'))$('lTut').classList.add('go')}catch(e){}
 $('lCancel').onclick=cancel;
 $('lStart').onclick=()=>{const l=players();if(l.length>=2)go(l.slice(0,MAXP))};
 $('lCopy').onclick=async()=>{
