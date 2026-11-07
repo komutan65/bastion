@@ -19,3 +19,6 @@
 #arenaHud i{display:block;height:4px;margin-top:2px;background:#62c98f}
 #lMode{display:flex;gap:6px}#lMode button{flex:1;padding:9px;font-size:16px;opacity:.65}#lMode button.on{opacity:1;background:#5a3f16;border-color:#ffd98a;color:#fff4d0}
 #lLang{display:flex;gap:6px;justify-content:center}#lLang button{padding:5px 12px;font-size:13px;opacity:.6}#lLang button.on{opacity:1;border-color:#ffd98a}
+
+#lFriends{display:flex;flex-direction:column;gap:10px}#lJoinRow{display:flex;gap:8px}#lJoinRow input{flex:1;text-align:center;letter-spacing:6px;font-size:22px;text-transform:uppercase}
+#lCodeV{font:700 40px/1.1 Georgia,serif;letter-spacing:8px;color:#ffe08a;user-select:text;-webkit-user-select:text}

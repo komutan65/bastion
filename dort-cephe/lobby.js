@@ -8,7 +8,7 @@ const sb=(window.ARENA_TEST&&window.ARENA_TEST.client)||window.supabase.createCl
 const id=Math.random().toString(36).slice(2,12);
 const Q=new URLSearchParams(location.search),invite=Q.get('oda');
 let duel=Q.get('m')==='2';
-let ch=null,joinedAt=0,timer=null,started=false,code=null;
+let ch=null,joinedAt=0,timer=null,started=false,code=null,host=false,lookT=0;
 try{$('lName').value=localStorage.getItem('cephe_name')||''}catch(e){}
 if(!$('lName').value)$('lName').value='Oyuncu'+(100+Math.random()*900|0);
 const nick=()=>($('lName').value.trim()||'Oyuncu').slice(0,12);
@@ -27,15 +27,18 @@ function applyLang(){
 function players(){
   if(!ch)return[];
   const out=[];const st=ch.presenceState();
-  for(const k in st){const p=st[k][0];if(p&&typeof p.t==='number')out.push({id:k,name:String(p.name||'Oyuncu').slice(0,12),t:p.t})}
-  return out.sort((a,b)=>a.t-b.t||(a.id<b.id?-1:1));
+  for(const k in st){const p=st[k][0];if(p&&typeof p.t==='number')out.push({id:k,name:String(p.name||'Oyuncu').slice(0,12),t:p.t,host:!!p.host,duel:!!p.duel})}
+  return out.sort((a,b)=>(b.host-a.host)||a.t-b.t||(a.id<b.id?-1:1));
 }
 function draw(){
   const list=players(),box=$('lList');box.textContent='';
-  for(const p of list.slice(0,MAXP)){const d=document.createElement('div');d.textContent=p.name+(p.id===id?' (sen)':'');box.append(d)}
-  const n=Math.min(list.length,MAXP);
-  $('lStatus').textContent=code?`${L('Oyuncular','Players')}: ${n}/${MAXP}`:`${L('Rakip aranıyor…','Looking for opponents…')} ${n}/${MAXP}`;
-  $('lStart').hidden=!(code&&list[0]&&list[0].id===id&&list.length>=2);
+  // in a code room the host's mode rules: a friend who typed the code learns it from the host
+  const h=code&&list.find(p=>p.host);if(h&&!host&&duel!==h.duel)setMode(h.duel)
+  if(code&&!host&&!h&&Date.now()-lookT>8000){cancel();err(L('Bu kodla açık bir oda bulunamadı. Kodu kontrol et.','No open room with that code. Check the code.'));return}
+  list.slice(0,MAXP).forEach(p=>{const d=document.createElement('div');d.textContent=p.name+(p.host?L(' (oda kurucu)',' (host)'):'')+(p.id===id?L(' (sen)',' (you)'):'');box.append(d)});
+  const n=Math.min(list.length,MAXP),mine=list.findIndex(p=>p.id===id);
+  $('lStatus').textContent=code?(mine>=MAXP?L('Oda dolu, kurucu başka oda açabilir.','The room is full.'):`${duel?L('1v1 odası','1v1 room'):L('4 kişilik oda','4-player room')} · ${L('Oyuncular','Players')}: ${n}/${MAXP} · ${host?L('Herkes gelince Maçı başlat’a bas.','Press Start when everyone is in.'):L('Oda kurucusunun başlatmasını bekle.','Wait for the host to start.')}`):`${L('Rakip aranıyor…','Looking for opponents…')} ${n}/${MAXP}`;
+  $('lStart').hidden=!(code&&host&&list.length>=2);
 }
 function tryAuto(){
   if(code||started||!ch)return;
@@ -56,7 +59,7 @@ async function enter(m){
   try{if(ch){await ch.untrack();sb.removeChannel(ch)}}catch(e){}
   window.ARENA={seat,id,room:String(m.room),players:m.players,sb,duel:!!m.duel,tutorial:!!m.tutorial};
   $('lStatus').textContent=L('Harita hazırlanıyor…','Preparing the map…');
-  try{await import('./oyun.js?v=20261107p');$('lobby').hidden=true}
+  try{await import('./oyun.js?v=20261107r');$('lobby').hidden=true}
   catch(e){console.error(e);err(L('Oyun yüklenemedi. Sayfayı yenile.','The game failed to load. Refresh the page.'))}
 }
 function join(name){
@@ -67,20 +70,23 @@ function join(name){
   ch=sb.channel('cephe-'+name,{config:{broadcast:{self:false},presence:{key:id}}});
   ch.on('presence',{event:'sync'},draw).on('broadcast',{event:'go'},({payload})=>enter(payload||{}));
   ch.subscribe(s=>{
-    if(s==='SUBSCRIBED')ch.track({name:nick(),t:joinedAt});
+    if(s==='SUBSCRIBED')ch.track({name:nick(),t:joinedAt,host,duel});
     else if(s==='CHANNEL_ERROR'||s==='TIMED_OUT')err(L('Sunucuya bağlanılamadı. İnternetini kontrol edip yeniden dene.',"Couldn't reach the server. Check your connection and try again."));
   });
   timer=setInterval(()=>{draw();tryAuto()},1000);
 }
 function cancel(){
   clearInterval(timer);if(ch){sb.removeChannel(ch);ch=null}
-  code=null;history.replaceState(null,'',location.pathname);
-  $('lQueue').hidden=true;$('lHome').hidden=false;$('lMode').hidden=!!invite;$('lShare').hidden=true;
+  code=null;host=false;history.replaceState(null,'',location.pathname);
+  $('lQueue').hidden=true;$('lFriends').hidden=true;$('lHome').hidden=false;$('lMode').hidden=false;$('lShare').hidden=true;
 }
-function openRoom(c){
-  code=c;$('lShare').hidden=false;
-  $('lLink').value=location.origin+location.pathname+'?oda='+c+(duel?'&m=2':'');
-  join((duel?'teke-':'oda-')+c);
+// friends: one player opens a room and reads out its short code, the others type it in
+const ABC='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',newCode=()=>{let c='';const r=new Uint32Array(5);crypto.getRandomValues(r);for(const v of r)c+=ABC[v%ABC.length];return c};
+const clean=c=>String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
+function openRoom(c,asHost){
+  code=clean(c);host=!!asHost;lookT=Date.now();err('');$('lFriends').hidden=true;
+  $('lShare').hidden=!host;$('lCodeV').textContent=code;
+  join('kod-'+code.toLowerCase());
 }
 $('lPlay').onclick=()=>join(duel?'teke-genel':'genel');
 $('lBots').onclick=()=>{
@@ -89,7 +95,11 @@ $('lBots').onclick=()=>{
   enter(duel?{room:'bot'+Math.random().toString(36).slice(2,10),duel:true,players:[{id,name:nick()},{id:'b1',name:L('Yapay Zeka','Computer'),bot:1}]}
     :{room:'bot'+Math.random().toString(36).slice(2,10),players:[{id,name:nick()},{id:'b1',name:L('Yapay Zeka','Computer')+' 1',bot:1},{id:'b2',name:L('Yapay Zeka','Computer')+' 2',bot:2},{id:'b3',name:L('Yapay Zeka','Computer')+' 3',bot:3}]});
 };
-$('lInvite').onclick=()=>openRoom(Math.random().toString(36).slice(2,8));
+$('lInvite').onclick=()=>{err('');$('lHome').hidden=true;$('lMode').hidden=true;$('lFriends').hidden=false;$('lCode').value=''};
+$('lCreate').onclick=()=>{try{localStorage.setItem('cephe_name',nick())}catch(e){}openRoom(newCode(),true)};
+const joinCode=()=>{const c=clean($('lCode').value);if(c.length<4){err(L('Arkadaşının verdiği oda kodunu yaz','Type the room code your friend gave you'));return}try{localStorage.setItem('cephe_name',nick())}catch(e){}openRoom(c,false)};
+$('lJoin').onclick=joinCode;$('lCode').addEventListener('keydown',e=>{if(e.key==='Enter')joinCode()});
+$('lBack').onclick=()=>{err('');$('lFriends').hidden=true;$('lHome').hidden=false;$('lMode').hidden=false};
 $('lTut').onclick=()=>{
   try{localStorage.setItem('cephe_name',nick())}catch(e){}
   $('lHome').hidden=true;$('lMode').hidden=true;$('lQueue').hidden=false;$('lCancel').hidden=true;
@@ -99,8 +109,7 @@ try{if(!localStorage.getItem('cephe_egitim'))$('lTut').classList.add('go')}catch
 $('lCancel').onclick=cancel;
 $('lStart').onclick=()=>{const l=players();if(l.length>=2)go(l.slice(0,MAXP))};
 $('lCopy').onclick=async()=>{
-  try{await navigator.clipboard.writeText($('lLink').value);$('lCopy').textContent=L('Kopyalandı','Copied')}
-  catch(e){$('lLink').select()}
+  try{await navigator.clipboard.writeText(code);$('lCopy').textContent=L('Kopyalandı','Copied')}catch(e){}
 };
 // mode switch: four corners, or one against one
 function setMode(d){
@@ -109,10 +118,7 @@ function setMode(d){
   $('lBots').textContent=d?L('Yapay zekaya karşı 1v1','1v1 against the computer'):L('Yapay zekaya karşı oyna','Play against the computer');$('lInvite').textContent=d?L('Arkadaşınla 1v1','1v1 with a friend'):L('Arkadaşlarınla oyna','Play with friends');$('lPlay').textContent=d?L('1v1 OYNA','PLAY 1v1'):L('OYNA','PLAY');
 }
 $('m4').onclick=()=>setMode(false);$('m2').onclick=()=>setMode(true);
-for(const b of document.querySelectorAll('#lLang button'))b.onclick=()=>{LANG=b.dataset.l;try{localStorage.setItem('cephe_dil',LANG)}catch(e){}applyLang();if(invite)$('lInvite').textContent=L('Odaya katıl','Join the room')};
+for(const b of document.querySelectorAll('#lLang button'))b.onclick=()=>{LANG=b.dataset.l;try{localStorage.setItem('cephe_dil',LANG)}catch(e){}applyLang()};
 applyLang();
-if(invite&&/^[a-z0-9]{4,12}$/.test(invite)){$('lMode').hidden=true;
-  $('lPlay').hidden=true;$('lBots').hidden=true;$('lInvite').textContent=L('Odaya katıl','Join the room');
-  $('lInvite').onclick=()=>openRoom(invite);
-}
+if(invite&&/^[a-zA-Z0-9]{4,12}$/.test(invite)){$('lHome').hidden=true;$('lMode').hidden=true;$('lFriends').hidden=false;$('lCode').value=invite.toUpperCase()}
 })();

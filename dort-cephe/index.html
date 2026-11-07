@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Dört Cephe</title>
 <script type="importmap">{"imports":{"three":"../three.min.js"}}</script>
-<link rel="stylesheet" href="lobby.css?v=20261107p">
+<link rel="stylesheet" href="lobby.css?v=20261107r">
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#0d1a26;color:#f0e8d6;font-family:Georgia,'Times New Roman',serif;touch-action:none;user-select:none;-webkit-user-select:none}
 #game,#ov{position:fixed;inset:0;width:100%;height:100%;display:block}
@@ -101,7 +101,7 @@ body.chatting #eye{display:none}
 </div>
 <button id="eye" title="Ekranı gizle" aria-label="Ekranı gizle" hidden>👁</button>
 
-<div id="ver" data-en="Version 10.1">Sürüm 10.1</div>
+<div id="ver" data-en="Version 10.2">Sürüm 10.2</div>
 <div id="lobby"><div class="lbox">
   <h1 data-en="FOUR FRONTS">DÖRT CEPHE</h1>
   <div id="lLang"><button data-l="tr">Türkçe</button><button data-l="en">English</button></div>
@@ -115,10 +115,16 @@ body.chatting #eye{display:none}
     <button id="lInvite">Arkadaşlarınla oyna</button>
     <button id="lTut" data-en="How to play (short lesson)">Nasıl oynanır? (kısa eğitim)</button>
   </div>
+  <div id="lFriends" hidden>
+    <button id="lCreate" class="go" data-en="Open a room">Oda kur</button>
+    <p class="sub" data-en="You get a short code: send it to your friends.">Kısa bir kod alırsın, arkadaşlarına gönderirsin.</p>
+    <div id="lJoinRow"><input id="lCode" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="KOD" aria-label="Oda kodu"><button id="lJoin" data-en="Join">Katıl</button></div>
+    <button id="lBack" data-en="Back">Geri</button>
+  </div>
   <div id="lQueue" hidden>
     <p id="lStatus">Rakip aranıyor…</p>
     <div id="lList"></div>
-    <div id="lShare" hidden><input id="lLink" readonly aria-label="Davet linki"><button id="lCopy" data-en="Copy link">Linki kopyala</button></div>
+    <div id="lShare" hidden><span data-en="Room code: send it to your friends">Oda kodu: arkadaşlarına gönder</span><b id="lCodeV"></b><button id="lCopy" data-en="Copy code">Kodu kopyala</button></div>
     <button id="lStart" class="go" hidden data-en="Start match">Maçı başlat</button>
     <button id="lCancel" data-en="Cancel">Vazgeç</button>
   </div>
@@ -127,6 +133,6 @@ body.chatting #eye{display:none}
 </div></div>
 <div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go" data-en="New match">Yeni maç</button><button id="aeWatch" data-en="Watch the match">Maçı izle</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="lobby.js?v=20261107p"></script>
+<script src="lobby.js?v=20261107r"></script>
 </body>
 </html>
