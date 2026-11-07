@@ -1,4 +1,4 @@
 # Dört Cephe
 
-Dört oyunculu çevrimiçi savaş oyunu. Bastion'dan bağımsızdır, sadece `three.min.js` dosyasını paylaşır.
-Bağlantı: Supabase Realtime (`bastion-arena`, Frankfurt). Derleme adımı yoktur.
+Dört oyunculu çevrimiçi savaş oyunu. Kök dizindeki `three.min.js` dosyasını kullanır.
+Bağlantı: Supabase Realtime (Frankfurt). Derleme adımı yoktur.

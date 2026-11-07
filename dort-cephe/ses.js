@@ -1,4 +1,4 @@
-// Music comes from Bastion; every sound can be switched off on its own.
+// Music is made here in code; every sound can be switched off on its own.
 const CH=[[57,60,64,67],[53,57,60,64],[48,52,55,60],[55,59,62,67]],PENT=[69,72,74,76,79,81,84];
 const KEY='cephe_ses';
 let saved={};try{saved=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){}
