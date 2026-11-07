@@ -10,7 +10,7 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=150,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=2,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=20,DBR_FIX=100,VER='11';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=20,DBR_FIX=100,VER='11.1';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
@@ -402,6 +402,7 @@ function setRoute(u,D,pts){
     if(u.type==='atli'){const q=polyPath(p);let deep=false;for(let k=0;k<=q.len&&!deep;k+=3){const o=pointOn(q,k);if(shoreOf(o.x,o.z)<-RIDE_SEA)deep=true}
       if(deep){const t=tidyRoute([cur,...pts]);p=t&&t.length>=2?t:[cur,{x:cur.x+.01,z:cur.z}];if(D===ME&&u.from===ME.seat&&now()-lockTipT>4000){lockTipT=now();tip(TL('Atlılar açık denize çıkamaz, karadan dolaşıyorlar','Riders cannot cross open sea, they go round by land'))}}}}
   else p=[cur,...pts];
+  if(p)p=p.filter(q=>q&&isFinite(q.x)&&isFinite(q.z));
   if(!p||p.length<2)p=[cur,{x:cur.x+.01,z:cur.z}];
   u.path=polyPath(p);u.s=0;u.end=u.path.len;u.off=false;u.reS=false;u.tgt=null;u.cmd=true;u.lx=u.lz=0;u.ox=u.oz=0;u.rs=null;u.goRally=false;
   const foe=D.seat!==u.from&&!allied(D.seat,u.from),c=castlePos(D.seat);
@@ -695,7 +696,7 @@ function simDefender(D,dt){
     else if(air){if(u.bomb<=0){u.bomb=2;const x=home.x+(Math.random()-.5)*8,z=home.z+(Math.random()-.5)*8;boom(x,6,z,4,'#ff6a30');crater(x,z,4);fxAt(D,home.x,home.z,'bomba');damageCastle(D,U.dmg);if(D.dead)return}}
     else{const g=u.type==='dalgic';u.atk=true;u.cdM=g?.45:1.5;u.face=Math.atan2(home.x-u.x,home.z-u.z);if(u.cd<=0){u.cd=u.cdM;if(g)gunFx(D,u,home.x+(Math.random()-.5)*5,heightAt(home.x,home.z)+5+Math.random()*6,home.z+(Math.random()-.5)*5);else boom(u.x+Math.sin(u.face)*2.5,3,u.z+Math.cos(u.face)*2.5,.8,'#ffb060');damageCastle(D,g?.8:U.dmg);if(D.dead)return}}
     u.moving=!u.atk&&!(u.s>=u.end&&!u.tgt&&!u.off);
-    if(!air&&!u.road&&(u.vx||u.vz)){u.x+=u.vx*dt;u.z+=u.vz*dt}u.road=false;
+    if(!air&&!u.road&&(u.vx||u.vz)){const nx=u.x+u.vx*dt,nz=u.z+u.vz*dt;if(canStand(u,nx,nz)){u.x=nx;u.z=nz}}u.road=false;   // jostling never shoves anyone off a bridge
   }
   navalSep(D,dt);
   for(const t of D.towers){
@@ -946,6 +947,8 @@ function buildGround(){
 let waterM=null;
 const waterU={pr:{value:DUEL?-1:12.5},t:{value:0},fogC:{value:SKY},sun:{value:new THREE.Vector3(-175,185,125).normalize()}};
 // distance to the shore, baked: the sea's edge is too uneven to write as a formula in the shader
+// one random value per texel; read with a smoothed coordinate it gives the same soft value noise as hashing, at a fraction of the cost
+function noiseTex(){const N=256,d=new Uint8Array(N*N*4);let r=12345;for(let i=0;i<N*N;i++){r=(r*1103515245+12345)>>>0;d[i*4]=r>>>24;d[i*4+3]=255}const t=new THREE.DataTexture(d,N,N);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=t.minFilter=THREE.LinearFilter;t.generateMipmaps=false;t.needsUpdate=true;return t}
 function bankTex(){
   const n=small?512:1024,d=new Uint16Array(n*n);
   for(let j=0;j<n;j++)for(let i=0;i<n;i++)d[i+j*n]=THREE.DataUtils.toHalfFloat(WL-shoreOf((i+.5)/n*SEA*2-SEA,(j+.5)/n*SEA*2-SEA));
@@ -959,12 +962,12 @@ function buildOuter(){                 // one seamless sheet from the sea floor 
   const m=new THREE.Mesh(geo,terrainMat());m.position.y=-.02;m.receiveShadow=true;scene.add(m);
 }
 function buildWater(){
-  waterU.bk={value:bankTex()};
+  waterU.bk={value:bankTex()};waterU.nz={value:noiseTex()};
   const m=new THREE.Mesh(new THREE.PlaneGeometry(SEA*2,SEA*2).rotateX(-Math.PI/2),new THREE.ShaderMaterial({uniforms:waterU,transparent:true,
     vertexShader:'varying vec3 w;void main(){vec4 v=modelMatrix*vec4(position,1.);w=v.xyz;gl_Position=projectionMatrix*viewMatrix*v;}',
-    fragmentShader:`precision highp float;varying vec3 w;uniform float t;uniform vec3 fogC,sun;uniform sampler2D bk;uniform float pr;
+    fragmentShader:`precision highp float;varying vec3 w;uniform float t;uniform vec3 fogC,sun;uniform sampler2D bk,nz;uniform float pr;
       float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-      float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
+      float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return texture2D(nz,(i+f+.5)/256.).r;}
       float wave(vec2 p){float a=0.,s=.5;mat2 r=mat2(.8,.6,-.6,.8);for(int i=0;i<4;i++){a+=s*n(p);p=r*p*2.03+vec2(t*.35,-t*.22);s*=.5;}return a;}
       float wave3(vec2 p){float a=0.,s=.5;mat2 r=mat2(.8,.6,-.6,.8);for(int i=0;i<3;i++){a+=s*n(p);p=r*p*2.03+vec2(t*.35,-t*.22);s*=.5;}return a+.0625;}
       vec2 fdir(vec2 q){            // the rivers run outward; past the mouths the sea only drifts, so nothing swirls
@@ -1781,10 +1784,12 @@ cv.addEventListener('pointermove',e=>{
   if(press&&press.moved){const s=view.d/innerHeight*1.3;view.tx=clamp(view.tx-dx*s,-VIEW,VIEW);view.tz=clamp(view.tz-dy*s*1.25,-VIEW,VIEW)}
   if(build||aim==='fuze')hover(e.clientX,e.clientY);
 });
-const up=e=>{ptr.delete(e.pointerId);
+const up=e=>{ptr.delete(e.pointerId);const pr=press;press=null;paintAt=null;
+  try{
   if(boxS){const b=boxS;boxS=null;if(e.type==='pointerup')endBox(b);return}
-  if(cmdDraft){const d=cmdDraft;cmdDraft=null;if(press&&press.moved&&e.type==='pointerup'&&d.length>1){press=null;order(d,[e.clientX,e.clientY]);return}}
-  if(draft)endRoute(e.type==='pointerup');if(press&&!press.moved&&e.type==='pointerup')tap(e.clientX,e.clientY);press=null;paintAt=null};
+  if(cmdDraft){const d=cmdDraft;cmdDraft=null;if(pr&&pr.moved&&e.type==='pointerup'&&d.length>1){order(d,[e.clientX,e.clientY]);return}}
+  if(draft)endRoute(e.type==='pointerup');if(pr&&!pr.moved&&e.type==='pointerup')tap(e.clientX,e.clientY);
+  }catch(err){oops(err)}};
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 cv.addEventListener('wheel',e=>{e.preventDefault();view.td=clamp(view.td*(e.deltaY>0?1.12:.89),DMIN,DMAX)},{passive:false});
 const keys=new Set();
@@ -1938,7 +1943,8 @@ function fireAt(p,locked){
 const clampPt=p=>({x:Math.round(clamp(p.x,-L,L)),z:Math.round(clamp(p.z,-L,L))});
 function tidyRoute(pts){
   const m=navMask(),dry=pts.filter(p=>m[clamp(Math.round((p.x+L)/NC),0,NN-1)+clamp(Math.round((p.z+L)/NC),0,NN-1)*NN]);
-  let out=navRoute(dry);
+  if(dry.length<2)return dry.length?[dry[0],{x:dry[0].x+.01,z:dry[0].z}]:[pts[0],{x:pts[0].x+.01,z:pts[0].z}];
+  let out=(navRoute(dry)||[]).filter(Boolean);if(out.length<2)return[pts[0],{x:pts[0].x+.01,z:pts[0].z}];
   for(let pass=0;pass<3;pass++){const k=[out[0]];for(let i=1;i<out.length-1;i++){const a=k[k.length-1],b=out[i+1],c=out[i];
       if(clearLine(m,a,b)&&segD(c.x,c.z,{a,b})<7)continue;k.push(c)}k.push(out[out.length-1]);out=k}
   return out;
@@ -2138,7 +2144,9 @@ function drawOverlay(){
   const cross=(x,z,col)=>{const q=scr(x,1.5,z);if(!q)return;const r=11+Math.sin(now()/90)*3;oc.lineWidth=3;oc.strokeStyle=col;oc.beginPath();oc.arc(q[0],q[1],r,0,6.3);oc.moveTo(q[0]-r-6,q[1]);oc.lineTo(q[0]+r+6,q[1]);oc.moveTo(q[0],q[1]-r-6);oc.lineTo(q[0],q[1]+r+6);oc.stroke()};
   if(SEL.length){const want=new Set(SEL);oc.lineWidth=2;oc.strokeStyle='#9df0b4';for(const c of myUnits()){if(!want.has(c.id))continue;const q=scr(c.x,unitY(UNITS[c.type],c.x,c.z)+.3,c.z);if(!q)continue;const r=c.type==='gemi'?20:c.type==='denizalti'?13:c.type==='koc'||c.type==='balon'?11:8;oc.beginPath();oc.ellipse(q[0],q[1],r,r*.55,0,0,6.3);oc.stroke()}}
   if(cmdDraft&&cmdDraft.length>1)trail(cmdDraft,'#9df0b4');
-  if(cmdShow){cmdShow.t-=1/60;if(cmdShow.t<=0)cmdShow=null;else{oc.globalAlpha=Math.min(1,cmdShow.t);trail(cmdShow.pts.length>1?cmdShow.pts:[cmdShow.pts[0],cmdShow.pts[0]],cmdShow.col);const e=cmdShow.pts[cmdShow.pts.length-1];cross(e.x,e.z,cmdShow.col);oc.globalAlpha=1}}
+  if(cmdShow){cmdShow.t-=1/60;if(cmdShow.t<=0)cmdShow=null;
+    else if(cmdShow.lock!=null){const tr=unitById(cmdShow.lock);if(!tr||tr.hp<=0||tr.done)cmdShow=null;else{const q=scr(tr.x,unitY(UNITS[tr.type],tr.x,tr.z)+1,tr.z);if(q){oc.globalAlpha=Math.min(1,cmdShow.t);oc.lineWidth=3;oc.strokeStyle='#ff5a3a';oc.beginPath();oc.arc(q[0],q[1],naval(tr.type)?24:15,0,6.283);oc.stroke();oc.globalAlpha=1}}}
+    else{oc.globalAlpha=Math.min(1,cmdShow.t);trail(cmdShow.pts.length>1?cmdShow.pts:[cmdShow.pts[0],cmdShow.pts[0]],cmdShow.col);const e=cmdShow.pts[cmdShow.pts.length-1];cross(e.x,e.z,cmdShow.col);oc.globalAlpha=1}}
   if(boxS){oc.lineWidth=2;oc.setLineDash([6,4]);oc.strokeStyle='#9df0b4';oc.fillStyle='rgba(157,240,180,.12)';const x=Math.min(boxS.x0,boxS.x1),y=Math.min(boxS.y0,boxS.y1),w=Math.abs(boxS.x1-boxS.x0),h=Math.abs(boxS.y1-boxS.y0);oc.fillRect(x,y,w,h);oc.strokeRect(x,y,w,h);oc.setLineDash([])}
   if(draft&&draft.length)trail(draft,'#ffe9a8');
   else if(route&&!ME.dead){const f=target!=null&&!P[target].dead?castlePos(target):null;trail([home,...route,...(f?[f]:[])],'#ffd98a')}
@@ -2157,13 +2165,13 @@ const now=()=>performance.now();
 let ambAcc=0,lastSim=now(),snapAcc=0,hudAcc=0,lastF=now(),fps=60,slow=0,fast=0,ups=0;
 // ---------- the lesson ----------
 // a short guided game: each step is a small job; the button to press glows, the spot to tap is ringed, and the step turns green when done
-const TS=[];let tutI=0,tutDone=0,tutFlags={},tutSpot=null,tutHint='';
+const TS=[];let tutI=0,tutDone=0,tutFlags={},tutSpot=null,tutHint='',tutKey='',tutCamT=0,tutMini=false;
 const tutTab=t=>{if(document.body.dataset.tab!==t)document.body.dataset.tab=t};
 function tutFree(k,near,toward){const c=near||castlePos(0),aim=toward||castlePos(1),base=Math.atan2(aim.z-c.z,aim.x-c.x);
   for(let r=12;r<46;r+=3)for(let a=0;a<6.28;a+=.35){const an=base+(a%2?a:-a)/2,x=snap(c.x+Math.cos(an)*r),z=snap(c.z+Math.sin(an)*r);if(canBuild(ME,x,z,k)&&!ME.towers.some(t=>Math.hypot(t.x-x,t.z-z)<6))return{x,z}}return null}
 function tutSteps(){
   const c1=castlePos(1),home0=castlePos(0),foeHere=()=>ME.units.filter(u=>u.from===1&&!u.done&&u.hp>0&&POP[u.type]);
-  const look=(x,z,d)=>{view.tx=x;view.tz=z;view.td=d};
+  const look=(x,z,d)=>{view.tx=x;view.tz=z+d*.22;view.td=d};
   const tower=(k,t,x)=>({t,x,tab:'d',go:()=>look(home0.x+25,home0.z,130),
     hint:()=>{if(build!==k)return{h:TL('Parlayan düğmeye bas.','Press the glowing button.'),g:`#gDef [data-k=${k}]`};const sp=tutFree(k);return{h:TL('Şimdi yeşil halkaya dokun.','Now tap the green ring.'),spot:sp}},
     done:()=>ME.towers.some(t=>t.type===k)});
@@ -2189,7 +2197,7 @@ function tutSteps(){
       return{h:TL('Parlayan Seç düğmesine bas, sonra parmağını sürükleyip askerlerinin etrafına kare çiz.','Press the glowing Select button, then drag a box round your soldiers.'),g:'#bSec',spot:RALLY[0]}},
     done:()=>!foeHere().length},
    {t:TL('Füze at','Fire a missile'),x:TL('Füze haritanın her yerine gider. Bir düşman birliğine dokunursan kilitlenir ve o kaçsa da peşinden gider. Sadece hava savunması düşürebilir.','A missile reaches anywhere on the map. Tap an enemy unit and it locks on and follows it even when it runs. Only air defense can stop it.'),tab:'a',
-    go:()=>look(c1.x-25,c1.z,170),
+    go:()=>look(c1.x-10,c1.z,140),
     hint:()=>{if(aim!=='fuze')return{h:TL('Parlayan Füze düğmesine bas.','Press the glowing Missile button.'),g:'#gAtk [data-k=fuze]'};const t=P[1].towers[0];return{h:TL('Şimdi yeşil halkadaki düşman kulesine dokun.','Now tap the enemy tower in the green ring.'),spot:t?{x:t.x,z:t.z}:c1}},
     done:()=>!!tutFlags.fuze},
    {t:TL('Tersane ve gemi','Shipyard and warship'),x:TL('Gemiler denizden saldırır: kıyıdaki kuleleri ve düşman gemilerini döver.','Ships attack from the sea: they shell coastal towers and enemy ships.'),
@@ -2214,7 +2222,7 @@ function tutSteps(){
 }
 function tutGlow(sel){for(const e of document.querySelectorAll('.tglow'))if(!sel||!e.matches(sel))e.classList.remove('tglow');if(sel)for(const e of document.querySelectorAll(sel))e.classList.add('tglow')}
 function tutShow(){const S=TS[tutI],p=$('tutP');if(!S)return;p.hidden=false;
-  $('tutN').textContent=`${tutI+1} / ${TS.length}`;$('tutT').textContent=(S.ok?'✓ ':'')+S.t;$('tutX').textContent=S.x;
+  $('tutN').textContent=`${tutI+1} / ${TS.length}`;$('tutT').textContent=(S.ok?'✓ ':'')+S.t;$('tutX').textContent=S.x;$('tutX').hidden=tutMini&&!S.info;$('tutM').textContent=tutMini?'▴':'▾';
   $('tutH2').textContent=S.ok?TL('Harika! Görev tamam.','Great! Job done.'):tutHint;$('tutH2').hidden=!S.ok&&!tutHint;
   $('tutB').disabled=tutI===0;const f=$('tutF');f.hidden=!(S.info||S.ok);f.textContent=S.last?TL('Bitir','Finish'):TL('İleri','Next');p.classList.toggle('ok',!!S.ok)}
 function tutGo(i){tutI=clamp(i,0,TS.length-1);const S=TS[tutI];S.ok=false;tutDone=0;tutHint='';setBuild(null);setAim(null);if(S.tab)tutTab(S.tab);if(S.go&&!S.went){S.went=true;try{S.go()}catch(e){oops(e)}}tutShow()}
@@ -2225,9 +2233,11 @@ function tutTick(dt){
   if(S.ok||S.info||!S.hint){tutSpot=null;tutGlow(null);if(S.info&&tutHint!==''){tutHint='';tutShow()}return}
   let h={};try{h=S.hint()||{}}catch(e){}tutSpot=h.spot||null;
   // the spot to tap must be on screen: bring the camera to it when it is not
-  if(tutSpot){vp.set(tutSpot.x,heightAt(tutSpot.x,tutSpot.z),tutSpot.z).project(camera);if(Math.abs(vp.x)>.8||vp.y>.75||vp.y<-.45||vp.z>1){if(h.look){view.tx=h.look[0];view.tz=h.look[1];view.td=h.look[2]}else{view.tx=tutSpot.x;view.tz=tutSpot.z}}}tutGlow(h.g||null);if((h.h||'')!==tutHint){tutHint=h.h||'';tutShow()}}
+  if(tutSpot){const key=Math.round(tutSpot.x/25)+','+Math.round(tutSpot.z/25)+':'+tutI;if(key!==tutKey&&now()-tutCamT>2500){tutKey=key;tutCamT=now();vp.set(tutSpot.x,heightAt(tutSpot.x,tutSpot.z),tutSpot.z).project(camera);
+    if(Math.abs(vp.x)>.75||vp.y>.8||vp.y<-.1||vp.z>1){const d=h.look?h.look[2]:Math.min(Math.max(view.td,110),150);view.tx=h.look?h.look[0]:tutSpot.x;view.tz=(h.look?h.look[1]:tutSpot.z)+d*.22;view.td=d}}}tutGlow(h.g||null);if((h.h||'')!==tutHint){tutHint=h.h||'';tutShow()}}
 function mkTut(){
-  tutSteps();$('tutB').onclick=()=>tutGo(tutI-1);
+  tutSteps();$('tutB').onclick=()=>tutGo(tutI-1);$('tutM').onclick=()=>{tutMini=!tutMini;tutShow()};
+  if(SMALL)tutMini=false;
   $('tutF').onclick=()=>{const S=TS[tutI];if(!S.info&&!S.ok)return;if(S.last){try{localStorage.setItem('cephe_egitim','1')}catch(e){}location.reload();return}tutGo(tutI+1)};
   // the dummy enemy holds a few towers to aim at
   const c=castlePos(1);P[1].money=500;for(const t of['ok','ok','top']){let done=false;for(let r=14;r<50&&!done;r+=3)for(let a=Math.PI*.6;a<Math.PI*1.4&&!done;a+=.25){const tw=addTower(P[1],t,Math.round(c.x+Math.cos(a)*r),Math.round(c.z+Math.sin(a)*r)*(t==='top'?1:(P[1].towers.length%2?1:-1)));if(tw){tw.bt=0;tw.mesh.sy=1;tw.mesh.tpl.dirty=true;done=true}}}

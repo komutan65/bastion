@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Dört Cephe</title>
 <script type="importmap">{"imports":{"three":"../three.min.js"}}</script>
-<link rel="stylesheet" href="lobby.css?v=20261108a">
+<link rel="stylesheet" href="lobby.css?v=20261108b">
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#0d1a26;color:#f0e8d6;font-family:Georgia,'Times New Roman',serif;touch-action:none;user-select:none;-webkit-user-select:none}
 #game,#ov{position:fixed;inset:0;width:100%;height:100%;display:block}
@@ -57,7 +57,7 @@ body.nohud #hud,body.nohud #ov{display:none}
 body.chatting #eye,body.chatting #ver{display:none}
 #tutP{position:absolute;left:50%;bottom:180px;transform:translateX(-50%);width:min(460px,94vw);box-sizing:border-box;pointer-events:auto;padding:10px 12px;background:rgba(18,26,40,.95);border:2px solid #ffd98a;border-radius:10px;font-size:14px;line-height:1.35}
 #tutP[hidden]{display:none}#tutP.ok{border-color:#9df0b4}#tutH{display:flex;justify-content:space-between;align-items:baseline;color:#ffd98a}#tutP.ok #tutH{color:#9df0b4}#tutN{font-size:12px;opacity:.75}
-#tutX{margin:6px 0 6px}#tutH2{margin:0 0 8px;padding:7px 9px;border-radius:7px;background:#ffd98a;color:#1a1206;font-weight:700;font-size:15px}
+#tutX{margin:0 0 8px;font-size:13px;opacity:.9}#tutX[hidden]{display:none}#tutM{padding:0 8px!important;margin-left:6px;font-size:14px}#tutH2{margin:6px 0 6px;padding:7px 9px;border-radius:7px;background:#ffd98a;color:#1a1206;font-weight:700;font-size:15px}
 #tutP.ok{background:rgba(22,96,52,.97);border-color:#9df0b4;border-width:3px;box-shadow:0 0 24px rgba(120,255,160,.7)}#tutP.ok #tutH2{background:#9df0b4;font-size:17px}#tutP.ok #tutH{color:#fff}
 .tglow{animation:tglow 1s ease-in-out infinite;border-color:#fff!important;position:relative;z-index:3}
 @keyframes tglow{0%,100%{box-shadow:0 0 4px 2px rgba(255,217,138,.6)}50%{box-shadow:0 0 18px 8px rgba(255,217,138,1);background:#b8862c;color:#1a1206}}#tutR{display:flex;justify-content:flex-end;gap:8px}#tutR button{padding:6px 14px}#tutF{background:#b8862c!important;color:#1a1206!important;border-color:#ffd98a!important}
@@ -106,7 +106,7 @@ body.chatting #eye,body.chatting #ver{display:none}
     <button id="setQuit"></button>
     <button id="setX" data-en="Close">Kapat</button></div>
   <div id="helpP" hidden><b data-en="How to play">Nasıl oynanır?</b><div id="helpT"></div><button id="helpX" data-en="Close">Kapat</button></div>
-  <div id="tutP" hidden><div id="tutH"><b id="tutT"></b><span id="tutN"></span></div><p id="tutX"></p><p id="tutH2"></p><div id="tutR"><button id="tutB" data-en="Back">Geri</button><button id="tutF"></button></div></div>
+  <div id="tutP" hidden><div id="tutH"><b id="tutT"></b><span><span id="tutN"></span> <button id="tutM" aria-label="Küçült">▾</button></span></div><p id="tutH2"></p><p id="tutX"></p><div id="tutR"><button id="tutB" data-en="Back">Geri</button><button id="tutF"></button></div></div>
   <div id="chatP" hidden><button id="chatX" aria-label="Kapat">✕</button><div id="chatLog"></div><div id="chatRow"><select id="chatTo"></select><input id="chatIn" maxlength="120" autocomplete="off" enterkeyhint="send"><button id="chatGo" data-en="Send">Gönder</button></div></div>
   <div id="ask" hidden><span id="askT"></span><button id="askY" data-en="Accept">Kabul</button><button id="askN" data-en="Decline">Reddet</button></div>
   <div id="sel" hidden><button id="bUp"></button><button id="bSell"></button></div>
@@ -119,7 +119,7 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div>
 <button id="eye" title="Ekranı gizle" aria-label="Ekranı gizle" hidden>👁</button>
 
-<div id="ver" data-en="Version 11">Sürüm 11</div>
+<div id="ver" data-en="Version 11.1">Sürüm 11.1</div>
 <div id="lobby"><div class="lbox">
   <h1 data-en="FOUR FRONTS">DÖRT CEPHE</h1>
   <div id="lLang"><button data-l="tr">Türkçe</button><button data-l="en">English</button></div>
@@ -151,6 +151,6 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div></div>
 <div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go" data-en="New match">Yeni maç</button><button id="aeWatch" data-en="Watch the match">Maçı izle</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="lobby.js?v=20261108a"></script>
+<script src="lobby.js?v=20261108b"></script>
 </body>
 </html>
