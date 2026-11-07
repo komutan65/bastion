@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261107i';
+import {SES} from './ses.js?v=20261107j';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -331,7 +331,6 @@ function sendUnit(D,to,type,o){
   if(UNITS[type].yol==='kara'&&!(o&&o.via)&&!landRoute(D.seat,to,0))return false;
   if(!built&&R.units.length+R.remote.size>150)return false;
   if(type==='ucak'&&!built&&D.rwState!==2)return false;
-  if(type==='ucak'&&!built&&D===ME){if(D.hg)return false;D.money-=U.cost;D.hg={t:PLANE_T,T:PLANE_T};return true}   // a player's bomber is built, then waits on the runway for orders
   if((type==='denizalti'||type==='gemi')&&!built){if(D.yard||D.ysState!==2||(type==='gemi'&&fleet(D.seat)>=MAX_SHIPS))return false;D.money-=U.cost;D.yard={type,to,t:BUILD_T[type],T:BUILD_T[type]};return true}
   if(!built)D.money-=U.cost;
   if(local(R))spawn(R,type,D.seat,o);else say('send',{to,from:D.seat,type,o});
@@ -363,7 +362,7 @@ function spawn(R,type,from,o){
 }
 // ---------- orders ----------
 // soldiers, riders, balloons, ships and submarines can be picked out and sent along a drawn line
-const CMDABLE=new Set(['piyade','atli','koc','balon','denizalti','gemi','dalgic','ucak']);
+const CMDABLE=new Set(['piyade','atli','koc','balon','denizalti','gemi','dalgic']);
 const naval=t=>t==='gemi'||t==='denizalti';
 function landNear(x,z,r){let best=null,bd=1e9;for(let a=0;a<6.28;a+=.2)for(let k=3;k<=r;k+=2){const X=x+Math.cos(a)*k,Z=z+Math.sin(a)*k;if(shoreOf(X,Z)>WL+2){if(k<bd){bd=k;best={x:X,z:Z}}break}}return best}
 function setRoute(u,D,pts){
@@ -760,7 +759,7 @@ function connect(){
 // ---------- scene ----------
 const cv=$("game"),ov=$('ov'),oc=ov.getContext('2d');
 const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,powerPreference:'high-performance'});
-let DPR=Math.min(Math.min(innerWidth,innerHeight)<700?1.6:2,devicePixelRatio||1);const DPR0=DPR;renderer.setPixelRatio(DPR);
+let DPR=Math.min(Math.min(innerWidth,innerHeight)<700?1.35:2,devicePixelRatio||1);const DPR0=DPR;renderer.setPixelRatio(DPR);
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;
 const scene=new THREE.Scene();const SKY=new THREE.Color('#9fc9e4');scene.background=SKY;scene.fog=new THREE.Fog(SKY,430,1250);
@@ -1437,12 +1436,12 @@ function spritePool(tex,cap,additive){
       #include <colorspace_fragment>
       }`});
   const m=new THREE.Mesh(geo,mat);m.frustumCulled=false;m.renderOrder=additive?4:3;scene.add(m);
-  return{list:[],cap,geo,P3,C4,S2};
+  return{list:[],cap,lim:cap,geo,P3,C4,S2};
 }
 const SMOKE=spritePool(smokeTex(),small?260:450,false),FIRE=spritePool(fireTex(),small?120:240,true);
-function puff(x,y,z,size,life,grey,vy=2.6,spread=1){if(SMOKE.list.length>=SMOKE.cap)SMOKE.list.shift();
+function puff(x,y,z,size,life,grey,vy=2.6,spread=1){if(SMOKE.list.length>=SMOKE.lim){if(SMOKE.lim<SMOKE.cap)return;SMOKE.list.shift()}
   SMOKE.list.push({x,y,z,vx:(Math.random()-.5)*spread*2+.6,vy:vy*(.6+Math.random()*.6),vz:(Math.random()-.5)*spread*2+.25,t:0,l:life*(.75+Math.random()*.5),s:size*(.7+Math.random()*.5),g:size*(1.2+Math.random()),r:Math.random()*6.28,w:(Math.random()-.5)*.6,c:grey})}
-function flame(x,y,z,size,life,vx=0,vy=0,vz=0){if(FIRE.list.length>=FIRE.cap)FIRE.list.shift();FIRE.list.push({x,y,z,vx,vy,vz,t:0,l:life*(.8+Math.random()*.4),s:size*(.8+Math.random()*.4),r:Math.random()*6.28})}
+function flame(x,y,z,size,life,vx=0,vy=0,vz=0){if(FIRE.list.length>=FIRE.lim){if(FIRE.lim<FIRE.cap)return;FIRE.list.shift()}FIRE.list.push({x,y,z,vx,vy,vz,t:0,l:life*(.8+Math.random()*.4),s:size*(.8+Math.random()*.4),r:Math.random()*6.28})}
 function drawSprites(dt){
   LIGHT_V.copy(SUN_DIR).transformDirection(camera.matrixWorldInverse);
   {const L0=SMOKE.list;let k=0;for(let i=L0.length-1;i>=0;i--){const p=L0[i];p.t+=dt;if(p.t>=p.l){L0.splice(i,1);continue}}
@@ -1783,14 +1782,13 @@ function mkHud(){
   {const b=document.createElement('button');b.id='bTersane';b.title=TL('Limana tersane kurar. Gemi ve denizaltı yapmak için gerekir.','Builds a shipyard at your dock. Needed for ships and submarines.');b.onclick=()=>{if(ME.ysState===2){tip(TL('Tersane hazır','Shipyard ready'));return}if(ME.ysState===1){tip(TL('Tersane yapılıyor','Shipyard under construction'));return}if(buildYard(ME)){tip((EN?`Building shipyard: ${YARD_T} s`:`Tersane yapılıyor: ${YARD_T} sn`));view.tx=DOCK[ME.seat].land.x;view.tz=DOCK[ME.seat].land.z;view.td=Math.min(view.td,110)}else tip(TL('Paran yetmiyor','Not enough gold'))};$('gDef').append(b)}
   {const b=document.createElement('button');b.id='bPist';b.title=TL('Üssündeki ayrılmış alana pist yapar. Uçak göndermek için gerekir.','Builds a runway on your reserved strip. Needed to send planes.');b.onclick=()=>{if(!RWY[ME.seat]){tip(TL('Bu üste pist alanı yok','This base has no runway site'));return}if(ME.rwState===2){tip(TL('Pist hazır','Runway ready'));return}if(ME.rwState===1){tip(TL('Pist yapılıyor','Runway under construction'));return}if(buildRunway(ME)){tip((EN?`Building runway: ${RUNWAY_T} s`:`Pist yapılıyor: ${RUNWAY_T} sn`));view.tx=RWY[ME.seat].c.x;view.tz=RWY[ME.seat].c.z;view.td=Math.min(view.td,120)}else tip(TL('Paran yetmiyor','Not enough gold'))};$('gDef').append(b)}
   for(const k of BUY){const b=document.createElement('button');b.dataset.k=k;b.innerHTML=(EN?`${UNITS[k].kisa||UNITS[k].ad.split(' ').pop()}<small>${UNITS[k].cost} gold</small>`:`${UNITS[k].kisa||UNITS[k].ad.split(' ').pop()}<small>${UNITS[k].cost} para</small>`);
-    b.title=k==='gemi'?TL('Tersanede 20 saniyede yapılır, sonra limanda bekler. Gemiye dokunup yol çiz: düşmana dokunursan oraya menzili yetince ateş eder, boş denize dokunursan orada bekler. Düşman gemisini görünce savaşır.','Built in the shipyard in 20 s, then waits at the dock. Tap it and draw a path: tap an enemy to shell it once in range, or open sea to wait there. Fights enemy ships it meets.'):k==='ucak'?TL('12 saniyede yapılır, pistte bekler. Uçağa dokunup düşman üssünün üstünden geçen bir yol çiz: tam üssün üstündeyken bombalar, sonra döner.','Built in 12 s, then waits on the runway. Tap it and draw a line across an enemy base: it bombs right over the base, then flies home.'):{deniz:TL('Tersanede 16 saniyede hazırlanır. Denizden dolanır, üssün arkasından taramalı silahlı 10 balık adam çıkarır.','Ready in the shipyard in 16 s. Sails around and lands 10 armed frogmen behind the base.'),kara:TL('Yoldan gider. Rota çizersen o yoldan gider.','Follows the road, or your drawn route.'),su:TL('Sudan kestirme gider. Rota çizersen o yoldan gider.','Takes a shortcut through water, or your drawn route.'),hava:TL('Uçar, kuleleri bombalar. Düşerken düştüğü yere hasar verir.','Flies over and bombs towers. Damages where it crashes.'),fuze:TL('Haritada seçtiğin yere gider. Sadece hava savunması düşürür.','Flies to the spot you pick. Only air defense can stop it.')}[UNITS[k].yol];
+    b.title=k==='gemi'?TL('Tersanede 20 saniyede yapılır, sonra limanda bekler. Gemiye dokunup yol çiz: düşmana dokunursan oraya menzili yetince ateş eder, boş denize dokunursan orada bekler. Düşman gemisini görünce savaşır.','Built in the shipyard in 20 s, then waits at the dock. Tap it and draw a path: tap an enemy to shell it once in range, or open sea to wait there. Fights enemy ships it meets.'):k==='ucak'?TL('Pistten kalkar, hedef üssün üstünden sıra sıra bomba bırakır, sonra döner. Hava savunması ve roket rampası vurur.','Takes off from the runway, carpet-bombs the target base, then returns. Air defense and rockets can hit it.'):{deniz:TL('Tersanede 16 saniyede hazırlanır. Denizden dolanır, üssün arkasından taramalı silahlı 10 balık adam çıkarır.','Ready in the shipyard in 16 s. Sails around and lands 10 armed frogmen behind the base.'),kara:TL('Yoldan gider. Rota çizersen o yoldan gider.','Follows the road, or your drawn route.'),su:TL('Sudan kestirme gider. Rota çizersen o yoldan gider.','Takes a shortcut through water, or your drawn route.'),hava:TL('Uçar, kuleleri bombalar. Düşerken düştüğü yere hasar verir.','Flies over and bombs towers. Damages where it crashes.'),fuze:TL('Haritada seçtiğin yere gider. Sadece hava savunması düşürür.','Flies to the spot you pick. Only air defense can stop it.')}[UNITS[k].yol];
     b.onclick=()=>{if(k==='fuze'){setAim(aim==='fuze'?null:'fuze');return}
       const to=liveTarget();if(to==null)return;if(allied(ME.seat,to)){tip(TL('Müttefikine saldıramazsın',"You can't attack an ally"));return}
       if(UNITS[k].yol==='kara'&&!route&&!landRoute(ME.seat,to,0)){tip(TL('Orta meydan yıkık. Köprü kur ya da Köprü aracıyla meydanı onar.','The plaza is down. Build a bridge or repair the plaza with the Bridge tool.'));return}
       if(k==='denizalti'||k==='gemi'){if(ME.ysState!==2){tip(ME.ysState===1?TL('Tersane yapılıyor, biraz bekle','Shipyard is being built, wait a bit'):TL('Önce tersane yap (Savunma → Tersane)','Build a shipyard first (Defense → Shipyard)'));return}if(k==='gemi'&&fleet(ME.seat)>=MAX_SHIPS){tip(EN?`At most ${MAX_SHIPS} warships at a time`:`Sahada en fazla ${MAX_SHIPS} gemi olabilir`);return}if(ME.yard){tip(TL('Tersane meşgul','Shipyard busy'));return}if(sendUnit(ME,to,k)){tip((EN?`${UNITS[k].kisa||UNITS[k].ad} in the shipyard: ${BUILD_T[k]} s`:`${UNITS[k].kisa||UNITS[k].ad} tersanede yapılıyor: ${BUILD_T[k]} sn`));view.tx=DOCK[ME.seat].land.x;view.tz=DOCK[ME.seat].land.z;view.td=Math.min(view.td,110)}else tip(TL('Paran yetmiyor','Not enough gold'));return}
       if(k==='ucak'&&ME.rwState!==2){tip(RWY[ME.seat]?(ME.rwState===1?TL('Pist yapılıyor, biraz bekle','Runway is being built, wait a bit'):TL('Önce pist yap (Savunma → Pist)','Build a runway first (Defense → Runway)')):TL('Bu üste pist alanı yok','This base has no runway site'));return}
-      if(k==='ucak'){if(ME.hg){tip(TL('Uçak yapılıyor, biraz bekle','A bomber is being built, wait a bit'));return}if(sendUnit(ME,to,'ucak'))tip(EN?`Building a bomber: ${PLANE_T} s. You'll be told when it's ready.`:`Uçak yapılıyor: ${PLANE_T} sn. Hazır olunca haber vereceğim.`);else tip(TL('Paran yetmiyor','Not enough gold'));return}
-      if(!sendUnit(ME,to,k,UNITS[k].yol==='kara'||k==='atli'?routeFor(k,to):k==='ucak'&&route?{via:route.slice(0,48).map(p=>[Math.round(p.x),Math.round(p.z)])}:undefined))tip(TL('Paran yetmiyor','Not enough gold'));else tip(`${UNITS[k].ad} → ${P[to].name}`)};$('gAtk').append(b)}
+      if(!sendUnit(ME,to,k,UNITS[k].yol==='kara'||k==='atli'?routeFor(k,to):undefined))tip(TL('Paran yetmiyor','Not enough gold'));else tip(`${UNITS[k].ad} → ${P[to].name}`)};$('gAtk').append(b)}
   {const b=document.createElement('button');b.id='bSec';b.title=TL('Sahadaki birliklerini kareyle seç, sonra yol çizerek götür. Kısayol: haritaya çift dokunup sürükle.','Box-select your units in the field, then drag a path to lead them. Shortcut: double-tap the map and drag.');b.innerHTML=TL('Seç<small>birlik</small>','Select<small>units</small>');b.onclick=()=>setAim(aim==='sec'?null:'sec');$('gAtk').append(b)}
   {const b=document.createElement('button');b.id='bRota';b.title=TL('Askerlerin ve atlıların gideceği yolu haritaya çiz','Draw the path for troops and riders');b.innerHTML=TL('Rota çiz<small>asker</small>','Draw route<small>troops</small>');b.onclick=()=>{if(aim==='rota')setAim(null);else if(route){route=null;setAim(null);tip(TL('Rota silindi','Route cleared'))}else setAim('rota')};$('gAtk').append(b)}
   for(const D of P){if(!D.on||D===ME)continue;const b=document.createElement('button');b.dataset.s=D.seat;b.textContent=D.name;b.style.borderBottom='4px solid '+TEAM[D.seat];b.onclick=()=>setTarget(D.seat);$('gTgt').append(b)}
@@ -1881,7 +1879,7 @@ function drawOverlay(){
 
 // ---------- main ----------
 const now=()=>performance.now();
-let ambAcc=0,lastSim=now(),snapAcc=0,hudAcc=0,lastF=now(),fps=60,slow=0,fast=0,ups=0;
+let lowT=0,hiT=0,ambAcc=0,lastSim=now(),snapAcc=0,hudAcc=0,lastF=now(),fps=60,slow=0,fast=0,ups=0;
 setInterval(()=>{           // runs even when the tab is in the background
   const t=now(),dt=Math.min(1,(t-lastSim)/1000);lastSim=t;
   try{for(let r=dt;r>0;r-=.05)sim(Math.min(r,.05))}catch(e){oops(e)}
@@ -1893,7 +1891,11 @@ function frame(t){requestAnimationFrame(frame);try{frameBody(t)}catch(e){oops(e)
 function frameBody(t){
   const dt=Math.min(.1,(t-lastF)/1000);lastF=t;fps=lerp(fps,1/Math.max(dt,.001),.05);
   slow=fps<24?slow+dt:0;fast=fps>55?fast+dt:0;
-  if(slow>5&&DPR>1.1){DPR=Math.max(1,DPR-.2);renderer.setPixelRatio(DPR);size();slow=0;fast=0}
+  // when the frame rate sags, smoke and fire are the first to thin out, so a phone never chokes on a big blast
+  lowT=fps<26?lowT+dt:0;hiT=fps>42?hiT+dt:0;
+  if(lowT>.8){lowT=0;for(const S of[SMOKE,FIRE]){S.lim=Math.max(30,Math.floor(S.lim*.6));if(S.list.length>S.lim)S.list.splice(0,S.list.length-S.lim)}}
+  else if(hiT>3){hiT=0;for(const S of[SMOKE,FIRE])S.lim=Math.min(S.cap,Math.ceil(S.lim*1.2))}
+  if(slow>4&&DPR>.95){DPR=Math.max(small?.85:1,DPR-.2);renderer.setPixelRatio(DPR);size();slow=0;fast=0}
   else if(fast>15&&DPR<DPR0&&ups<2){ups++;DPR=Math.min(DPR0,DPR+.2);renderer.setPixelRatio(DPR);size();fast=0}
   const p=view.d*dt*1.1;
   if(keys.has('a')||keys.has('arrowleft'))view.tx-=p;if(keys.has('d')||keys.has('arrowright'))view.tx+=p;
