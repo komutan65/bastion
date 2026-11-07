@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261107j';
+import {SES} from './ses.js?v=20261107k';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -841,13 +841,14 @@ function buildOuter(){                 // one seamless sheet from the sea floor 
   geo.setAttribute('aSand',new THREE.BufferAttribute(sa,1));geo.setAttribute('aSea',new THREE.BufferAttribute(se,1));geo.computeVertexNormals();geo.computeBoundingSphere();
   const m=new THREE.Mesh(geo,terrainMat());m.position.y=-.02;m.receiveShadow=true;scene.add(m);
 }
+// one random value per texel; read with a smoothed coordinate it gives the same soft value noise as hashing, at a fraction of the cost
+function noiseTex(){const N=256,d=new Uint8Array(N*N*4);for(let i=0;i<N*N;i++){d[i*4]=Math.random()*256|0;d[i*4+3]=255}const t=new THREE.DataTexture(d,N,N);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=t.minFilter=THREE.LinearFilter;t.generateMipmaps=false;t.needsUpdate=true;return t}
 function buildWater(){
-  waterU.bk={value:bankTex()};
+  waterU.bk={value:bankTex()};waterU.nz={value:noiseTex()};
   const m=new THREE.Mesh(new THREE.PlaneGeometry(SEA*2,SEA*2).rotateX(-Math.PI/2),new THREE.ShaderMaterial({uniforms:waterU,transparent:true,
     vertexShader:'varying vec3 w;void main(){vec4 v=modelMatrix*vec4(position,1.);w=v.xyz;gl_Position=projectionMatrix*viewMatrix*v;}',
-    fragmentShader:`precision highp float;varying vec3 w;uniform float t;uniform vec3 fogC,sun;uniform sampler2D bk;uniform float pr;
-      float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-      float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
+    fragmentShader:`precision highp float;varying vec3 w;uniform float t;uniform vec3 fogC,sun;uniform sampler2D bk,nz;uniform float pr;
+      float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return texture2D(nz,(i+f+.5)/256.).r;}
       float wave(vec2 p){float a=0.,s=.5;mat2 r=mat2(.8,.6,-.6,.8);for(int i=0;i<4;i++){a+=s*n(p);p=r*p*2.03+vec2(t*.35,-t*.22);s*=.5;}return a;}
       float wave3(vec2 p){float a=0.,s=.5;mat2 r=mat2(.8,.6,-.6,.8);for(int i=0;i<3;i++){a+=s*n(p);p=r*p*2.03+vec2(t*.35,-t*.22);s*=.5;}return a+.0625;}
       vec2 fdir(vec2 q){            // the rivers run outward; past the mouths the sea only drifts, so nothing swirls
@@ -1887,7 +1888,9 @@ setInterval(()=>{           // runs even when the tab is in the background
 },33);
 // a fault anywhere must never stop the game: note it, show it briefly, and carry on
 let oopsT=0;function oops(e){console.error(e);const t=performance.now();if(t-oopsT>8000){oopsT=t;try{tip(TL('Hata (bunu Claude\'a gönder): ','Error (send this to Claude): ')+String(e&&e.message||e).slice(0,90))}catch(_){}}}
-function frame(t){requestAnimationFrame(frame);try{frameBody(t)}catch(e){oops(e)}}
+// at most ~60 frames a second, even on 120-144 Hz screens: twice the work there buys nothing you can see
+let lastDraw=0,fno=0;const sunAt=new THREE.Vector3();
+function frame(t){requestAnimationFrame(frame);if(t-lastDraw<12)return;lastDraw=t;try{frameBody(t)}catch(e){oops(e)}}
 function frameBody(t){
   const dt=Math.min(.1,(t-lastF)/1000);lastF=t;fps=lerp(fps,1/Math.max(dt,.001),.05);
   slow=fps<24?slow+dt:0;fast=fps>55?fast+dt:0;
@@ -1905,13 +1908,15 @@ function frameBody(t){
   for(let i=marks.length-1;i>=0;i--){marks[i].t-=dt;if(marks[i].t<=0)marks.splice(i,1)}
   ambAcc+=dt;if(ambAcc>.3){ambAcc=0;ambience()}
   waterU.t.value=t/1000;if(waterM)waterM.position.y=Math.sin(t/1400)*.06;applyCam(dt);drawUnits(dt);drawFx(dt);drawRipples(dt);
+  // shadows are redrawn every other frame, and at once whenever the view moves, so they never lag visibly
+  fno++;{const moved=!sunAt.equals(sun.target.position);sunAt.copy(sun.target.position);sun.shadow.needsUpdate=moved||fno%2===0}
   renderer.render(scene,camera);drawOverlay();
   hudAcc+=dt;if(hudAcc>.15){hudAcc=0;drawHud()}
   tipT-=dt;if(tipT<=0&&!$('tip').hidden)$('tip').hidden=true;
 }
 buildGround();buildOuter();buildWater();buildBridges();buildForest();buildDetail();buildUnits();buildSites();P.forEach(D=>{if(D.on)buildCastle(D.seat)});
 size();mkHud();connect();applyCam(1);
-sun.shadow.autoUpdate=true;
+sun.shadow.autoUpdate=false;sun.shadow.needsUpdate=true;
 // draw every kind of object once, out of sight, so no shader is ever built in the middle of a fight
 (function warmUp(){
   for(const k in TOWERS)for(let l=1;l<=3;l++)towerTpl(k,l);for(const k in PROPM)fallPool(k);
