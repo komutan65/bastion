@@ -56,7 +56,7 @@ async function enter(m){
   try{if(ch){await ch.untrack();sb.removeChannel(ch)}}catch(e){}
   window.ARENA={seat,id,room:String(m.room),players:m.players,sb,duel:!!m.duel};
   $('lStatus').textContent=L('Harita hazırlanıyor…','Preparing the map…');
-  try{await import('./oyun.js?v=20261107d');$('lobby').hidden=true}
+  try{await import('./oyun.js?v=20261107e');$('lobby').hidden=true}
   catch(e){console.error(e);err(L('Oyun yüklenemedi. Sayfayı yenile.','The game failed to load. Refresh the page.'))}
 }
 function join(name){
