@@ -5,7 +5,9 @@ const SB_URL='https://nddrlxchgftfkatvjars.supabase.co',SB_KEY='sb_publishable_U
 const FILL_MS=20000;let MAXP=4;
 const $=id=>document.getElementById(id);
 const sb=(window.ARENA_TEST&&window.ARENA_TEST.client)||window.supabase.createClient(SB_URL,SB_KEY,{realtime:{params:{eventsPerSecond:20}}});
-const id=Math.random().toString(36).slice(2,12);
+// a new match picked from the in-game settings comes back here and starts straight away, same players, same ids
+let AUTO=null;try{AUTO=JSON.parse(sessionStorage.getItem('cephe_auto')||'null');sessionStorage.removeItem('cephe_auto')}catch(e){}
+const id=AUTO&&typeof AUTO.id==='string'?AUTO.id:Math.random().toString(36).slice(2,12);
 const Q=new URLSearchParams(location.search),invite=Q.get('oda');
 let duel=Q.get('m')==='2';
 let ch=null,joinedAt=0,timer=null,started=false,code=null,host=false,lookT=0;
@@ -59,7 +61,7 @@ async function enter(m){
   try{if(ch){await ch.untrack();sb.removeChannel(ch)}}catch(e){}
   window.ARENA={seat,id,room:String(m.room),players:m.players,sb,duel:!!m.duel,tutorial:!!m.tutorial};
   $('lStatus').textContent=L('Harita hazırlanıyor…','Preparing the map…');
-  try{await import('./oyun.js?v=20261107r');$('lobby').hidden=true}
+  try{await import('./oyun.js?v=20261108a');$('lobby').hidden=true}
   catch(e){console.error(e);err(L('Oyun yüklenemedi. Sayfayı yenile.','The game failed to load. Refresh the page.'))}
 }
 function join(name){
@@ -120,5 +122,6 @@ function setMode(d){
 $('m4').onclick=()=>setMode(false);$('m2').onclick=()=>setMode(true);
 for(const b of document.querySelectorAll('#lLang button'))b.onclick=()=>{LANG=b.dataset.l;try{localStorage.setItem('cephe_dil',LANG)}catch(e){}applyLang()};
 applyLang();
-if(invite&&/^[a-zA-Z0-9]{4,12}$/.test(invite)){$('lHome').hidden=true;$('lMode').hidden=true;$('lFriends').hidden=false;$('lCode').value=invite.toUpperCase()}
+if(AUTO&&AUTO.m){$('lHome').hidden=true;$('lMode').hidden=true;$('lQueue').hidden=false;$('lCancel').hidden=true;enter(AUTO.m)}
+else if(invite&&/^[a-zA-Z0-9]{4,12}$/.test(invite)){$('lHome').hidden=true;$('lMode').hidden=true;$('lFriends').hidden=false;$('lCode').value=invite.toUpperCase()}
 })();

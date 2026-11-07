@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Dört Cephe</title>
 <script type="importmap">{"imports":{"three":"../three.min.js"}}</script>
-<link rel="stylesheet" href="lobby.css?v=20261107r">
+<link rel="stylesheet" href="lobby.css?v=20261108a">
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#0d1a26;color:#f0e8d6;font-family:Georgia,'Times New Roman',serif;touch-action:none;user-select:none;-webkit-user-select:none}
 #game,#ov{position:fixed;inset:0;width:100%;height:100%;display:block}
@@ -46,7 +46,7 @@ body.nohud #hud,body.nohud #ov{display:none}
 .rrow{display:flex;align-items:center;gap:6px}.rrow .rn{flex:1}.rrow b{min-width:52px;text-align:center;font-variant-numeric:tabular-nums}.rrow button{padding:4px 9px}.rrow.none{opacity:.4}
 .rfoot{display:flex;gap:6px;justify-content:flex-end;margin-top:3px}.rfoot button{padding:6px 10px}#rallyP .rfoot .go{background:#2f7a4c;border-color:#9df0b4}
 #laneBar{position:absolute;left:50%;top:calc(52px + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;gap:7px;align-items:center;padding:8px 12px;border-radius:8px;background:rgba(40,40,80,.95);border:2px solid #ffd98a;font-size:15px;font-weight:700;pointer-events:auto;white-space:nowrap}
-#laneBar button{padding:6px 11px}
+#laneBar button{padding:6px 11px;min-width:34px}
 #chatB{position:relative}#chatB i{position:absolute;right:-4px;top:-5px;min-width:15px;height:15px;border-radius:8px;background:#e04a3a;color:#fff;font:700 10px/15px sans-serif;font-style:normal;text-align:center}
 #chatP{position:absolute;left:50%;top:calc(8px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(360px,92vw);pointer-events:auto;display:flex;flex-direction:column;gap:6px;padding:8px;background:rgba(14,20,28,.94);border:1px solid #7f8fa0;border-radius:9px;z-index:8}
 #chatLog{max-height:30vh;overflow-y:auto;font:13px/1.35 system-ui,sans-serif;display:flex;flex-direction:column;gap:2px;user-select:text;-webkit-user-select:text}
@@ -54,10 +54,18 @@ body.nohud #hud,body.nohud #ov{display:none}
 #chatRow{display:flex;gap:5px}#chatRow select{max-width:34%;font:13px system-ui,sans-serif;border-radius:6px;background:#1d2733;color:#f0e8d6;border:1px solid #7f8fa0}
 #chatIn{flex:1;min-width:0;font:15px system-ui,sans-serif;padding:6px 8px;border-radius:6px;border:1px solid #7f8fa0;background:#0f161e;color:#fff;user-select:text;-webkit-user-select:text}
 #chatRow button{padding:5px 10px}#chatX{position:absolute;right:6px;top:6px;padding:2px 8px;z-index:1}#chatLog{padding-right:30px}
-body.chatting #eye{display:none}
+body.chatting #eye,body.chatting #ver{display:none}
 #tutP{position:absolute;left:50%;bottom:180px;transform:translateX(-50%);width:min(460px,94vw);box-sizing:border-box;pointer-events:auto;padding:10px 12px;background:rgba(18,26,40,.95);border:2px solid #ffd98a;border-radius:10px;font-size:14px;line-height:1.35}
 #tutP[hidden]{display:none}#tutP.ok{border-color:#9df0b4}#tutH{display:flex;justify-content:space-between;align-items:baseline;color:#ffd98a}#tutP.ok #tutH{color:#9df0b4}#tutN{font-size:12px;opacity:.75}
-#tutX{margin:6px 0 8px}#tutR{display:flex;justify-content:flex-end;gap:8px}#tutR button{padding:6px 14px}#tutF{background:#b8862c!important;color:#1a1206!important;border-color:#ffd98a!important}
+#tutX{margin:6px 0 6px}#tutH2{margin:0 0 8px;padding:7px 9px;border-radius:7px;background:#ffd98a;color:#1a1206;font-weight:700;font-size:15px}
+#tutP.ok{background:rgba(22,96,52,.97);border-color:#9df0b4;border-width:3px;box-shadow:0 0 24px rgba(120,255,160,.7)}#tutP.ok #tutH2{background:#9df0b4;font-size:17px}#tutP.ok #tutH{color:#fff}
+.tglow{animation:tglow 1s ease-in-out infinite;border-color:#fff!important;position:relative;z-index:3}
+@keyframes tglow{0%,100%{box-shadow:0 0 4px 2px rgba(255,217,138,.6)}50%{box-shadow:0 0 18px 8px rgba(255,217,138,1);background:#b8862c;color:#1a1206}}#tutR{display:flex;justify-content:flex-end;gap:8px}#tutR button{padding:6px 14px}#tutF{background:#b8862c!important;color:#1a1206!important;border-color:#ffd98a!important}
+#setP,#helpP{position:absolute;right:8px;top:calc(8px + env(safe-area-inset-top,0px));z-index:9;pointer-events:auto;display:flex;flex-direction:column;gap:7px;padding:12px;width:min(300px,90vw);box-sizing:border-box;background:rgba(14,20,28,.96);border:1px solid #ffd98a;border-radius:10px;font-size:14px}
+#setP[hidden],#helpP[hidden]{display:none}#setP>b,#helpP>b{color:#ffd98a;font-size:16px}#setP button,#helpP button{padding:8px 10px}
+.srow{display:flex;gap:4px;align-items:center;flex-wrap:wrap}.srow span{width:100%;font-size:12px;opacity:.8}.srow button{flex:1;padding:6px 4px!important;font-size:12px!important}
+#helpP{width:min(420px,94vw);max-height:80vh}#helpT{overflow-y:auto;display:flex;flex-direction:column;gap:6px;font:13px/1.4 system-ui,sans-serif}#helpT b{color:#ffd98a}
+#setB{background:#3a2d12!important;border-color:#ffd98a!important}
 #ver{position:fixed;right:8px;top:calc(106px + env(safe-area-inset-top,0px));font:11px Georgia,serif;color:#fff;opacity:.6;text-shadow:0 1px 2px #000;pointer-events:none;z-index:7}
 @media(max-width:760px){
   #rivals{width:104px;font-size:11px}#rivals button{padding:2px 5px}#money{font-size:16px;padding:4px 9px}#rivals{top:calc(42px + env(safe-area-inset-top,0px))}
@@ -70,6 +78,8 @@ body.chatting #eye{display:none}
   #tools button{padding:3px 6px;font-size:10px}
   #cmdBar{font-size:12px;padding:6px 8px;gap:5px}
   #aimBar,#ask{font-size:13px;padding:7px 9px;max-width:92vw;white-space:normal}
+  #cmdBar,#laneBar,#aimBar,#ask{left:8px;right:8px;transform:none;justify-content:center;flex-wrap:wrap}#cmdTxt{flex:1 1 100%;text-align:center}
+  #laneBar{gap:4px;padding:6px 7px;font-size:13px}#laneBar button{padding:6px 8px;min-width:30px}
   #eye{width:36px;height:36px;font-size:15px;bottom:auto;top:calc(104px + env(safe-area-inset-top,0px))}
   #ver{top:calc(144px + env(safe-area-inset-top,0px))}
   #rallyP{font-size:13px;padding:8px}
@@ -83,12 +93,20 @@ body.chatting #eye{display:none}
   <div id="rivals"></div>
   <div id="tip" hidden></div>
   <div id="sesP" hidden></div>
-  <div id="tools"><button id="chatB" data-en="Chat">Sohbet</button><button id="bSes" data-en="Sound">Ses</button><button id="bHome" data-en="My base">Üssüm</button><button id="bAll" data-en="Whole map">Tüm harita</button></div>
+  <div id="tools"><button id="setB" data-en="⚙ Settings">⚙ Ayarlar</button><button id="chatB" data-en="Chat">Sohbet</button><button id="bSes" data-en="Sound">Ses</button><button id="bHome" data-en="My base">Üssüm</button><button id="bAll" data-en="Whole map">Tüm harita</button></div>
   <div id="aimBar" hidden><span id="aimTxt"></span><button id="aimX" data-en="Cancel">Vazgeç</button></div>
   <div id="cmdBar" hidden><span id="cmdTxt"></span><button id="cmdHome" data-en="To muster">Birliğe dön</button><button id="cmdHold" data-en="Hold">Bekle</button><button id="cmdX" data-en="Release">Bırak</button></div>
-  <div id="laneBar" hidden><span data-en="Bombing run:">Bombalama hattı:</span><button data-l="0" data-en="Top">Üst</button><button data-l="1" data-en="Middle">Orta</button><button data-l="2" data-en="Bottom">Alt</button><button id="laneX" data-en="Cancel">Vazgeç</button></div>
+  <div id="laneBar" hidden><span data-en="Run:">Hat:</span><button data-l="0">1</button><button data-l="1">2</button><button data-l="2">3</button><button data-l="3">4</button><button data-l="4">5</button><button data-l="5">6</button><button id="laneX" data-en="Cancel">Vazgeç</button></div>
   <div id="rallyP" hidden></div>
-  <div id="tutP" hidden><div id="tutH"><b id="tutT"></b><span id="tutN"></span></div><p id="tutX"></p><div id="tutR"><button id="tutB" data-en="Back">Geri</button><button id="tutF"></button></div></div>
+  <div id="setP" hidden><b data-en="Settings">Ayarlar</b>
+    <button id="setNew"></button>
+    <button id="setSes" data-en="Sounds">Sesler</button>
+    <div class="srow"><span data-en="Picture:">Görüntü:</span><button data-g="yuksek" data-en="High">Yüksek</button><button data-g="dengeli" data-en="Balanced">Dengeli</button><button data-g="pil" data-en="Battery saver">Pil dostu</button></div>
+    <button id="setHelp" data-en="How to play">Nasıl oynanır?</button>
+    <button id="setQuit"></button>
+    <button id="setX" data-en="Close">Kapat</button></div>
+  <div id="helpP" hidden><b data-en="How to play">Nasıl oynanır?</b><div id="helpT"></div><button id="helpX" data-en="Close">Kapat</button></div>
+  <div id="tutP" hidden><div id="tutH"><b id="tutT"></b><span id="tutN"></span></div><p id="tutX"></p><p id="tutH2"></p><div id="tutR"><button id="tutB" data-en="Back">Geri</button><button id="tutF"></button></div></div>
   <div id="chatP" hidden><button id="chatX" aria-label="Kapat">✕</button><div id="chatLog"></div><div id="chatRow"><select id="chatTo"></select><input id="chatIn" maxlength="120" autocomplete="off" enterkeyhint="send"><button id="chatGo" data-en="Send">Gönder</button></div></div>
   <div id="ask" hidden><span id="askT"></span><button id="askY" data-en="Accept">Kabul</button><button id="askN" data-en="Decline">Reddet</button></div>
   <div id="sel" hidden><button id="bUp"></button><button id="bSell"></button></div>
@@ -101,7 +119,7 @@ body.chatting #eye{display:none}
 </div>
 <button id="eye" title="Ekranı gizle" aria-label="Ekranı gizle" hidden>👁</button>
 
-<div id="ver" data-en="Version 10.2">Sürüm 10.2</div>
+<div id="ver" data-en="Version 11">Sürüm 11</div>
 <div id="lobby"><div class="lbox">
   <h1 data-en="FOUR FRONTS">DÖRT CEPHE</h1>
   <div id="lLang"><button data-l="tr">Türkçe</button><button data-l="en">English</button></div>
@@ -133,6 +151,6 @@ body.chatting #eye{display:none}
 </div></div>
 <div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go" data-en="New match">Yeni maç</button><button id="aeWatch" data-en="Watch the match">Maçı izle</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="lobby.js?v=20261107r"></script>
+<script src="lobby.js?v=20261108a"></script>
 </body>
 </html>
