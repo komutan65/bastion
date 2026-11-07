@@ -884,7 +884,7 @@ const camera=new THREE.PerspectiveCamera(62,1,1,2500);
 scene.add(new THREE.HemisphereLight('#dff1ff','#6a5a48',1.02));
 const sun=new THREE.DirectionalLight('#fff0d8',3);sun.position.set(-175,185,125);sun.castShadow=true;
 const small=Math.min(innerWidth,innerHeight)<700;
-sun.shadow.mapSize.set(small?2048:3072,small?2048:3072);scene.add(sun.target);const SUN_DIR=new THREE.Vector3(-175,185,125).normalize();
+{const lowMem=(navigator.deviceMemory||8)<=4,S0=small?(lowMem?1536:2048):3072;sun.shadow.mapSize.set(S0,S0)}scene.add(sun.target);const SUN_DIR=new THREE.Vector3(-175,185,125).normalize();
 Object.assign(sun.shadow.camera,{left:-240,right:240,top:240,bottom:-240,near:10,far:680});sun.shadow.radius=2.5;sun.shadow.bias=-.0004;sun.shadow.normalBias=.18;scene.add(sun);
 
 function paintGround(){
@@ -2285,11 +2285,13 @@ buildGround();buildOuter();buildWater();buildBridges();buildForest();buildDetail
 size();mkHud();connect();applyCam(1);if(TUT)mkTut();
 sun.shadow.autoUpdate=false;sun.shadow.needsUpdate=true;if(!GFX[gfxMode].sh)sun.castShadow=false;
 // draw every kind of object once, out of sight, so no shader is ever built in the middle of a fight
-(function warmUp(){
+// shaders are compiled in the background before the first picture: one huge first frame can make a phone's GPU give up
+await (async function warmUp(){
   for(const k in TOWERS)for(let l=1;l<=3;l++)towerTpl(k,l);for(const k in PROPM)fallPool(k);
   const back=[];mx.makeTranslation(0,-400,0);
   scene.traverse(o=>{if(o.isInstancedMesh&&o.count===0){back.push([o,o.visible]);o.count=1;o.visible=true;o.setMatrixAt(0,mx);o.instanceMatrix.needsUpdate=true}});
   for(const S of[SMOKE,FIRE]){S.P3.setXYZ(0,0,-400,0);S.C4.setXYZW(0,1,1,1,0);S.S2.setXY(0,1,0);for(const a of[S.P3,S.C4,S.S2])a.needsUpdate=true;S.geo.instanceCount=1}
+  try{if(renderer.compileAsync)await Promise.race([renderer.compileAsync(scene,camera),new Promise(r=>setTimeout(r,12000))])}catch(e){}
   try{renderer.render(scene,camera)}catch(e){}
   for(const[o,v]of back){o.count=0;o.visible=v}for(const S of[SMOKE,FIRE])S.geo.instanceCount=0;mx.identity();
   for(const T of TPL.values())T.dirty=T.mem=true;
