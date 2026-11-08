@@ -3,7 +3,7 @@ const CH=[[57,60,64,67],[53,57,60,64],[48,52,55,60],[55,59,62,67]],PENT=[69,72,7
 const KEY='cephe_ses';
 let saved={};try{saved=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){}
 export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:saved.okcu!==false,atli:saved.atli!==false,bomba:saved.bomba!==false,su:saved.su!==false},
-  init(){if(this.ctx){if(this.ctx.state==='suspended')this.ctx.resume();return}const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;let c;try{c=this.ctx=new AC()}catch(e){return}
+  init(){if(this.ctx){if(this.pz){if(!document.hidden)this.wake()}else if(this.ctx.state==='suspended')this.ctx.resume();return}const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;let c;try{c=this.ctx=new AC()}catch(e){return}
     this.out=c.createGain();this.out.gain.value=.7;const comp=c.createDynamicsCompressor();this.out.connect(comp);comp.connect(c.destination);
     this.mus=c.createGain();this.mus.gain.value=this.ayar.muzik?.6:0;this.mus.connect(this.out);
     this.dl=c.createDelay(2);this.dl.delayTime.value=.43;const fb=c.createGain();fb.gain.value=.42;const dlf=c.createBiquadFilter();dlf.type='lowpass';dlf.frequency.value=1700;this.dl.connect(dlf);dlf.connect(fb);fb.connect(this.dl);const wet=c.createGain();wet.gain.value=.55;dlf.connect(wet);wet.connect(this.mus);
@@ -11,10 +11,14 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
     this.sfx=c.createGain();this.sfx.gain.value=.6;this.sfx.connect(this.out);
     const nb=c.createBuffer(1,c.sampleRate,c.sampleRate),d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;this.noise=nb;
     const t=c.currentTime;this.tC=t+.1;this.ci=0;this.tN=t+2.5;this.tB=t+1;this.bi=0;setInterval(()=>this.sched(),60);setTimeout(()=>{try{this.bake()}catch(e){}},0)},
+  // leaving the page: fade out first, then sleep, so the speaker never cracks
+  pause(){const c=this.ctx;if(!c||this.pz)return;this.pz=true;try{this.out.gain.cancelScheduledValues(c.currentTime);this.out.gain.setTargetAtTime(0,c.currentTime,.02)}catch(e){}clearTimeout(this.pzT);this.pzT=setTimeout(()=>{if(this.pz&&c.state==='running')c.suspend().catch(()=>{})},140)},
+  wake(){const c=this.ctx;if(!c||!this.pz)return;this.pz=false;clearTimeout(this.pzT);const up=()=>{try{this.out.gain.cancelScheduledValues(c.currentTime);this.out.gain.setValueAtTime(0,c.currentTime);this.out.gain.setTargetAtTime(.7,c.currentTime+.05,.15)}catch(e){}};if(c.state!=='running')c.resume().then(up,()=>{});else up()},
   set(k,v){this.ayar[k]=v;try{localStorage.setItem(KEY,JSON.stringify(this.ayar))}catch(e){}if(k==='muzik'&&this.mus)this.mus.gain.setTargetAtTime(v?.6:0,this.ctx.currentTime,.1)},
   mf:m=>440*Math.pow(2,(m-69)/12),
   env(g,t,a,peak,hold,rel){g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(peak,t+a);g.gain.setValueAtTime(peak,t+a+hold);g.gain.exponentialRampToValueAtTime(0.0001,t+a+hold+rel)},
   sched(){const c=this.ctx;if(!c||c.state!=='running')return;const now=c.currentTime,ah=now+0.4,I=this.int;
+    if(this.tC<now-.15)this.tC=Math.ceil((now-this.tC)/8)*8+this.tC;if(this.tN<now-.15)this.tN=now+.3;if(this.tB<now-.15)this.tB=now+.2;     // back from the background: never play the missed notes all at once
     this.padF.frequency.setTargetAtTime(450+I*2400,now,2.5);this.padG.gain.setTargetAtTime(0.16+I*0.12,now,3);
     while(this.tC<ah){this.chord(this.tC,CH[this.ci%4]);this.ci++;this.tC+=8}
     while(this.tN<ah){this.pluck(this.tN,I);this.tN+=I>0.55?(Math.random()<0.6?0.357:0.714):0.9+Math.random()*1.9*(1-I)}

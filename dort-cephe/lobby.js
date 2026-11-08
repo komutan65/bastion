@@ -24,8 +24,17 @@ function applyLang(){
   for(const b of document.querySelectorAll('#lLang button'))b.classList.toggle('on',b.dataset.l===LANG);
   $('eye').title=$('eye').ariaLabel=L('Ekranı gizle','Hide the HUD');
   if(typeof setMode==='function'&&$('m4'))setMode(duel);
+  if(window.__onl)window.__onl();
 }
 
+// how many people have the game open right now, shown at the top of the menu
+let onl=null,onlAt='lobi';
+function online(){try{if(onl||!sb.channel)return;onl=sb.channel('cephe-online',{config:{presence:{key:id}}});
+  const show=()=>{try{const st=onl.presenceState();let n=0,g=0;for(const k in st){n++;if(st[k].some(x=>x&&x.at==='oyun'))g++}
+    const el=$('lOnline');if(!el)return;el.hidden=n<1;el.textContent=L(`● ${n} kişi çevrimiçi`+(g?` · ${g} kişi oyunda`:''),`● ${n} online`+(g?` · ${g} in a match`:''))}catch(e){}};
+  onl.on('presence',{event:'sync'},show).subscribe(s=>{if(s==='SUBSCRIBED')onlineAt(onlAt)});window.__onl=show}catch(e){}}
+function onlineAt(at){onlAt=at;try{const r=onl&&onl.track({at});if(r&&r.catch)r.catch(()=>{})}catch(e){}}
+online();
 function players(){
   if(!ch)return[];
   const out=[];const st=ch.presenceState();
@@ -59,9 +68,10 @@ async function enter(m){
   if(seat<0)return;
   started=true;clearInterval(timer);
   try{if(ch){await ch.untrack();sb.removeChannel(ch)}}catch(e){}
+  onlineAt(m.tutorial?'egitim':'oyun');
   window.ARENA={seat,id,room:String(m.room),players:m.players,sb,duel:!!m.duel,tutorial:!!m.tutorial};
   $('lStatus').textContent=L('Harita hazırlanıyor…','Preparing the map…');
-  try{await import('./oyun.js?v=20261108b');$('lobby').hidden=true}
+  try{await import('./oyun.js?v=20261108c');$('lobby').hidden=true}
   catch(e){console.error(e);err(L('Oyun yüklenemedi. Sayfayı yenile.','The game failed to load. Refresh the page.'))}
 }
 function join(name){

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Dört Cephe</title>
 <script type="importmap">{"imports":{"three":"../three.min.js"}}</script>
-<link rel="stylesheet" href="lobby.css?v=20261108b">
+<link rel="stylesheet" href="lobby.css?v=20261108c">
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#0d1a26;color:#f0e8d6;font-family:Georgia,'Times New Roman',serif;touch-action:none;user-select:none;-webkit-user-select:none}
 #game,#ov{position:fixed;inset:0;width:100%;height:100%;display:block}
@@ -119,9 +119,10 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div>
 <button id="eye" title="Ekranı gizle" aria-label="Ekranı gizle" hidden>👁</button>
 
-<div id="ver" data-en="Version 11.1">Sürüm 11.1</div>
+<div id="ver" data-en="Version 12">Sürüm 12</div>
 <div id="lobby"><div class="lbox">
   <h1 data-en="FOUR FRONTS">DÖRT CEPHE</h1>
+  <p id="lOnline" hidden></p>
   <div id="lLang"><button data-l="tr">Türkçe</button><button data-l="en">English</button></div>
   <p class="sub" id="lSub">Herkese 200 para. Kuleni koru, rakiplerine asker gönder. Son ayakta kalan kazanır.</p>
   <div id="lMode"><button id="m4" class="on" data-en="4 players">4 kişilik</button><button id="m2">1v1</button></div>
@@ -151,6 +152,6 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div></div>
 <div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go" data-en="New match">Yeni maç</button><button id="aeWatch" data-en="Watch the match">Maçı izle</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="lobby.js?v=20261108b"></script>
+<script src="lobby.js?v=20261108c"></script>
 </body>
 </html>

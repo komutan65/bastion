@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261108a';
+import {SES} from './ses.js?v=20261108c';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -10,7 +10,7 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=150,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=2,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=20,DBR_FIX=100,VER='11.1';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=20,DBR_FIX=100,VER='12';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
@@ -122,7 +122,8 @@ const bridges=[];
 const segD=(x,z,b)=>{const dx=b.b.x-b.a.x,dz=b.b.z-b.a.z,t=clamp(((x-b.a.x)*dx+(z-b.a.z)*dz)/(dx*dx+dz*dz),0,1);return Math.hypot(x-b.a.x-dx*t,z-b.a.z-dz*t)};
 const onBridge=(x,z)=>bridges.some(b=>segD(x,z,b)<3.6);
 const onDeck=(x,z)=>{if(DUEL)return onDeckFixed(x,z)||onBridge(x,z);const r=Math.hypot(x,z);return(!fountainDown&&(r<13||(r<25&&roadDist(x,z)<4.5)))||onBridge(x,z);return r<13||(r<25&&roadDist(x,z)<4.5)||onBridge(x,z)};
-const unitY=(u,x,z)=>u.yol==='ucak'?28:u.yol==='hava'?20:u.yol==='fuze'?34:u.yol==='deniz'?-.45:u.yol==='su'?(onBridge(x,z)?1.08:Math.max(heightAt(x,z),-.75)):onDeck(x,z)?1.08:Math.max(heightAt(x,z),.2);
+const unitY=(u,x,z)=>u.yol==='ucak'?28:u.yol==='hava'?20:u.yol==='fuze'?34:u.yol==='deniz'?-.45:u.yol==='su'?(onBridge(x,z)?1.08:Math.max(heightAt(x,z),-.75)):onDeck(x,z)?1.08:deckY(x,z);
+const deckY=(x,z)=>{const h=heightAt(x,z);return h<1.08&&nearDeck(x,z)?1.08:Math.max(h,.2)};
 const flies=U=>U.yol==='hava'||U.yol==='fuze'||U.yol==='ucak';
 const fighter=t=>!flies(UNITS[t])&&UNITS[t].yol!=='deniz';
 // walking routes: land, the fixed bridges, and any bridge players have built
@@ -133,6 +134,7 @@ function navMask(){
   for(const b of bridges)for(let k=0;k<=40;k++){const x=lerp(b.a.x,b.b.x,k/40),z=lerp(b.a.z,b.b.z,k/40);m[Math.round((x+L)/NC)+Math.round((z+L)/NC)*NN]=1}
   return m;
 }
+const nearDeck=(x,z)=>(DUEL?DBR.some(b=>!b.down&&segD(x,z,b)<5.4):(!fountainDown&&Math.hypot(x,z)<27&&(Math.hypot(x,z)<14.5||roadDist(x,z)<6)))||bridges.some(b=>segD(x,z,b)<5.2);
 const onDeckFixed=(x,z)=>{if(DUEL)return DBR.some(b=>!b.down&&segD(x,z,b)<3.6);if(fountainDown)return false;const r=Math.hypot(x,z);return r<13||(r<25&&roadDist(x,z)<4.5)};
 const navIdx=(m,p)=>{const a=clamp(Math.round((p.x+L)/NC),0,NN-1),b=clamp(Math.round((p.z+L)/NC),0,NN-1);for(let r=0;r<8;r++)for(let j=-r;j<=r;j++)for(let i=-r;i<=r;i++){const n=clamp(a+i,0,NN-1)+clamp(b+j,0,NN-1)*NN;if(m[n])return n}return -1};
 function clearLine(m,a,b){const d=Math.hypot(b.x-a.x,b.z-a.z),n=Math.ceil(d/2);for(let k=0;k<=n;k++){const x=lerp(a.x,b.x,k/n),z=lerp(a.z,b.z,k/n);if(!m[clamp(Math.round((x+L)/NC),0,NN-1)+clamp(Math.round((z+L)/NC),0,NN-1)*NN])return false}return true}
@@ -230,6 +232,15 @@ function detour(pts,towers){
     i=Math.min(j+3,d.length)}
   return out;
 }
+// an attacker who meets an enemy wall looks for a way round it first
+function wallWay(u,D){
+  const W=D.towers.filter(t=>t.type==='duvar'&&!(t.bt>0));if(!W.length||!u.path)return false;
+  const rest=[{x:u.x,z:u.z}];for(let i=0;i<u.path.pts.length;i++)if(u.path.c[i]>u.s+.5)rest.push(u.path.pts[i]);
+  if(rest.length<2){if(!u.aim)return false;rest.push(u.aim)}
+  const back=u.path.len-u.end,old=Math.max(1,u.path.len-u.s),n=detour(rest,W);if(!n||n.length<2)return false;
+  const q=polyPath(n);if(q.len>old*2.6+40)return false;
+  for(let k=3;k<=q.len-4;k+=1.5){const p=pointOn(q,k);if(W.some(t=>Math.max(Math.abs(t.x-p.x),Math.abs(t.z-p.z))<2.2))return false}
+  u.path=q;u.s=0;u.end=Math.max(0,q.len-back);u.off=false;u.reS=false;u.lane=0;u.lx=u.lz=0;return true}
 const landPath=(from,to,id)=>DUEL?[...ROAD[from].slice(0,-1),...ROAD[to].slice().reverse()]:[...ROAD[from].slice(0,-1),...plazaArc(from,to,id),...ROAD[to].slice(0,-1).reverse()];
 // riders keep to the rivers when the target is across the map, and swim round the plaza
 function riderPath(from,to,id){
@@ -253,7 +264,7 @@ const DOCK=[0,1,2,3].map(dockOf);
 // a new hull slides down the slipway, then sails clear of the pier and waits there
 // six bombing runs, top to bottom, spread evenly over the land of the base they cross
 const LANES=6,laneZs=[];
-function laneZ(to,l){if(!laneZs[to]){const c=castlePos(to);let lo=1e9,hi=-1e9;for(let z=c.z-150;z<=c.z+150;z+=3)for(const dx of[-30,0,30]){const x=c.x+dx;if(seatAt(x,z)===to&&shoreOf(x,z)>3){lo=Math.min(lo,z);hi=Math.max(hi,z)}}
+function laneZ(to,l){if(!laneZs[to]){const c=castlePos(to);let lo=1e9,hi=-1e9;for(let z=c.z-150;z<=c.z+150;z+=3)for(const dx of[-30,0,30]){const x=c.x+dx;if(seatAt(x,z)===to&&shoreOf(x,z)>3&&outerD(x,z)<-8&&Math.abs(z-c.z)<130){lo=Math.min(lo,z);hi=Math.max(hi,z)}}
   if(lo>hi){lo=c.z-50;hi=c.z+50}lo+=9;hi-=9;laneZs[to]=Array.from({length:LANES},(_,i)=>Math.round(lo+(hi-lo)*i/(LANES-1)))}return laneZs[to][clamp(l|0,0,LANES-1)]}
 const LAUNCH=[0,1,2,3].map(s=>{const d=DOCK[s],a=d.ang,w=(x,z)=>({x:d.land.x+x*Math.cos(a)+z*Math.sin(a),z:d.land.z-x*Math.sin(a)+z*Math.cos(a)});
   let k=26,pk=w(-7,5+k);while(k<90&&shoreOf(pk.x,pk.z)>-7){k+=4;pk=w(-7,5+k)}return{st:w(-7,5),mid:w(-7,21),park:pk}});
@@ -315,7 +326,7 @@ function addTower(D,type,x,z){
   const T=TOWERS[type];if(D.money<T.cost||!canBuild(D,x,z,type))return null;
   D.money-=T.cost;const t={id:tid++,type,x,z,lvl:1,hp:T.hp||100,cd:0,paid:T.cost,owner:D.seat,bt:TBUILD[type],BT:TBUILD[type]};clearProps(x,z,type==='duvar'?2.2:3.8);D.towers.push(t);makeTowerModel(t);t.mesh.sy=.12;markBuilt(D);hire(D);return t;
 }
-function removeTower(D,t){D.towers=D.towers.filter(o=>o!==t);dropModel(t.mesh);if(picked===t)pick(null);markBuilt(D)}
+function removeTower(D,t){D.towers=D.towers.filter(o=>o!==t);if(D.bot&&t.type!=='duvar')(D.lost||(D.lost=[])).push({x:t.x,z:t.z,t:D.t||0});dropModel(t.mesh);if(picked===t)pick(null);markBuilt(D)}
 function upCost(t){return TOWERS[t.type].cost*t.lvl}
 function upgrade(D,t){const c=upCost(t);if(t.lvl>=3||D.money<c||t.bt>0)return;D.money-=c;t.paid+=c;t.up=true;t.bt=t.BT=TBUILD[t.type]*.7;markBuilt(D);hire(D)}
 // ---------- builders ----------
@@ -369,7 +380,7 @@ function spawn(R,type,from,o){
   if(o&&o.cmd){const st=toPt(o.start),U=UNITS[type],via=Array.isArray(o.via)?o.via.slice(0,60).map(toPt).filter(Boolean):[];if(!st||!U||!CMDABLE.has(type)||!via.length)return;
     const id=typeof o.keep==='number'&&!R.units.some(q=>q.id===o.keep)?o.keep:uid++,u={id,type,from,path:polyPath([st,{x:st.x+.01,z:st.z}]),s:0,hp:clamp(num(o.hp,U.hp),1,U.hp),x:st.x,z:st.z,bomb:0,cd:0,end:0,lane:0,lx:0,lz:0,vx:0,vz:0};
     R.units.push(u);setRoute(u,R,via);if(o.rally)u.goRally=true;if(typeof o.lock==='number'){u.lock=o.lock;u.hold=true;u.siege=false;u.ftgt=null}return}
-  const id=uid++,at=type==='fuze'&&o?toPt(o.at):null,via=(type==='atli'||type==='ucak'||UNITS[type].yol==='kara')&&o&&Array.isArray(o.via)?o.via.slice(0,48).map(toPt).filter(Boolean):null;
+  const id=uid++,at=type==='fuze'&&o?toPt(o.at):null,via=(type==='atli'||type==='ucak'||type==='balon'||UNITS[type].yol==='kara')&&o&&Array.isArray(o.via)?o.via.slice(0,48).map(toPt).filter(Boolean):null;
   const U=UNITS[type],a=castlePos(from),b=castlePos(R.seat);let pts;
   if(at)pts=[a,at];
   else if(type==='gemi'&&o&&Array.isArray(o.start)&&toPt(o.start))pts=shipPath(toPt(o.start),clamp(num(o.via)|0,0,3),R.seat,false);
@@ -377,6 +388,7 @@ function spawn(R,type,from,o){
   else if(type==='ucak')pts=RWY[from]?[RWY[from].a,RWY[from].b]:[a,b];
   else if(U.yol==='kara')pts=detour(via&&via.length?[a,...via,b]:(landRoute(from,R.seat,id)||[a,b]),P[from]?P[from].towers:[]);
   else if(type==='atli')pts=via&&via.length?roundPath([a,...via,b],12):riderPath(from,R.seat,id);
+  else if(type==='balon'&&via&&via.length)pts=roundPath([a,via[0],b],40);
   else pts=[a,b];
   const path=polyPath(pts);
   const u={id,type,from,path,s:0,hp:UNITS[type].hp,x:0,z:0,bomb:0,cd:0,end:path.len-(type==='balon'?2:type==='denizalti'?0:7+id%5),lane:((id*7)%5-2)*.85,lx:0,lz:0,vx:0,vz:0};u.x=path.pts[0].x;u.z=path.pts[0].z;R.units.push(u);
@@ -396,7 +408,7 @@ function landNear(x,z,r){let best=null,bd=1e9;for(let a=0;a<6.28;a+=.2)for(let k
 function setRoute(u,D,pts){
   const U=UNITS[u.type],cur={x:u.x,z:u.z},e=pts[pts.length-1];let p;
   if(naval(u.type))p=roundPath(seaRoute([cur,...pts]),18);
-  else if(U.yol==='kara')p=tidyRoute([cur,...pts]);
+  else if(U.yol==='kara'){p=tidyRoute([cur,...pts]);if(p&&p.length>2){const r=roundPath(p,7);if(r.every(q=>canStand(u,q.x,q.z)))p=r}}     // soft bends wherever the ground allows
   else if(U.yol==='su'){p=roundPath([cur,...pts],8);
     // riders swim only a bridge's length from land: a longer crossing goes round by land and bridges instead
     if(u.type==='atli'){const q=polyPath(p);let deep=false;for(let k=0;k<=q.len&&!deep;k+=3){const o=pointOn(q,k);if(shoreOf(o.x,o.z)<-RIDE_SEA)deep=true}
@@ -404,9 +416,9 @@ function setRoute(u,D,pts){
   else p=[cur,...pts];
   if(p)p=p.filter(q=>q&&isFinite(q.x)&&isFinite(q.z));
   if(!p||p.length<2)p=[cur,{x:cur.x+.01,z:cur.z}];
-  u.path=polyPath(p);u.s=0;u.end=u.path.len;u.off=false;u.reS=false;u.tgt=null;u.cmd=true;u.lx=u.lz=0;u.ox=u.oz=0;u.rs=null;u.goRally=false;
+  u.path=polyPath(p);u.s=0;u.end=u.path.len;u.off=false;u.reS=false;u.tgt=null;u.cmd=true;u.wtry=0;u.lx=u.lz=0;u.ox=u.oz=0;u.rs=null;u.goRally=false;
   const foe=D.seat!==u.from&&!allied(D.seat,u.from),c=castlePos(D.seat);
-  let tw=null,bd=naval(u.type)?26:8;if(foe)for(const t of D.towers){const d=Math.hypot(t.x-e.x,t.z-e.z);if(d<bd){bd=d;tw=t}}
+  let tw=null,bd=naval(u.type)?26:12;if(foe)for(const t of D.towers){const d=Math.hypot(t.x-e.x,t.z-e.z);if(d<bd){bd=d;tw=t}}
   u.ftgt=tw;u.siege=foe&&Math.hypot(c.x-e.x,c.z-e.z)<(naval(u.type)?40:20);
   u.aim=foe&&(tw||u.siege)?{x:e.x,z:e.z}:null;u.hold=!(tw||u.siege);
   if(u.siege&&!naval(u.type)&&!tw){u.end=Math.max(0,u.path.len-(5.5+u.id%5));u.lane=((u.id*7)%5-2)*.85}
@@ -460,10 +472,17 @@ function applyCmd(D,ids,pts,by,rally,lock,lockAt){
 }
 // warships and submarines never sit inside one another
 function navalSep(D,dt){
-  const all=[];for(const E of P){if(!E.on)continue;for(const o of E.units)if(naval(o.type)&&o.fall==null&&!o.done&&o.dove==null)all.push(o);if(!local(E))for(const o of E.remote.values())if(naval(o.type)&&!(o.fl&2))all.push({x:o.tx,z:o.tz,type:o.type})}
-  for(const u of D.units){if(!naval(u.type)||u.fall!=null||u.dove!=null||u.done)continue;let px=0,pz=0;
+  const all=[];for(const E of P){if(!E.on)continue;for(const o of E.units)if(naval(o.type)&&o.fall==null&&!o.done&&o.dove==null)all.push(o);if(!local(E))for(const o of E.remote.values())if(naval(o.type)&&!(o.fl&2))all.push({x:o.tx,z:o.tz,type:o.type,moving:!(o.fl&4)})}
+  for(const u of D.units){if(!naval(u.type)||u.fall!=null||u.dove!=null||u.done)continue;let px=0,pz=0,under=false;
+    const go=u.moving!==false&&u.s<u.end,h=go?pointOn(u.path,u.s+4):null,hx=h?h.x-u.x:0,hz=h?h.z-u.z:0,hl=Math.hypot(hx,hz)||1;
     for(const o of all){if(o===u)continue;const m=(u.type==='gemi'?6.5:3.6)+(o.type==='gemi'?6.5:3.6),dx=u.x-o.x,dz=u.z-o.z,d=Math.hypot(dx,dz);
-      if(d<m){if(d<.05){px+=(u.id%2?1:-1)*m;continue}const k=(m-d)/d;px+=dx*k;pz+=dz*k}}
+      if(d>=m+6)continue;
+      if(u.type!==o.type){if(u.type==='denizalti'&&d<m+2)under=true;continue}     // a submarine slips under a warship instead of bumping it
+      const oGo=o.moving!==false&&(o.s==null||o.s<o.end);
+      if(!go&&oGo)continue;                          // a ship lying still is never shoved by one going past
+      if(go&&(hx*-dx+hz*-dz)/hl>0&&d<m+5){const side=(hx*-dz-hz*-dx)>0?-1:1;px+=-hz/hl*side*2.2;pz+=hx/hl*side*2.2}   // something ahead: steer round it
+      if(d<m){if(d<.05){px+=(u.id%2?1:-1)*m;continue}const k=(m-d)/d*(go&&!oGo?1.6:1);px+=dx*k;pz+=dz*k}}
+    u.under=under;
     let ax=-(u.ox||0)*dt*.12+px*Math.min(1,dt*2.5),az=-(u.oz||0)*dt*.12+pz*Math.min(1,dt*2.5);
     if(shoreOf(u.x+ax,u.z+az)>-3){ax*=.2;az*=.2}
     u.ox=clamp((u.ox||0)+ax,-18,18);u.oz=clamp((u.oz||0)+az,-18,18);u.x+=ax;u.z+=az}
@@ -583,7 +602,7 @@ function simDefender(D,dt){
     const U=UNITS[u.type],air=U.yol==='hava';u.cd-=dt;u.bomb-=dt;u.atk=false;
     if(u.type==='isci'){workerTick(D,u,dt,home);continue}
     if(u.type==='gemi'){          // sail into range of the target's coast, then shell it
-      if(u.ret){u.s+=U.sp*1.2*dt;const p=pointOn(u.path,u.s);u.x=p.x;u.z=p.z;u.moving=true;if(u.s>=u.end){u.done=true;const m=Math.round(U.cost/2);D.money+=m;if(D===ME){floats.push({x:u.x,z:u.z,t:0,txt:'+'+m});SES.para();tip(TL('Gemi limana döndü','Ship is back in port'))}}continue}
+      if(u.ret){u.s+=U.sp*1.2*dt;const p=pointOn(u.path,u.s);u.x=p.x;u.z=p.z;u.moving=true;if(u.s>=u.end){u.done=true;const m=Math.round(U.cost/2);if(u.from!==D.seat){refund(u.from,m);continue}D.money+=m;if(D===ME){floats.push({x:u.x,z:u.z,t:0,txt:'+'+m});SES.para();tip(TL('Gemi limana döndü','Ship is back in port'))}}continue}
       if(u.s<u.end){u.s=Math.min(u.end,u.s+U.sp*dt);u.moving=true}else u.moving=false;
       {const p=pointOn(u.path,u.s);u.x=p.x+(u.ox||0);u.z=p.z+(u.oz||0)}
       // enemy warships that sight each other trade broadsides; each side counts the hits it takes
@@ -631,14 +650,14 @@ function simDefender(D,dt){
         if(u.y<=Math.max(heightAt(u.x,u.z),0)+1){u.done=true;explode(u.x,u.z,4);crater(u.x,u.z,5);fxAt(D,u.x,u.z,'bomba');blast(D,u.x,u.z,10,110,30,u.from,50);if(D.dead)return}
         continue}
       u.y=20-13*u.fall*u.fall;
-      if(u.y<=Math.max(heightAt(u.x,u.z),0)+1){u.done=true;boom(u.x,3,u.z,7,'#ff7a2a');boom(u.x,5,u.z,4,'#ffd27a');explode(u.x,u.z,3);crater(u.x,u.z,4);fxAt(D,u.x,u.z,'bomba');blast(D,u.x,u.z,8,90,U.dmg*2,u.from,0);if(D.dead)return}
+      if(u.y<=Math.max(heightAt(u.x,u.z),0)+1){u.done=true;boom(u.x,3,u.z,7,'#ff7a2a');boom(u.x,5,u.z,4,'#ffd27a');explode(u.x,u.z,3);crater(u.x,u.z,4);fxAt(D,u.x,u.z,'bomba');blast(D,u.x,u.z,8,90,U.dmg*2,u.from,45);if(D.dead)return}
       continue}
-    if(u.ret){u.s+=U.sp*1.3*dt;const p=pointOn(u.path,u.s);u.x=p.x;u.z=p.z;if(u.s>=u.end){u.done=true;const m=U.cost/2;D.money+=m;if(D===ME){floats.push({x:u.x,z:u.z,t:0,txt:'+'+m});SES.para()}}continue}
+    if(u.ret){u.s+=U.sp*1.3*dt;const p=pointOn(u.path,u.s);u.x=p.x;u.z=p.z;if(u.s>=u.end){u.done=true;const m=Math.round(U.cost/2);if(u.from!==D.seat){refund(u.from,m);continue}D.money+=m;if(D===ME){floats.push({x:u.x,z:u.z,t:0,txt:'+'+m});SES.para()}}continue}
     if(U.yol==='fuze'){            // a missile flies to the spot its owner picked, or chases the ship or soldier it was fired at
       if(u.lockT!=null){const tr=unitById(u.lockT);
-        if(tr&&tr.hp>0&&!tr.done&&tr.fall==null){const a=u.path.pts[0],f=u.s/Math.max(1,u.path.len);u.path=polyPath([a,{x:tr.x,z:tr.z}]);u.s=f*u.path.len;u.tx=tr.x;u.tz=tr.z;u.lockR=tr.remote?null:tr}else u.lockT=null}
+        if(tr&&tr.hp>0&&!tr.done&&tr.fall==null){const a=u.path.pts[0],f=u.s/Math.max(1,u.path.len);u.path=polyPath([a,{x:tr.x,z:tr.z}]);u.s=f*u.path.len;u.tx=tr.x;u.tz=tr.z;u.ey=flies(UNITS[tr.type])?airY(tr):6;u.lockR=tr.remote?null:tr}else u.lockT=null}
       u.s+=U.sp*dt;const p=pointOn(u.path,u.s);u.x=p.x;u.z=p.z;u.t=clamp(u.s/u.path.len,0,1);
-      if(u.s>=u.path.len-2){u.done=true;const lr=u.lockR;if(lr&&!lr.done&&lr.hp>0&&Math.hypot(lr.x-u.tx,lr.z-u.tz)<9){lr.hp-=220;lr.fk=true;if(lr.type==='ucak'||lr.type==='balon')boom(lr.x,lr.alt||20,lr.z,6,'#ff7a2a')}boom(u.tx,6,u.tz,9,'#ff7a2a');boom(u.tx,9,u.tz,5,'#ffe08a');explode(u.tx,u.tz,5);crater(u.tx,u.tz,7);fxAt(D,u.tx,u.tz,'bomba');blast(D,u.tx,u.tz,9,150,U.dmg,u.from,80);if(D.dead)return}
+      if(u.s>=u.path.len-2){u.done=true;const lr=u.lockR;if(lr&&!lr.done&&lr.hp>0&&Math.hypot(lr.x-u.tx,lr.z-u.tz)<9){lr.hp-=220;lr.fk=true;if(lr.type==='ucak'||lr.type==='balon')boom(lr.x,lr.alt||20,lr.z,6,'#ff7a2a')}if((u.ey||6)>10){boom(u.tx,u.ey,u.tz,8,'#ff7a2a');boom(u.tx,u.ey+2,u.tz,4,'#ffe08a');fxAt(D,u.tx,u.tz,'bomba')}else{boom(u.tx,6,u.tz,9,'#ff7a2a');boom(u.tx,9,u.tz,5,'#ffe08a');explode(u.tx,u.tz,5);crater(u.tx,u.tz,7);fxAt(D,u.tx,u.tz,'bomba');blast(D,u.tx,u.tz,9,150,U.dmg,u.from,80)}if(D.dead)return}
       continue}
     if(u.emerge>0)u.emerge-=dt;
     if(u.from===D.seat&&u.s>=u.end&&!u.foe){if(u.goRally){u.goRally=false;toSlot(D,u)}else if(u.rs!=null&&u.hp<U.hp){u.hp=Math.min(U.hp,u.hp+U.hp*.035*dt);if(D===ME&&Math.random()<dt*.8)floats.push({x:u.x,z:u.z,t:.3,txt:'+',heal:1})}}
@@ -664,10 +683,12 @@ function simDefender(D,dt){
       u.moving=!u.atk;continue}
     if(u.scan<=0){u.scan=.4;u.tgt=null;
       if(!own){if(u.ftgt&&u.s>=u.end&&u.ftgt.hp>0&&D.towers.includes(u.ftgt))u.tgt=u.ftgt;
-        else{let bd=atBase?75:u.cmd?(u.s>=u.end?24:10):15;
-          for(const t of D.towers){if(t.type==='duvar')continue;const d=Math.hypot(t.x-u.x,t.z-u.z);if(d<bd){bd=d;u.tgt=t}}}}}
+        else{let bd=atBase?75:u.cmd?(u.s>=u.end?24:10):15;const ax=u.aim&&u.s>=u.end?u.aim:null;
+          for(const t of D.towers){if(t.type==='duvar')continue;const d=Math.hypot(t.x-u.x,t.z-u.z);if(d>=bd)continue;const k=ax?Math.hypot(t.x-ax.x,t.z-ax.z)*.8+d*.2:d;if(k<(u.tk??1e9)||!u.tgt){u.tk=k;u.tgt=t}}u.tk=null}}}
     if(u.tgt&&u.tgt.hp<=0)u.tgt=null;
-    const wall=air||own?null:D.towers.find(o=>o.type==='duvar'&&!(o.bt>0)&&Math.max(Math.abs(o.x-u.x),Math.abs(o.z-u.z))<2.5);
+    const fw=u.s<u.end-.5?pointOn(u.path,u.s+2.5):null;     // only a wall in the way counts, not one brushed in passing
+    let wall=air||own?null:D.towers.find(o=>o.type==='duvar'&&!(o.bt>0)&&Math.max(Math.abs(o.x-u.x),Math.abs(o.z-u.z))<2.5&&(!fw||(o.x-u.x)*(fw.x-u.x)+(o.z-u.z)*(fw.z-u.z)>.55*Math.hypot(o.x-u.x,o.z-u.z)*Math.hypot(fw.x-u.x,fw.z-u.z)));
+    if(wall&&(u.wtry||0)<2){u.wtry=(u.wtry||0)+1;if(wallWay(u,D))wall=null}     // a gap in the wall: walk through it, only break the wall when there is no way round
     if(wall){u.atk=true;u.cdM=1.2;u.face=Math.atan2(wall.x-u.x,wall.z-u.z);if(u.cd<=0){u.cd=1.2;wall.hp-=U.dmg*(BLD[u.type]||4);wall.shake=.25;sparks(wall.x,wall.z);fxAt(D,u.x,u.z,'vur');if(wall.hp<=0)removeTower(D,wall)}}
     else if(u.tgt&&u.type==='dalgic'&&Math.hypot(u.tgt.x-u.x,u.tgt.z-u.z)<12){   // divers open fire from range
       const t=u.tgt;u.atk=true;u.cdM=.45;u.face=Math.atan2(t.x-u.x,t.z-u.z);
@@ -687,7 +708,9 @@ function simDefender(D,dt){
       if(d<1)u.off=false;else{u.x+=(p.x-u.x)/d*step;u.z+=(p.z-u.z)/d*step;u.face=Math.atan2(p.x-u.x,p.z-u.z)}
     }else if(u.s<u.end){u.s=Math.min(u.end,u.s+step);const p=pointOn(u.path,u.s),q=pointOn(u.path,u.s+1.2),l=Math.hypot(q.x-p.x,q.z-p.z)||1;
       u.lx=clamp(u.lx+u.vx*dt,-2.2,2.2);u.lz=clamp(u.lz+u.vz*dt,-2.2,2.2);
-      const c=air?0:u.lane;u.x=p.x+(q.z-p.z)/l*c+u.lx;u.z=p.z-(q.x-p.x)/l*c+u.lz;u.face=null;u.road=true}
+      const c=air?0:u.lane;let nx=p.x+(q.z-p.z)/l*c+u.lx,nz=p.z-(q.x-p.x)/l*c+u.lz;
+      if(!air&&U.yol!=='deniz'&&nearDeck(nx,nz)&&!canStand(u,nx,nz)){u.lx*=.5;u.lz*=.5;nx=p.x;nz=p.z}     // a side-step that would leave the bridge or the bank keeps to the middle of the way
+      u.x=nx;u.z=nz;u.face=null;u.road=true}
     else if(!own&&u.cmd&&u.siege&&dh>(air?7:16)){            // sent at the castle but not there yet: close in, never strike from afar
       if(air){u.x+=(home.x-u.x)/dh*step;u.z+=(home.z-u.z)/dh*step}
       else if(!u.rp){u.rp=1;const n=U.yol==='kara'?nav({x:u.x,z:u.z},home):[{x:u.x,z:u.z},home];if(n){u.path=polyPath(n);u.s=0;u.end=Math.max(0,u.path.len-(5.5+u.id%5))}else u.siege=false}
@@ -762,7 +785,8 @@ const SHELLS=[];
 function shell(D,x0,y0,z0,x1,z1,dur,arc,kind,onHit){SHELLS.push({D,x0,y0,z0,x1,z1,t:0,dur,arc,kind,onHit})}
 function homing(D,x,y,z,tgt,dmg){SHELLS.push({D,kind:'roket',x,y,z,tgt,dmg,vx:0,vy:26,vz:0,t:0})}
 // a missile's arc: lower on short hops, so it never shoots up past a close-in camera
-const fuzeH=u=>Math.min(62,12+u.path.len*.22),fuzeY=u=>6+Math.sin((u.t||0)*Math.PI)*fuzeH(u);
+const fuzeH=u=>Math.min(62,12+u.path.len*.22),fuzeY=u=>6+((u.ey||6)-6)*(u.t||0)+Math.sin((u.t||0)*Math.PI)*fuzeH(u);
+const airY=o=>o.type==='balon'?(o.fall!=null&&o.y!=null?o.y:20):o.type==='ucak'?(o.alt||28):unitY(UNITS[o.type],o.x,o.z)+1;
 const altOf=u=>u.type==='ucak'?u.alt:u.type==='balon'?(u.fall!=null?u.y:20):u.type==='fuze'?fuzeY(u):unitY(UNITS[u.type],u.x,u.z)+1.5;
 function simShells(dt){
   for(let i=SHELLS.length-1;i>=0;i--){const s=SHELLS[i];s.t+=dt;
@@ -775,11 +799,21 @@ function simShells(dt){
 function botThink(D){
   if(D.dead||TUT)return;
   const road=ROAD[D.seat],aa=D.towers.filter(t=>t.type==='hava').length,gr=D.towers.filter(t=>t.type==='ok'||t.type==='top').length;
+  const home=castlePos(D.seat),ships=D.units.filter(u=>u.type==='gemi'&&u.from!==D.seat&&!allied(u.from,D.seat)&&u.fall==null&&!u.done&&!u.ret&&Math.hypot(u.x-home.x,u.z-home.z)<150);
+  D.lost=(D.lost||[]).filter(l=>D.t-l.t<120);
+  // a spot where a tower was just knocked down, or right under an enemy warship's guns, is a poor place to build again
+  const bad=(x,z)=>D.lost.some(l=>Math.hypot(l.x-x,l.z-z)<9)||ships.some(u=>Math.hypot(u.x-x,u.z-z)<45);
   const place=type=>{
-    for(let i=0;i<24;i++){
-      const p=road[Math.random()*60|0],a=Math.random()*6.28,x=Math.round(p.x+Math.cos(a)*6),z=Math.round(p.z+Math.sin(a)*6);
+    for(let i=0;i<30;i++){
+      const p=road[Math.random()*60|0],a=Math.random()*6.28,r=5+Math.random()*7,x=Math.round(p.x+Math.cos(a)*r),z=Math.round(p.z+Math.sin(a)*r);
+      if(i<24&&bad(x,z))continue;
       if(addTower(D,type,x,z))return true}
     return false};
+  // a warship shelling the base: lock a missile on it, and send a ship of our own after it
+  if(ships.length){const sh=ships.sort((a,b)=>a.hp-b.hp)[0];
+    if(!(D.fcd>0)&&D.money>=UNITS.fuze.cost&&!D.units.some(m=>m.type==='fuze'&&m.lockT===sh.id)&&sendUnit(D,D.seat,'fuze',{at:[Math.round(sh.x),Math.round(sh.z)],lock:sh.id}))return;
+    if(D.ysState===2&&!D.yard&&D.money>=UNITS.gemi.cost&&fleet(D.seat)<MAX_SHIPS&&!P[sh.from].dead&&sendUnit(D,sh.from,'gemi'))return;
+    if(!D.ysState&&D.money>=YARD_COST&&D.t>60&&buildYard(D))return}
   if(D.airSeen>aa*2&&D.money>=35&&place('hava'))return;
   if(gr>=4&&!D.ysState&&D.t>100){if(buildYard(D))return;if(Math.random()<.75)return}       // save up for the shipyard, then the runway
   if(gr>=5&&D.ysState&&!D.rwState&&D.t>200){if(buildRunway(D))return;if(Math.random()<.6)return}
@@ -797,9 +831,19 @@ function botThink(D){
     const top=foes.slice().sort((a,b)=>b.towers.length-a.towers.length)[0],mate=foes.find(p=>p.bot&&p!==top&&!ALLY[p.seat].some(Boolean));
     if(mate&&top.towers.length>=D.towers.length*1.5)setAlly(D.seat,mate.seat,true)}
   const call=D.join&&D.join.until>D.t&&!P[D.join.to].dead?D.join.to:null;
-  const to=call!=null&&!allied(call,D.seat)?call:foes[Math.random()*foes.length|0].seat;
-  let n=1+Math.min(3,D.t/120)*Math.random()|0;
-  while(n-->0){const opts=BUY.filter(k=>UNITS[k].cost<=D.money-5&&(k!=='fuze'||D.t>150)&&((k!=='denizalti'&&k!=='gemi')||(D.t>120&&!D.yard&&D.ysState===2&&(k!=='gemi'||fleet(D.seat)<MAX_SHIPS)))&&(k!=='ucak'||(D.rwState===2&&!D.hg))&&(k!=='fuze'||!(D.fcd>0))&&(!POP[k]||popOf(D.seat)+POP[k]<=POP_CAP));if(!opts.length)break;const k=opts[Math.random()*opts.length|0],ts=P[to].towers;sendUnit(D,to,k,k==='fuze'&&ts.length&&Math.random()<.5?(t=>({at:[t.x,t.z]}))(ts[Math.random()*ts.length|0]):k==='ucak'?{lane:Math.random()*LANES|0}:undefined)}
+  // pick a foe with a plan: keep on the one we are already hurting, else the weakest castle, sometimes anyone
+  if(D.foc!=null&&(P[D.foc].dead||allied(D.foc,D.seat)||Math.random()<.08))D.foc=null;
+  if(D.foc==null)D.foc=Math.random()<.6?foes.slice().sort((a,b)=>a.hp+a.towers.length*25-(b.hp+b.towers.length*25))[0].seat:foes[Math.random()*foes.length|0].seat;
+  const to=call!=null&&!allied(call,D.seat)?call:D.foc;
+  // save up for a real wave instead of trickling soldiers in one by one
+  if(D.t>90&&D.money<Math.min(130,25+D.t/7)&&Math.random()<.65){D.atk=2;return}
+  const T=P[to],tAir=T.towers.filter(t=>t.type==='hava'||t.type==='roket'||t.type==='ok').length,tGnd=T.towers.filter(t=>t.type==='ok'||t.type==='top').length,tWall=T.towers.filter(t=>t.type==='duvar').length;
+  const W={piyade:3,atli:3,koc:tGnd>3||tWall>2?4:1,balon:tAir<3?5:tAir<6?2:.6,fuze:T.towers.length>4?2:.5,denizalti:2,gemi:2.5,ucak:3};
+  const side=Math.random()<.5?-1:1,c0=castlePos(D.seat),c1=castlePos(to),mx=(c0.x+c1.x)/2,mz=(c0.z+c1.z)/2,dl=Math.hypot(c1.x-c0.x,c1.z-c0.z)||1,off=side*(25+Math.random()*55),bv=[[Math.round(mx-(c1.z-c0.z)/dl*off),Math.round(mz+(c1.x-c0.x)/dl*off)]];
+  const big=T.towers.filter(t=>t.type==='top'||t.type==='roket'||t.type==='hava').sort((a,b)=>TOWERS[b.type].cost-TOWERS[a.type].cost);
+  let n=1+Math.min(4,D.t/100)*Math.random()|0;if(D.money>100)n+=2;
+  while(n-->0){const opts=BUY.filter(k=>UNITS[k].cost<=D.money-5&&(k!=='fuze'||D.t>150)&&((k!=='denizalti'&&k!=='gemi')||(D.t>120&&!D.yard&&D.ysState===2&&(k!=='gemi'||fleet(D.seat)<MAX_SHIPS)))&&(k!=='ucak'||(D.rwState===2&&!D.hg))&&(k!=='fuze'||!(D.fcd>0))&&(!POP[k]||popOf(D.seat)+POP[k]<=POP_CAP));if(!opts.length)break;let sum=0;for(const k of opts)sum+=W[k]||1;let r=Math.random()*sum,k=opts[0];for(const q of opts){r-=W[q]||1;if(r<=0){k=q;break}}const ts=T.towers;
+    sendUnit(D,to,k,k==='fuze'&&ts.length?(t=>({at:[t.x,t.z]}))(big.length&&Math.random()<.7?big[0]:ts[Math.random()*ts.length|0]):k==='ucak'?{lane:Math.random()*LANES|0}:k==='balon'?{via:bv}:undefined)}
 }
 let botAcc=0;
 function sim(dt){
@@ -1526,7 +1570,8 @@ function drawUnits(rdt){
       if(u.type==='gemi'){put('gemi',u.x,u.z,u.from,u.dir,false,u.fall!=null?-.45-u.fall*1.4:-.45+Math.sin(now()/700+u.id)*.12,u.fall!=null?u.fall*.1:0);
         if(u.moving&&Math.random()<rdt*3)ripple(u.x-Math.sin(u.dir)*7,u.z-Math.cos(u.dir)*7,7);continue}
       if(u.fall!=null){put('balon',u.x,u.z,u.from,u.dir||0,false,u.y,u.fall*1.1);continue}
-      put(u.type,u.x,u.z,u.from,u.dir||0,u.moving!==false,u.dove!=null?-.45-u.dove*1.5:u.emerge>0?unitY(UNITS[u.type],u.x,u.z)-u.emerge*1.3:null,0,u.atk?clamp(1-u.cd/(u.cdM||1.2),0,1):null);
+      if(u.type==='denizalti')u.dy=lerp(u.dy==null?-.45:u.dy,u.under?-2.8:-.45,Math.min(1,rdt*1.5));
+      put(u.type,u.x,u.z,u.from,u.dir||0,u.moving!==false,u.dove!=null?-.45-u.dove*1.5:u.type==='denizalti'&&u.dy<-.5?u.dy:u.emerge>0?unitY(UNITS[u.type],u.x,u.z)-u.emerge*1.3:null,0,u.atk?clamp(1-u.cd/(u.cdM||1.2),0,1):null);
       if((u.type==='atli'||u.type==='dalgic'||u.type==='denizalti')&&heightAt(u.x,u.z)<.2&&Math.random()<rdt*7){ripple(u.x,u.z,4.5);if(Math.random()<.5)boom(u.x,.3-heightAt(u.x,u.z),u.z,.45,'#eaf7ff')}}
     for(const o of D.remote.values()){const ox=o.x,oz=o.z;o.x=lerp(o.x,o.tx,Math.min(1,rdt*3));o.z=lerp(o.z,o.tz,Math.min(1,rdt*3));if(Math.hypot(o.x-ox,o.z-oz)>.01)o.dir=Math.atan2(o.x-ox,o.z-oz);if(o.fl&2){o.ft+=rdt;put(o.type,o.x,o.z,num(o.from,D.seat),o.dir||0,false,Math.max(1,20-13*o.ft*o.ft),o.ft*1.1)}else put(o.type,o.x,o.z,num(o.from,D.seat),o.dir||0,!(o.fl&4),null,0,o.fl&1?(now()/1200+o.sd)%1:null);if((o.type==='atli'||o.type==='dalgic'||o.type==='denizalti')&&heightAt(o.x,o.z)<.2&&Math.random()<rdt*7)ripple(o.x,o.z,4.5)}
   }
@@ -1974,7 +2019,8 @@ function pick(t){picked=t;if(!t){ring.visible=build?ring.visible:false;ring2.vis
 // ---------- settings ----------
 function setGfx(m){if(!GFX[m])return;gfxMode=m;try{localStorage.setItem('cephe_gfx',m)}catch(e){}const G=GFX[m];DPR0=DPR=Math.min(G.dpr[SMALL?0:1],devicePixelRatio||1);renderer.setPixelRatio(DPR);size();sun.castShadow=G.sh;sun.shadow.needsUpdate=true;frameCap=G.cap;drawSettings()}
 // a new match with the same players: everyone's screen reloads straight into it
-function restartWith(m){try{sessionStorage.setItem('cephe_auto',JSON.stringify({m,id:A.id}))}catch(e){}beat(true);setTimeout(()=>location.reload(),350)}
+function bye(){SES.pause();setTimeout(()=>location.reload(),160)}
+function restartWith(m){try{sessionStorage.setItem('cephe_auto',JSON.stringify({m,id:A.id}))}catch(e){}beat(true);SES.pause();setTimeout(()=>location.reload(),350)}
 function newMatch(){const m={room:'r'+Math.random().toString(36).slice(2,12),players:A.players,duel:DUEL,tutorial:TUT};say('yenimac',{m,by:ME.seat});tip(TL('Yeni maç başlıyor…','A new match is starting…'));restartWith(m)}
 function onNewMatch(x){if(!x||!x.m||!Array.isArray(x.m.players)||!x.m.players.some(p=>p&&p.id===A.id)||typeof x.m.room!=='string')return;const by=clamp(num(x.by,0),0,3);
   tip((P[by]?P[by].name:'')+TL(' yeni maç başlattı',' started a new match'));restartWith({room:x.m.room.slice(0,40),players:x.m.players.slice(0,4),duel:!!x.m.duel,tutorial:false})}
@@ -1987,7 +2033,7 @@ function mkSettings(){
   const p=$('setP'),open=on=>{p.hidden=!on;setSure=null;$('helpP').hidden=true;if(on){$('sesP').hidden=true;$('chatP').hidden=true}document.body.classList.toggle('chatting',on);drawSettings()};
   $('setB').onclick=()=>open(p.hidden);$('setX').onclick=()=>open(false);
   $('setNew').onclick=()=>{if(setSure!=='new'){setSure='new';drawSettings();return}open(false);newMatch()};
-  $('setQuit').onclick=()=>{if(setSure!=='quit'){setSure='quit';drawSettings();return}beat(true);location.reload()};
+  $('setQuit').onclick=()=>{if(setSure!=='quit'){setSure='quit';drawSettings();return}beat(true);bye()};
   $('setSes').onclick=()=>{open(false);$('sesP').hidden=false};
   $('setHelp').onclick=()=>{p.hidden=true;$('helpP').hidden=false};$('helpX').onclick=()=>{$('helpP').hidden=true;document.body.classList.remove('chatting')};
   for(const b of p.querySelectorAll('[data-g]'))b.onclick=()=>setGfx(b.dataset.g);
@@ -2072,7 +2118,7 @@ function mkHud(){
   $('eye').onclick=toggleHud;
   $('bUp').onclick=()=>{if(picked)upgrade(ME,picked);const t=picked;pick(t)};
   $('bSell').onclick=()=>{if(picked)sellTower(picked)};
-  $('aeAgain').onclick=()=>location.reload();$('aeWatch').onclick=()=>{$('arenaEnd').hidden=true};
+  $('aeAgain').onclick=()=>bye();$('aeWatch').onclick=()=>{$('arenaEnd').hidden=true};
   $('aimX').onclick=()=>setAim(null);
   $('cmdHold').onclick=()=>order(null);$('cmdX').onclick=()=>{SEL=[];syncCmd()};
   {const a=document.createElement('button');a.id='bAlly';a.onclick=()=>{const t=target;if(t==null)return;
@@ -2096,7 +2142,12 @@ function setAlly(a,b,on,remote){
   if(!remote)say('ittifakset',{a,b,on});
   if(a===ME.seat||b===ME.seat){const o=P[a===ME.seat?b:a];tip(on?`${o.name} ile ittifak kuruldu`:`${o.name} ile ittifak bitti`)}
   else if(on)tip(`${P[a].name} ve ${P[b].name} ittifak kurdu!`);
-  if(on){if(target===a&&b===ME.seat||target===b&&a===ME.seat)target=null;checkEnd()}
+  if(on){if(target===a&&b===ME.seat||target===b&&a===ME.seat)target=null;checkEnd();
+    // the new friends call off the armies already marching on each other: they turn round and go home
+    for(const D of P){if(!D.on||!local(D)||(D.seat!==a&&D.seat!==b))continue;const o=D.seat===a?b:a;
+      for(const u of D.units){if(u.from!==o||u.ret||u.done||u.fall!=null||u.type==='fuze'||u.type==='ucak'||!u.path)continue;
+        const back=[{x:u.x,z:u.z}];for(let i=u.path.pts.length-1;i>=0;i--)if(u.path.c[i]<u.s-.5)back.push(u.path.pts[i]);
+        if(back.length<2)back.push(castlePos(o));u.path=polyPath(back);u.s=0;u.end=u.path.len;u.ret=true;u.lock=null;u.foe=null;u.tgt=null;u.ftgt=null;u.siege=false;u.atk=false;u.off=false}}}
 }
 function drawHud(){
   if(SEL.length){const t=now(),have=new Set(myUnits().map(c=>c.id)),n=SEL.length;SEL=SEL.filter(id=>{if(have.has(id)){selSeen.set(id,t);return true}return t-(selSeen.get(id)||0)<3000});if(SEL.length!==n||!$('cmdBar').hidden!==!!SEL.length)syncCmd()}
@@ -2141,7 +2192,7 @@ function drawOverlay(){
   const scr=(x,y,z)=>{vp.set(x,y,z).project(camera);return vp.z>1?null:[(vp.x+1)/2*W,(1-vp.y)/2*H]};
   const trail=(pts,col)=>{oc.setLineDash([9,7]);oc.lineCap='round';let on=false;oc.beginPath();for(const p of pts){const q=scr(p.x,1.5,p.z);if(!q)continue;on?oc.lineTo(q[0],q[1]):oc.moveTo(q[0],q[1]);on=true}
     oc.lineWidth=6;oc.strokeStyle='rgba(0,0,0,.45)';oc.stroke();oc.lineWidth=3;oc.strokeStyle=col;oc.stroke();oc.setLineDash([])};
-  const cross=(x,z,col)=>{const q=scr(x,1.5,z);if(!q)return;const r=11+Math.sin(now()/90)*3;oc.lineWidth=3;oc.strokeStyle=col;oc.beginPath();oc.arc(q[0],q[1],r,0,6.3);oc.moveTo(q[0]-r-6,q[1]);oc.lineTo(q[0]+r+6,q[1]);oc.moveTo(q[0],q[1]-r-6);oc.lineTo(q[0],q[1]+r+6);oc.stroke()};
+  const cross=(x,z,col,y=1.5)=>{const q=scr(x,y,z);if(!q)return;const r=11+Math.sin(now()/90)*3;oc.lineWidth=3;oc.strokeStyle=col;oc.beginPath();oc.arc(q[0],q[1],r,0,6.3);oc.moveTo(q[0]-r-6,q[1]);oc.lineTo(q[0]+r+6,q[1]);oc.moveTo(q[0],q[1]-r-6);oc.lineTo(q[0],q[1]+r+6);oc.stroke()};
   if(SEL.length){const want=new Set(SEL);oc.lineWidth=2;oc.strokeStyle='#9df0b4';for(const c of myUnits()){if(!want.has(c.id))continue;const q=scr(c.x,unitY(UNITS[c.type],c.x,c.z)+.3,c.z);if(!q)continue;const r=c.type==='gemi'?20:c.type==='denizalti'?13:c.type==='koc'||c.type==='balon'?11:8;oc.beginPath();oc.ellipse(q[0],q[1],r,r*.55,0,0,6.3);oc.stroke()}}
   if(cmdDraft&&cmdDraft.length>1)trail(cmdDraft,'#9df0b4');
   if(cmdShow){cmdShow.t-=1/60;if(cmdShow.t<=0)cmdShow=null;
@@ -2155,7 +2206,7 @@ function drawOverlay(){
     oc.lineWidth=4;oc.strokeStyle=`rgba(${col},${.55+k*.45})`;oc.beginPath();oc.arc(q[0],q[1],r,0,6.283);oc.stroke();oc.lineWidth=2;oc.beginPath();oc.arc(q[0],q[1],r*.45,0,6.283);oc.stroke();
     oc.fillStyle=`rgb(${col})`;oc.beginPath();oc.moveTo(q[0],q[1]-r-4);oc.lineTo(q[0]-9,q[1]-r-20);oc.lineTo(q[0]+9,q[1]-r-20);oc.fill()}}
   if(laneTo!=null&&!P[laneTo].dead){oc.font=`700 ${W<620?15:17}px Georgia`;for(let l=0;l<LANES;l++){const[a,b]=laneLine(laneTo,l);trail([a,b],'#ffd98a');const q=scr(a.x+(b.x-a.x)*.22,2,a.z);if(q){const t=String(l+1);oc.lineWidth=4;oc.strokeStyle='rgba(0,0,0,.8)';oc.strokeText(t,q[0],q[1]-8);oc.fillStyle='#ffd98a';oc.fillText(t,q[0],q[1]-8)}}}
-  for(const u of ME.units)if(u.type==='fuze'&&!u.ret)cross(u.tx,u.tz,'#ff4a3a');
+  for(const u of ME.units)if(u.type==='fuze'&&!u.ret){const tr=u.lockT!=null?unitById(u.lockT):null;if(tr){const y=flies(UNITS[tr.type])?airY(tr):unitY(UNITS[tr.type],tr.x,tr.z)+1;cross(tr.x,tr.z,'#ff4a3a',y);const q=scr(tr.x,y,tr.z);if(q){oc.lineWidth=3;oc.strokeStyle='#ff5a3a';oc.beginPath();oc.arc(q[0],q[1],naval(tr.type)?24:17,0,6.283);oc.stroke()}}else cross(u.tx,u.tz,'#ff4a3a')}
   oc.font='700 17px Georgia';oc.fillStyle='#ffd98a';
   for(const f of floats){vp.set(f.x,6+f.t*8,f.z).project(camera);if(vp.z>1)continue;oc.globalAlpha=1-f.t;oc.fillStyle=f.heal?'#7dff9a':'#ffd98a';oc.fillText(f.txt,(vp.x+1)/2*W,(1-vp.y)/2*H)}oc.globalAlpha=1;
 }
@@ -2238,7 +2289,7 @@ function tutTick(dt){
 function mkTut(){
   tutSteps();$('tutB').onclick=()=>tutGo(tutI-1);$('tutM').onclick=()=>{tutMini=!tutMini;tutShow()};
   if(SMALL)tutMini=false;
-  $('tutF').onclick=()=>{const S=TS[tutI];if(!S.info&&!S.ok)return;if(S.last){try{localStorage.setItem('cephe_egitim','1')}catch(e){}location.reload();return}tutGo(tutI+1)};
+  $('tutF').onclick=()=>{const S=TS[tutI];if(!S.info&&!S.ok)return;if(S.last){try{localStorage.setItem('cephe_egitim','1')}catch(e){}bye();return}tutGo(tutI+1)};
   // the dummy enemy holds a few towers to aim at
   const c=castlePos(1);P[1].money=500;for(const t of['ok','ok','top']){let done=false;for(let r=14;r<50&&!done;r+=3)for(let a=Math.PI*.6;a<Math.PI*1.4&&!done;a+=.25){const tw=addTower(P[1],t,Math.round(c.x+Math.cos(a)*r),Math.round(c.z+Math.sin(a)*r)*(t==='top'?1:(P[1].towers.length%2?1:-1)));if(tw){tw.bt=0;tw.mesh.sy=1;tw.mesh.tpl.dirty=true;done=true}}}
   P[1].units=P[1].units.filter(u=>u.type!=='isci');setInterval(()=>{if(tutDone>0){tutDone-=.25;if(tutDone<=0&&TS[tutI]&&TS[tutI].ok&&!TS[tutI].last)tutGo(tutI+1)}},250);
@@ -2257,7 +2308,7 @@ addEventListener('error',e=>{if(e&&e.error)oops(e.error)});addEventListener('unh
 try{const h=JSON.parse(localStorage.getItem('cephe_hb')||'null');if(h&&!h.clean&&Date.now()-h.at<3600e3&&Date.now()-h.at>8000)setTimeout(()=>report('donma','onceki oturum temiz kapanmadi',h),4000)}catch(e){}
 const beat=clean=>{try{localStorage.setItem('cephe_hb',JSON.stringify({at:Date.now(),clean:clean?1:0,ver:VER,t:ME.t|0,fps:Math.round(fps),dpr:DPR,duel:DUEL,un:P.map(D=>D.units.length),sh:SHELLS.length,ended}))}catch(e){}};
 setInterval(()=>{if(!document.hidden)beat(ended)},3000);
-let hidAt=0;addEventListener('pagehide',()=>beat(true));document.addEventListener('visibilitychange',()=>{hidAt=now();beat(document.hidden||ended)});addEventListener('blur',()=>{hidAt=now()});
+let hidAt=0;addEventListener('pagehide',()=>{SES.pause();beat(true)});addEventListener('beforeunload',()=>SES.pause());document.addEventListener('visibilitychange',()=>{hidAt=now();if(document.hidden)SES.pause();else SES.wake();beat(document.hidden||ended)});addEventListener('pageshow',()=>{if(!document.hidden)SES.wake()});addEventListener('blur',()=>{hidAt=now()});
 cv.addEventListener('webglcontextlost',()=>{report('gpu','webgl context lost');tip(TL('Görüntü kısa süre kayboldu, yeniden kuruluyor…','The picture was lost for a moment, rebuilding…'))});
 cv.addEventListener('webglcontextrestored',()=>{report('gpu','webgl context restored');for(const T of TPL.values())T.dirty=T.mem=true;tip(TL('Görüntü geri geldi','The picture is back'))});
 setInterval(()=>{           // runs even when the tab is in the background
