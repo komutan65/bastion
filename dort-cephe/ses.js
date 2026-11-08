@@ -45,7 +45,22 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
   kilic(v=1,p=0){if(this.ok('k',.12,'okcu')&&!this.play('kilic',.4*v,p))this.hit(this.ctx.currentTime,'bandpass',3500,2500,.2*v,.12,4)},
   top(v=1,p=0){if(this.ok('t',.16,'bomba')&&!this.play('tufek',.95*v,p,.48,1600))this.hit(this.ctx.currentTime,'lowpass',900,120,1.1*v,.32)},
   flak(v=1,p=0){if(this.ok('f',.12,'bomba')&&!this.play('tufek',.4*v,p,.75,3000))this.hit(this.ctx.currentTime,'lowpass',1500,200,.6*v,.15)},
-  roket(v=1,p=0){if(this.ok('r',.15,'bomba')&&!this.play('vin',.8*v,p,.55))this.hit(this.ctx.currentTime,'bandpass',600,2500,.4*v,.5,1)},
+  // each weapon has its own voice. A tone that sweeps from f0 to f1, and a noise band that does the same
+  tone(t,f0,f1,peak,dur,type='sine'){const c=this.ctx,o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(f1,t+dur);o.connect(g);g.connect(this.sfx);this.env(g,t,.004,peak,0,dur);o.start(t);o.stop(t+dur+.05)},
+  // rocket leaving the rack: a hard "tak" then the hiss of the motor ("şşş")
+  roket(v=1,p=0){if(!this.ok('r',.15,'bomba'))return;const t=this.ctx.currentTime;this.hit(t,'highpass',5200,2600,.9*v,.05,1);this.tone(t,1800,500,.25*v,.06,'square');this.hit(t+.03,'bandpass',900,4200,.55*v,.6,1.2);this.play('vin',.5*v,p,1.15)},
+  // rocket meeting a missile in the sky: a sharp metallic crack, a high bang, a ring
+  roketVur(v=1,p=0){if(!this.ok('rv',.1,'bomba'))return;const t=this.ctx.currentTime;this.hit(t,'highpass',6000,1500,1.1*v,.12,.8);this.tone(t,1300,380,.3*v,.25,'triangle');this.play('patla',.55*v,p,1.65)},
+  // a missile: the deepest, longest boom in the game, with a second rumble rolling after it
+  fuze(v=1,p=0){if(!this.ok('fz',.25,'bomba'))return;const t=this.ctx.currentTime;this.tone(t,75,20,1.5*v,1.5);this.hit(t,'lowpass',700,50,1.3*v,1.6,.7);this.play('patla',1.15*v,p,.55,1800);setTimeout(()=>{try{this.play('patla',.7*v,p,.42,700);this.tone(this.ctx.currentTime,55,22,.8*v,1.1)}catch(e){}},170)},
+  // a missile taking off: a rising roar
+  fuzeCik(v=1,p=0){if(!this.ok('fc',.3,'bomba'))return;const t=this.ctx.currentTime;this.hit(t,'bandpass',260,1600,.8*v,1.1,1.1);this.tone(t,60,140,.5*v,.9,'sawtooth');this.play('vin',.7*v,p,.5)},
+  // a cannonball landing: a short punchy thud
+  gulle(v=1,p=0){if(!this.ok('gl',.12,'bomba'))return;const t=this.ctx.currentTime;this.tone(t,150,48,.8*v,.28);if(!this.play('patla',.55*v,p,1.3,2600))this.hit(t,'lowpass',1600,150,.7*v,.3)},
+  // a warship's gun: heavier and lower than a tower cannon
+  gemiTop(v=1,p=0){if(!this.ok('gt',.2,'bomba'))return;const t=this.ctx.currentTime;this.tone(t,85,30,1.1*v,.6);if(!this.play('tufek',1*v,p,.36,1000))this.hit(t,'lowpass',700,90,1.2*v,.5)},
+  // a warship's shell landing: bigger than a cannonball, with a crack on top
+  gemiVur(v=1,p=0){if(!this.ok('gv',.14,'bomba'))return;const t=this.ctx.currentTime;this.tone(t,110,34,1.05*v,.5);this.hit(t,'highpass',3500,900,.4*v,.08);this.play('patla',.8*v,p,1.05,3200)},
   bomba(v=1,p=0){if(!this.ok('b',.14,'bomba'))return;{const c=this.ctx,t=c.currentTime,o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(90,t);o.frequency.exponentialRampToValueAtTime(30,t+.45);o.connect(g);g.connect(this.sfx);this.env(g,t,.004,.75*v,0,.5);o.start(t);o.stop(t+.6)}if(this.play('patla',.95*v,p))return;const c=this.ctx,t=c.currentTime,o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(130,t);o.frequency.exponentialRampToValueAtTime(34,t+.5);o.connect(g);g.connect(this.sfx);this.env(g,t,.005,1.3*v,0,.6);o.start(t);o.stop(t+.7);this.hit(t,'lowpass',2200,160,1.2*v,.55)},
   dalga(v=1,p=0){if(this.ok('d',.4,'su'))this.play('dalga',.45*v,p)},
   atli(v=1){if(!this.ok('a',1.5,'atli'))return;if(!this.play('nal',.75*v)){const t=this.ctx.currentTime;[0,.1,.19,.27].forEach((d,i)=>this.hit(t+d,'bandpass',i%2?520:380,180,.55*v,.06,3))}},
