@@ -71,7 +71,7 @@ async function enter(m){
   onlineAt(m.tutorial?'egitim':'oyun');
   window.ARENA={seat,id,room:String(m.room),players:m.players,sb,duel:!!m.duel,tutorial:!!m.tutorial};
   $('lStatus').textContent=L('Harita hazırlanıyor…','Preparing the map…');
-  try{await import('./oyun.js?v=20261108c');$('lobby').hidden=true}
+  try{await import('./oyun.js?v=20261108d');$('lobby').hidden=true}
   catch(e){console.error(e);err(L('Oyun yüklenemedi. Sayfayı yenile.','The game failed to load. Refresh the page.'))}
 }
 function join(name){
@@ -126,7 +126,6 @@ $('lCopy').onclick=async()=>{
 // mode switch: four corners, or one against one
 function setMode(d){
   duel=d;MAXP=d?2:4;$('m4').classList.toggle('on',!d);$('m2').classList.toggle('on',d);
-  $('lSub').textContent=d?L('Teke tek: iki ada, ortada boş bir ada ve köprüler. Rakibinin kulesini ilk yıkan kazanır.','One on one: two islands, an empty island between them and bridges. First to topple the other tower wins.'):L('Herkese 200 para. Kuleni koru, rakiplerine asker gönder. Son ayakta kalan kazanır.','Everyone starts with 200 gold. Guard your tower, send troops at your rivals. Last one standing wins.');
   $('lBots').textContent=d?L('Yapay zekaya karşı 1v1','1v1 against the computer'):L('Yapay zekaya karşı oyna','Play against the computer');$('lInvite').textContent=d?L('Arkadaşınla 1v1','1v1 with a friend'):L('Arkadaşlarınla oyna','Play with friends');$('lPlay').textContent=d?L('1v1 OYNA','PLAY 1v1'):L('OYNA','PLAY');
 }
 $('m4').onclick=()=>setMode(false);$('m2').onclick=()=>setMode(true);

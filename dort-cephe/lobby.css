@@ -23,4 +23,4 @@
 #lFriends{display:flex;flex-direction:column;gap:10px}#lJoinRow{display:flex;gap:8px}#lJoinRow input{flex:1;text-align:center;letter-spacing:6px;font-size:22px;text-transform:uppercase}
 #lCodeV{font:700 40px/1.1 Georgia,serif;letter-spacing:8px;color:#ffe08a;user-select:text;-webkit-user-select:text}
 
-#lOnline{margin:-4px 0 8px;font-size:14px;color:#9df0b4;text-align:center;letter-spacing:.3px}
+#lOnline{position:fixed;top:calc(8px + env(safe-area-inset-top));right:10px;margin:0;padding:3px 9px;font-size:11px;color:#9df0b4;background:rgba(10,18,30,.55);border-radius:10px;letter-spacing:.2px;z-index:5;pointer-events:none}

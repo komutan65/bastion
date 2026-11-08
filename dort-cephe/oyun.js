@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261108c';
+import {SES} from './ses.js?v=20261108d';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -10,7 +10,7 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=150,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=2,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=20,DBR_FIX=100,VER='12';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=20,DBR_FIX=100,VER='12.1';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
@@ -379,7 +379,7 @@ const toPt=a=>Array.isArray(a)?{x:clamp(num(a[0]),-VIEW,VIEW),z:clamp(num(a[1]),
 function spawn(R,type,from,o){
   if(o&&o.cmd){const st=toPt(o.start),U=UNITS[type],via=Array.isArray(o.via)?o.via.slice(0,60).map(toPt).filter(Boolean):[];if(!st||!U||!CMDABLE.has(type)||!via.length)return;
     const id=typeof o.keep==='number'&&!R.units.some(q=>q.id===o.keep)?o.keep:uid++,u={id,type,from,path:polyPath([st,{x:st.x+.01,z:st.z}]),s:0,hp:clamp(num(o.hp,U.hp),1,U.hp),x:st.x,z:st.z,bomb:0,cd:0,end:0,lane:0,lx:0,lz:0,vx:0,vz:0};
-    R.units.push(u);setRoute(u,R,via);if(o.rally)u.goRally=true;if(typeof o.lock==='number'){u.lock=o.lock;u.hold=true;u.siege=false;u.ftgt=null}return}
+    R.units.push(u);setRoute(u,R,via);if(o.rally)u.goRally=true;if(typeof o.lock==='number'){u.lock=o.lock;u.hold=true;u.siege=false;u.ftgt=null;const t=unitById(o.lock);u.lockK=t?t.type:null}return}
   const id=uid++,at=type==='fuze'&&o?toPt(o.at):null,via=(type==='atli'||type==='ucak'||type==='balon'||UNITS[type].yol==='kara')&&o&&Array.isArray(o.via)?o.via.slice(0,48).map(toPt).filter(Boolean):null;
   const U=UNITS[type],a=castlePos(from),b=castlePos(R.seat);let pts;
   if(at)pts=[a,at];
@@ -391,7 +391,7 @@ function spawn(R,type,from,o){
   else if(type==='balon'&&via&&via.length)pts=roundPath([a,via[0],b],40);
   else pts=[a,b];
   const path=polyPath(pts);
-  const u={id,type,from,path,s:0,hp:UNITS[type].hp,x:0,z:0,bomb:0,cd:0,end:path.len-(type==='balon'?2:type==='denizalti'?0:7+id%5),lane:((id*7)%5-2)*.85,lx:0,lz:0,vx:0,vz:0};u.x=path.pts[0].x;u.z=path.pts[0].z;R.units.push(u);
+  const u={id,type,from,path,s:0,hp:UNITS[type].hp,x:0,z:0,bomb:0,cd:0,end:path.len-(type==='balon'?2:type==='denizalti'?22:7+id%5),lane:((id*7)%5-2)*.85,lx:0,lz:0,vx:0,vz:0};u.x=path.pts[0].x;u.z=path.pts[0].z;R.units.push(u);
   if(type==='gemi'&&o&&o.hp)u.hp=clamp(num(o.hp,U.hp),1,U.hp);
   if(type==='ucak'){const side=Math.sign(b.x-a.x)||-SX[R.seat],z=laneZ(R.seat,clamp(num(o&&o.lane,2)|0,0,LANES-1));u.via=[{x:b.x-side*75,z},{x:b.x+side*80,z}];u.lane=0}
   if(type==='ucak'&&o&&o.hp)u.hp=clamp(num(o.hp,U.hp),1,U.hp);
@@ -404,6 +404,10 @@ function spawn(R,type,from,o){
 // soldiers, riders, balloons, ships and submarines can be picked out and sent along a drawn line
 const CMDABLE=new Set(['piyade','atli','koc','balon','denizalti','gemi','dalgic']);
 const naval=t=>t==='gemi'||t==='denizalti';
+// an enemy submarine runs deep: you only make it out once one of your warships is near it, or it is right off your shore
+let seenSh=[],seenT=0;
+function subSeen(x,z,from){if(allied(from,ME.seat))return true;const t=now();if(t-seenT>400){seenT=t;seenSh=myUnits().filter(c=>c.type==='gemi')}
+  return seenSh.some(c=>Math.hypot(c.x-x,c.z-z)<34)||(!ME.dead&&(c=>Math.hypot(c.x-x,c.z-z)<72)(castlePos(ME.seat)))}
 function landNear(x,z,r){let best=null,bd=1e9;for(let a=0;a<6.28;a+=.2)for(let k=3;k<=r;k+=2){const X=x+Math.cos(a)*k,Z=z+Math.sin(a)*k;if(shoreOf(X,Z)>WL+2){if(k<bd){bd=k;best={x:X,z:Z}}break}}return best}
 function setRoute(u,D,pts){
   const U=UNITS[u.type],cur={x:u.x,z:u.z},e=pts[pts.length-1];let p;
@@ -423,7 +427,7 @@ function setRoute(u,D,pts){
   u.aim=foe&&(tw||u.siege)?{x:e.x,z:e.z}:null;u.hold=!(tw||u.siege);
   if(u.siege&&!naval(u.type)&&!tw){u.end=Math.max(0,u.path.len-(5.5+u.id%5));u.lane=((u.id*7)%5-2)*.85}
   if(u.type==='gemi'&&u.aim){u.end=u.path.len;for(let q=0;q<=u.path.len;q+=2){const r=pointOn(u.path,q);if(Math.hypot(r.x-u.aim.x,r.z-u.aim.z)<=SHIP_STAND){u.end=q;break}}}   // stop as soon as the guns reach
-  if(u.type==='denizalti'){const q=u.path.pts[u.path.pts.length-1],l=landNear(q.x,q.z,30);u.land=l&&seatAt(l.x,l.z)===D.seat?l:null;u.hold=!(foe&&u.land)}
+  if(u.type==='denizalti'){const q=u.path.pts[u.path.pts.length-1],l=landNear(q.x,q.z,55);u.land=l&&seatAt(l.x,l.z)===D.seat?l:null;u.hold=!(foe&&u.land)}
 }
 // a finished bomber waits at the head of its runway, a finished warship at its dock, until they are sent
 function parkPlane(D){const r=RWY[D.seat];if(!r)return;const k=D.units.filter(u=>u.type==='ucak'&&u.ph==='park').length,dx=(r.b.x-r.a.x)/r.len,dz=(r.b.z-r.a.z)/r.len,x=r.a.x+dx*(4+k*9),z=r.a.z+dz*(4+k*9);
@@ -466,7 +470,7 @@ function applyCmd(D,ids,pts,by,rally,lock,lockAt){
         u.done=true;const o={via:pts.slice(0,48).map(p=>[Math.round(p.x),Math.round(p.z)]),hp:Math.round(u.hp)};if(local(P[S]))spawn(P[S],'ucak',by,o);else say('send',{to:S,from:by,type:'ucak',o});continue}
       if(S===D.seat&&u.ph!=='roll'){u.via=pts.slice(0,48).map(p=>({x:p.x,z:p.z}));u.wi=0;if(u.ph==='home'||u.ph==='land'||u.ph==='bomb')u.ph='fly'}continue}
     if(!pts){setRoute(u,D,[{x:u.x+.01,z:u.z}]);u.hold=true;u.ftgt=null;u.siege=false;u.aim=null;continue}
-    if(S===D.seat){setRoute(u,D,pts);if(lock!=null){u.lock=lock;u.hold=true;u.siege=false;u.ftgt=null;u.rp2=3}continue}
+    if(S===D.seat){setRoute(u,D,pts);if(lock!=null){u.lock=lock;u.hold=true;u.siege=false;u.ftgt=null;u.rp2=3;const t=unitById(lock);u.lockK=t?t.type:null}continue}
     u.done=true;const o={start:[Math.round(u.x),Math.round(u.z)],via:pts.map(p=>[Math.round(p.x),Math.round(p.z)]),hp:Math.round(u.hp),cmd:1,keep:u.id,lock};
     if(local(P[S]))spawn(P[S],u.type,by,o);else say('send',{to:S,from:by,type:u.type,o})}
 }
@@ -575,6 +579,11 @@ const RIDE_SEA=26;
 function canStand(u,x,z){const Y=UNITS[u.type].yol;if(u.type==='dalgic'||Y==='hava')return true;const s=shoreOf(x,z);if(u.type==='atli')return s>-RIDE_SEA;
   return s>.4||onDeckFixed(x,z)||bridges.some(b=>segD(x,z,b)<3)}
 // the tapped enemy is down: hold the ground where the fight ended
+// the target the player picked is gone: go straight on to the nearest enemy of the same kind close by
+function relock(u,D){const was=u.lockK;u.lockK=null;if(!was)return false;let best=null,bd=48;
+  for(const o of D.units){if(o.hp<=0||o.done||o.ret||o.fall!=null||o.dove!=null||allied(o.from,u.from)||!canLock(u.type,o))continue;
+    if(fighter(u.type)&&naval(o.type)!==naval(was))continue;const d=Math.hypot(o.x-u.x,o.z-u.z);if(d<bd){bd=d;best=o}}
+  if(!best)return false;u.lock=best.id;u.lockK=best.type;u.hold=true;u.siege=false;u.ftgt=null;u.rp2=0;u.foe=null;u.stuck=0;return true}
 function standHere(u){u.path=polyPath([{x:u.x,z:u.z},{x:u.x+.01,z:u.z}]);u.s=0;u.end=0;u.off=false;u.reS=false;u.hold=true;u.siege=false;u.ftgt=null;u.rs=null}
 function scanFoes(D){
   const all=[];
@@ -583,7 +592,7 @@ function scanFoes(D){
   const tnow=now();
   for(const u of D.units){if(u.ret||u.fall!=null||!fighter(u.type)){u.foe=null;continue}
     u.vx=u.vz=0;
-    if(u.lock!=null){const e=all.find(q=>q.id===u.lock);if(e&&!allied(e.from,u.from)&&Math.hypot(e.x-u.x,e.z-u.z)<160){u.foe=e;continue}u.lock=null;standHere(u)}   // a target the player tapped
+    if(u.lock!=null){const e=all.find(q=>q.id===u.lock);if(e&&!allied(e.from,u.from)&&Math.hypot(e.x-u.x,e.z-u.z)<160){u.foe=e;continue}u.lock=null;if(!relock(u,D))standHere(u);else continue}   // a target the player tapped
     // at home soldiers go for raiders they see; out on a march they only fight what they bump into
     let best=u.type==='isci'?6:u.from===D.seat?(u.rs!=null?28:22):7,f=null;for(const e of all){if(allied(e.from,u.from)||(e.nav&&u.type!=='dalgic')||(u.ign===e.id&&tnow<u.ignT))continue;const d=Math.hypot(e.x-u.x,e.z-u.z);if(d<best){best=d;f=e}}
     u.foe=f}
@@ -608,7 +617,7 @@ function simDefender(D,dt){
       // enemy warships that sight each other trade broadsides; each side counts the hits it takes
       u.sf=(u.sf||0)-dt;if(u.sf<=0){u.sf=.5;u.foeS=null;let bd=SHIP_SEE;
         // a target the player tapped (ship, submarine, troops on a shore): close in and shell it
-        if(u.lock!=null){const tr=unitById(u.lock);if(!tr||tr.hp<=0||tr.done||tr.ret||tr.fall!=null||allied(tr.from,u.from)){u.lock=null;u.end=u.s}
+        if(u.lock!=null){const tr=unitById(u.lock);if(!tr||tr.hp<=0||tr.done||tr.ret||tr.fall!=null||allied(tr.from,u.from)){u.lock=null;u.end=u.s;relock(u,D)}
           else{const d=Math.hypot(tr.x-u.x,tr.z-u.z);u.foeS={x:tr.x,z:tr.z,ref:tr.remote?null:tr};bd=-1;
             if(d>62&&(u.rp2=(u.rp2||0)-.5)<=0){u.rp2=3;const L0=u.lock;setRoute(u,D,[{x:tr.x,z:tr.z}]);u.lock=L0;u.hold=true}else if(d<=58)u.end=u.s}}
         if(bd>0)for(const E of P){if(!E.on)continue;const lo=local(E);for(const o of lo?E.units:E.remote.values()){if(o===u||o.type!=='gemi')continue;const of=lo?o.from:num(o.from,E.seat);if(allied(of,u.from)||(lo?o.fall!=null||o.done||o.ret:o.fl&2))continue;
@@ -635,8 +644,9 @@ function simDefender(D,dt){
       if(u.dove!=null){u.dove+=dt;u.moving=false;if(u.dove>2.4)u.done=true;continue}
       if(u.s<u.end){u.s=Math.min(u.end,u.s+U.sp*dt);u.moving=true}else u.moving=false;
       {const p=pointOn(u.path,u.s);u.x=p.x+(u.ox||0);u.z=p.z+(u.oz||0)}
+      if(u.moving&&!u.hold&&!u.cmd&&!allied(u.from,D.seat)&&u.s>u.path.len*.5&&(u.lk=(u.lk||0)-dt)<=0){u.lk=.5;const l=landNear(u.x,u.z,30);if(l&&seatAt(l.x,l.z)===D.seat){u.land=l;u.end=u.s;u.moving=false}}     // stop well out at sea, like a warship
       if(!u.moving&&!u.hold&&!allied(u.from,D.seat)){       // lie offshore, dive, and let the divers swim up onto the island
-        const l=u.land||landNear(u.x,u.z,34);if(!l||seatAt(l.x,l.z)!==D.seat){u.hold=true;continue}
+        const l=u.land||landNear(u.x,u.z,58);if(!l||seatAt(l.x,l.z)!==D.seat){u.hold=true;continue}
         u.dove=0;ripple(u.x,u.z,6);ripple(u.x,u.z,3.5);fxAt(D,u.x,u.z,'dalga');
         for(let i=0;i<10;i++){const a=i*.628+.3,x=u.x+Math.cos(a)*(1.2+(i%2)*1.6),z=u.z+Math.sin(a)*(1.2+(i%2)*1.6),id=uid++,lx=l.x+Math.cos(a)*3.5,lz=l.z+Math.sin(a)*3.5,path=polyPath([{x,z},{x:lx,z:lz},home]);
           D.units.push({id,type:'dalgic',from:u.from,path,s:0,hp:UNITS.dalgic.hp,x,z,bomb:0,cd:0,end:path.len-(13+id%4),lane:0,lx:0,lz:0,vx:0,vz:0,emerge:1.6+i*.15})}
@@ -644,7 +654,14 @@ function simDefender(D,dt){
       continue}
     if(u.fall!=null){               // a shot-down balloon drops and bursts where it lands
       u.fall+=dt;
-      if(u.type==='gemi'){if(Math.random()<dt*5)puff(u.x+(Math.random()-.5)*6,2,u.z+(Math.random()-.5)*6,2.4,3.2,.18,2,.6);if(u.fall>5)u.done=true;continue}
+      if(u.type==='gemi'){     // a sunk warship blows up, burns, tips its bow up and goes down
+        const sx=Math.sin(u.dir||0),sz=Math.cos(u.dir||0),rx=(Math.random()-.5)*2.4,rk=(Math.random()-.5)*12;
+        if(u.fall<=dt*1.5){boom(u.x,3,u.z,6,'#ff7a2a');boom(u.x+sx*4,4,u.z+sz*4,4,'#ffe08a');splash(u.x,u.z,5);fxAt(D,u.x,u.z,'bomba')}
+        if(u.fall<3.2&&Math.random()<dt*2.2){boom(u.x+sx*rk+sz*rx,2.5,u.z+sz*rk-sx*rx,2.5+Math.random()*2,Math.random()<.5?'#ff7a2a':'#ffb347');fxAt(D,u.x,u.z,'top')}
+        if(u.fall<4&&Math.random()<dt*9)flame(u.x+sx*rk*.6,2.6-u.fall*.5,u.z+sz*rk*.6,2.4,.3);
+        if(Math.random()<dt*6)puff(u.x+(Math.random()-.5)*6,2,u.z+(Math.random()-.5)*6,2.4,3.2,.18,2,.6);
+        if(u.fall>2.5&&Math.random()<dt*3)ripple(u.x,u.z,9);
+        if(u.fall>6)u.done=true;continue}
       if(u.type==='ucak'){u.x+=Math.sin(u.hd||0)*U.sp*.75*dt;u.z+=Math.cos(u.hd||0)*U.sp*.75*dt;u.y=u.y0-8*u.fall*u.fall;u.alt=u.y;
         if(Math.random()<dt*16){puff(u.x,u.y,u.z,1.8,2.6,.14,.5,.3);flame(u.x,u.y,u.z,2.2,.25)}
         if(u.y<=Math.max(heightAt(u.x,u.z),0)+1){u.done=true;explode(u.x,u.z,4);crater(u.x,u.z,5);fxAt(D,u.x,u.z,'bomba');blast(D,u.x,u.z,10,110,30,u.from,50);if(D.dead)return}
@@ -664,11 +681,11 @@ function simDefender(D,dt){
     const own=allied(u.from,D.seat),dh=Math.hypot(u.x-home.x,u.z-home.z),atBase=u.cmd?u.s>=u.end&&dh<62:dh<62||u.s>=u.end,step=U.sp*dt*(air?1:drag(u,dt));
     u.scan=(u.scan||0)-dt;
     if(air&&u.lock!=null){const tr=unitById(u.lock);
-      if(!tr||tr.hp<=0||tr.done||tr.ret||allied(tr.from,u.from)){u.lock=null;standHere(u)}
+      if(!tr||tr.hp<=0||tr.done||tr.ret||tr.fall!=null||allied(tr.from,u.from)){u.lock=null;if(!relock(u,D))standHere(u)}
       else{const d=Math.hypot(tr.x-u.x,tr.z-u.z);if(d>1.5){const k=Math.min(d,step);u.x+=(tr.x-u.x)/d*k;u.z+=(tr.z-u.z)/d*k;u.moving=true}else u.moving=false;u.atk=d<4;u.cdM=2;
         if(d<4&&u.bomb<=0){u.bomb=2;if(!tr.remote){tr.hp-=BLD.balon*(naval(tr.type)?1.5:1);if(u.from===D.seat)tr.byHome=true;else tr.fk=true}boom(tr.x,naval(tr.type)?2:2.5,tr.z,3,'#ff9a30');explode(tr.x,tr.z,1.2);if(naval(tr.type))splash(tr.x,tr.z,2.6);fxAt(D,tr.x,tr.z,'bomba')}
         continue}}
-    if(u.foe&&u.foe.ref&&(u.foe.ref.hp<=0||u.foe.ref.done||u.foe.ref.ret)){if(u.lock!=null)standHere(u);u.foe=null;u.lock=null}
+    if(u.foe&&u.foe.ref&&(u.foe.ref.hp<=0||u.foe.ref.done||u.foe.ref.ret)){const L=u.lock!=null;u.foe=null;u.lock=null;if(L&&!relock(u,D))standHere(u)}
     if(u.foe){
       const e=u.foe,ex=e.ref?e.ref.x:e.x,ez=e.ref?e.ref.z:e.z,d=Math.hypot(ex-u.x,ez-u.z),gun=u.type==='dalgic',gap=(u.type==='koc'?4:gun?11:2.4)+(e.nav?3.8:0);u.face=Math.atan2(ex-u.x,ez-u.z);
       if(d>gap){const k=Math.min(d-gap+.2,step*1.2),nx=u.x+(ex-u.x)/d*k,nz=u.z+(ez-u.z)/d*k;u.atk=false;
@@ -1567,13 +1584,13 @@ function drawUnits(rdt){
       u.px=u.x;u.pz=u.z;u.dir=u.dir==null?want:angLerp(u.dir,want,Math.min(1,rdt*(u.type==='gemi'?2:u.type==='ucak'?20:10)));
       if(u.type==='ucak'){put('ucak',u.x,u.z,u.from,u.dir,true,u.fall!=null?u.y:u.alt,u.fall!=null?.5:u.ph==='roll'?0:u.ph==='land'?.07:-.06);
         if(u.hp<UNITS.ucak.hp*.4&&Math.random()<rdt*8)puff(u.x,u.alt,u.z,1.4,2,.2,.4,.2);continue}
-      if(u.type==='gemi'){put('gemi',u.x,u.z,u.from,u.dir,false,u.fall!=null?-.45-u.fall*1.4:-.45+Math.sin(now()/700+u.id)*.12,u.fall!=null?u.fall*.1:0);
+      if(u.type==='gemi'){put('gemi',u.x,u.z,u.from,u.dir,false,u.fall!=null?-.45-Math.max(0,u.fall-.6)**1.6*.9:-.45+Math.sin(now()/700+u.id)*.12,u.fall!=null?Math.min(.55,u.fall*.16):0);
         if(u.moving&&Math.random()<rdt*3)ripple(u.x-Math.sin(u.dir)*7,u.z-Math.cos(u.dir)*7,7);continue}
       if(u.fall!=null){put('balon',u.x,u.z,u.from,u.dir||0,false,u.y,u.fall*1.1);continue}
-      if(u.type==='denizalti')u.dy=lerp(u.dy==null?-.45:u.dy,u.under?-2.8:-.45,Math.min(1,rdt*1.5));
+      let hid=false;if(u.type==='denizalti'){hid=!subSeen(u.x,u.z,u.from);u.dy=lerp(u.dy==null?-.45:u.dy,u.under||hid?-2.9:u.moving!==false?-1.25:-.7,Math.min(1,rdt*1.5))}
       put(u.type,u.x,u.z,u.from,u.dir||0,u.moving!==false,u.dove!=null?-.45-u.dove*1.5:u.type==='denizalti'&&u.dy<-.5?u.dy:u.emerge>0?unitY(UNITS[u.type],u.x,u.z)-u.emerge*1.3:null,0,u.atk?clamp(1-u.cd/(u.cdM||1.2),0,1):null);
-      if((u.type==='atli'||u.type==='dalgic'||u.type==='denizalti')&&heightAt(u.x,u.z)<.2&&Math.random()<rdt*7){ripple(u.x,u.z,4.5);if(Math.random()<.5)boom(u.x,.3-heightAt(u.x,u.z),u.z,.45,'#eaf7ff')}}
-    for(const o of D.remote.values()){const ox=o.x,oz=o.z;o.x=lerp(o.x,o.tx,Math.min(1,rdt*3));o.z=lerp(o.z,o.tz,Math.min(1,rdt*3));if(Math.hypot(o.x-ox,o.z-oz)>.01)o.dir=Math.atan2(o.x-ox,o.z-oz);if(o.fl&2){o.ft+=rdt;put(o.type,o.x,o.z,num(o.from,D.seat),o.dir||0,false,Math.max(1,20-13*o.ft*o.ft),o.ft*1.1)}else put(o.type,o.x,o.z,num(o.from,D.seat),o.dir||0,!(o.fl&4),null,0,o.fl&1?(now()/1200+o.sd)%1:null);if((o.type==='atli'||o.type==='dalgic'||o.type==='denizalti')&&heightAt(o.x,o.z)<.2&&Math.random()<rdt*7)ripple(o.x,o.z,4.5)}
+      if((u.type==='atli'||u.type==='dalgic'||u.type==='denizalti'&&!hid)&&heightAt(u.x,u.z)<.2&&Math.random()<rdt*7){ripple(u.x,u.z,4.5);if(Math.random()<.5)boom(u.x,.3-heightAt(u.x,u.z),u.z,.45,'#eaf7ff')}}
+    for(const o of D.remote.values()){const ox=o.x,oz=o.z;o.x=lerp(o.x,o.tx,Math.min(1,rdt*3));o.z=lerp(o.z,o.tz,Math.min(1,rdt*3));if(Math.hypot(o.x-ox,o.z-oz)>.01)o.dir=Math.atan2(o.x-ox,o.z-oz);const of=num(o.from,D.seat),oh=o.type==='denizalti'&&!subSeen(o.x,o.z,of);if(o.fl&2){o.ft+=rdt;if(naval(o.type)){put(o.type,o.x,o.z,of,o.dir||0,false,-.45-Math.max(0,o.ft-.6)**1.6*.9,Math.min(.55,o.ft*.16));if(o.ft<3&&Math.random()<rdt*2)boom(o.x+(Math.random()-.5)*8,2.5,o.z+(Math.random()-.5)*8,3,'#ff7a2a')}else put(o.type,o.x,o.z,of,o.dir||0,false,Math.max(1,20-13*o.ft*o.ft),o.ft*1.1)}else put(o.type,o.x,o.z,of,o.dir||0,!(o.fl&4),o.type==='denizalti'?(oh?-2.9:-1.25):null,0,o.fl&1?(now()/1200+o.sd)%1:null);if((o.type==='atli'||o.type==='dalgic'||o.type==='denizalti'&&!oh)&&heightAt(o.x,o.z)<.2&&Math.random()<rdt*7)ripple(o.x,o.z,4.5)}
   }
   for(const k of UKEYS)for(const m of IM[k]){const was=m.count;m.count=n[k];m.visible=n[k]>0;if(n[k]||was){m.instanceMatrix.needsUpdate=true;m.instanceColor.needsUpdate=true}}
 }
@@ -1870,7 +1887,7 @@ function myUnits(){const out=[];for(const D of P){if(!D.on)continue;
 function scrOf(x,y,z){vp.set(x,y,z).project(camera);return vp.z>1?null:[(vp.x+1)/2*innerWidth,(1-vp.y)/2*innerHeight]}
 function unitAtScreen(sx,sy){let best=null,bd=22;
   for(const D of P){if(!D.on)continue;const list=local(D)?D.units.filter(u=>!u.done&&u.fall==null&&u.dove==null).map(u=>({id:u.id,x:u.x,z:u.z,type:u.type,from:u.from,pct:u.hp/UNITS[u.type].hp,sim:D.seat})):[...D.remote].filter(([,o])=>!(o.fl&2)).map(([id,o])=>({id,x:o.x,z:o.z,type:o.type,from:o.from,pct:o.pct,sim:D.seat}));
-    for(const c of list){if(c.type==='isci'&&c.from!==ME.seat)continue;const q=scrOf(c.x,unitY(UNITS[c.type],c.x,c.z)+1.5,c.z);if(!q)continue;const d=Math.hypot(q[0]-sx,q[1]-sy);if(d<bd){bd=d;best=c}}}
+    for(const c of list){if(c.type==='isci'&&c.from!==ME.seat)continue;if(c.type==='denizalti'&&!subSeen(c.x,c.z,num(c.from,D.seat)))continue;const q=scrOf(c.x,unitY(UNITS[c.type],c.x,c.z)+1.5,c.z);if(!q)continue;const d=Math.hypot(q[0]-sx,q[1]-sy);if(d<bd){bd=d;best=c}}}
   return best}
 function unitInfo(c){
   const U=UNITS[c.type],r=URANGE[c.type]||3;infoU=c.id;infoT=5;ring2.visible=false;
@@ -2186,7 +2203,7 @@ function drawOverlay(){
       if(n>140)return;vp.set(x,unitY(UNITS[type],x,z)+(type==='balon'?10:type==='koc'?5.5:type==='atli'?5:4.8),z).project(camera);if(vp.z>1)return;
       const sx=(vp.x+1)/2*W,sy=(1-vp.y)/2*H;if(off(sx,sy))return;n++;const w=type==='balon'||type==='koc'?30:22;
       oc.fillStyle='rgba(0,0,0,.7)';oc.fillRect(sx-w/2-1,sy-1,w+2,5);oc.fillStyle=pct>.5?'#62d98f':pct>.25?'#f2c23a':'#ec5840';oc.fillRect(sx-w/2,sy,w*clamp(pct,0,1),3)};
-    for(const D of P){for(const u of D.units)if(u.fall==null)bar(u.type,u.x,u.z,u.hp/UNITS[u.type].hp);for(const o of D.remote.values())if(!(o.fl&2))bar(o.type,o.x,o.z,o.pct)}
+    for(const D of P){for(const u of D.units)if(u.fall==null&&(u.type!=='denizalti'||subSeen(u.x,u.z,u.from)))bar(u.type,u.x,u.z,u.hp/UNITS[u.type].hp);for(const o of D.remote.values())if(!(o.fl&2)&&(o.type!=='denizalti'||subSeen(o.x,o.z,num(o.from,D.seat))))bar(o.type,o.x,o.z,o.pct)}
     for(const t of ME.towers)if(t.bt>0){vp.set(t.x,heightAt(t.x,t.z)+(t.up?(t.top||5)+3:4),t.z).project(camera);if(vp.z>1)continue;const sx=(vp.x+1)/2*W,sy=(1-vp.y)/2*H;if(off(sx,sy))continue;
       const k=clamp(1-t.bt/t.BT,0,1);oc.fillStyle='rgba(0,0,0,.75)';oc.fillRect(sx-17,sy-1,34,7);oc.fillStyle='#f4c430';oc.fillRect(sx-16,sy,32*k,5)}}
   const scr=(x,y,z)=>{vp.set(x,y,z).project(camera);return vp.z>1?null:[(vp.x+1)/2*W,(1-vp.y)/2*H]};
