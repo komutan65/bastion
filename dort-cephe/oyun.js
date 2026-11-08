@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261108f';
+import {SES} from './ses.js?v=20261108g';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -10,7 +10,7 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=150,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=2,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=20,DBR_FIX=100,VER='14';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=20,DBR_FIX=100,VER='15';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
@@ -23,8 +23,8 @@ const UNITS={
   denizalti:{ad:TL('Denizaltı','Submarine'),cost:40,odul:12,hp:220,sp:11,dmg:0,yol:'deniz'},
   dalgic:{ad:TL('Balık Adam','Frogman'),cost:0,odul:2,hp:50,sp:8.5,dmg:3,yol:'su',gizli:true},
   isci:{ad:TL('İşçi','Worker'),cost:0,odul:0,hp:45,sp:10,dmg:0,yol:'kara',gizli:true},
-  gemi:{ad:TL('Savaş Gemisi','Warship'),kisa:TL('Gemi','Ship'),cost:55,odul:25,hp:750,sp:7,dmg:0,yol:'deniz'},
-  ucak:{ad:TL('Bombardıman Uçağı','Bomber'),kisa:TL('Uçak','Plane'),cost:70,odul:35,hp:950,sp:24,dmg:15,yol:'ucak'}
+  gemi:{ad:TL('Savaş Gemisi','Warship'),kisa:TL('Gemi','Ship'),cost:200,odul:25,hp:750,sp:7,dmg:0,yol:'deniz'},
+  ucak:{ad:TL('Bombardıman Uçağı','Bomber'),kisa:TL('Uçak','Plane'),cost:150,odul:35,hp:950,sp:24,dmg:15,yol:'ucak'}
 };
 const TOWERS={
   ok:{ad:TL('Okçu Kulesi','Archer Tower'),cost:20,menzil:24,dmg:15,hiz:1.6,hp:160,hava:true,yer:true},
@@ -264,6 +264,11 @@ const DOCK=[0,1,2,3].map(dockOf);
 // a new hull slides down the slipway, then sails clear of the pier and waits there
 // six bombing runs, top to bottom, spread evenly over the land of the base they cross
 const LANES=6,laneZs=[];
+// a bomb run: a straight line the player lays anywhere over the enemy base, any way round. The bombs fall exactly on its marks
+const RUN_L=64,RUN_N=16;
+const runPts=ln=>{const[cx,cz,a]=ln,dx=Math.cos(a),dz=Math.sin(a);return[...Array(RUN_N)].map((_,i)=>{const k=-RUN_L/2+RUN_L*i/(RUN_N-1);return{x:cx+dx*k,z:cz+dz*k}})};
+const runOk=o=>o&&Array.isArray(o.ln)&&o.ln.length===3&&o.ln.every(v=>Number.isFinite(+v))?[clamp(+o.ln[0],-L,L),clamp(+o.ln[1],-L,L),+o.ln[2]]:null;
+function runFor(from,to,x,z){const a=castlePos(from),b=castlePos(to),c=x==null?b:{x,z};return[Math.round(c.x),Math.round(c.z),+Math.atan2(b.z-a.z,b.x-a.x).toFixed(3)]}
 function laneZ(to,l){if(!laneZs[to]){const c=castlePos(to);let lo=1e9,hi=-1e9;for(let z=c.z-150;z<=c.z+150;z+=3)for(const dx of[-30,0,30]){const x=c.x+dx;if(seatAt(x,z)===to&&shoreOf(x,z)>3&&outerD(x,z)<-8&&Math.abs(z-c.z)<130){lo=Math.min(lo,z);hi=Math.max(hi,z)}}
   if(lo>hi){lo=c.z-50;hi=c.z+50}lo+=9;hi-=9;laneZs[to]=Array.from({length:LANES},(_,i)=>Math.round(lo+(hi-lo)*i/(LANES-1)))}return laneZs[to][clamp(l|0,0,LANES-1)]}
 const LAUNCH=[0,1,2,3].map(s=>{const d=DOCK[s],a=d.ang,w=(x,z)=>({x:d.land.x+x*Math.cos(a)+z*Math.sin(a),z:d.land.z-x*Math.sin(a)+z*Math.cos(a)});
@@ -369,7 +374,7 @@ function sendUnit(D,to,type,o){
   if(UNITS[type].yol==='kara'&&!(o&&o.via)&&!landRoute(D.seat,to,0))return false;
   if(!built&&R.units.length+R.remote.size>150)return false;
   if(type==='ucak'&&!built&&D.rwState!==2)return false;
-  if(type==='ucak'&&!built){if(D.hg)return false;D.money-=U.cost;D.hg={t:PLANE_T,T:PLANE_T,to,lane:clamp(num(o&&o.lane,2)|0,0,LANES-1)};return true}   // a bomber is built, then takes off by itself for the run its owner chose
+  if(type==='ucak'&&!built){if(D.hg)return false;D.money-=U.cost;D.hg={t:PLANE_T,T:PLANE_T,to,ln:runOk(o)||runFor(D.seat,to)};return true}   // a bomber is built, then takes off by itself for the run its owner chose
   if(type==='fuze'&&!built){if(D.fcd>0)return false;D.fcd=FUZE_CD}
   if((type==='denizalti'||type==='gemi')&&!built){if(D.yard||D.ysState!==2||(type==='gemi'&&fleet(D.seat)>=MAX_SHIPS))return false;D.money-=U.cost;D.yard={type,to,t:BUILD_T[type],T:BUILD_T[type]};return true}
   if(!built)D.money-=U.cost;
@@ -394,7 +399,7 @@ function spawn(R,type,from,o){
   const path=polyPath(pts);
   const u={id,type,from,path,s:0,hp:UNITS[type].hp,x:0,z:0,bomb:0,cd:0,end:path.len-(type==='balon'?2:type==='denizalti'?22:7+id%5),lane:((id*7)%5-2)*.85,lx:0,lz:0,vx:0,vz:0};u.x=path.pts[0].x;u.z=path.pts[0].z;R.units.push(u);
   if(type==='gemi'&&o&&o.hp)u.hp=clamp(num(o.hp,U.hp),1,U.hp);
-  if(type==='ucak'){const side=Math.sign(b.x-a.x)||-SX[R.seat],z=laneZ(R.seat,clamp(num(o&&o.lane,2)|0,0,LANES-1));u.via=[{x:b.x-side*75,z},{x:b.x+side*80,z}];u.lane=0}
+  if(type==='ucak'){const ln=runOk(o)||runFor(from,R.seat),dx=Math.cos(ln[2]),dz=Math.sin(ln[2]),h=RUN_L/2;u.ln=ln;u.bp=runPts(ln);u.via=[{x:ln[0]-dx*(h+95),z:ln[1]-dz*(h+95)},{x:ln[0]-dx*h,z:ln[1]-dz*h},{x:ln[0]+dx*(h+80),z:ln[1]+dz*(h+80)}];u.lane=0}
   if(type==='ucak'&&o&&o.hp)u.hp=clamp(num(o.hp,U.hp),1,U.hp);
   if(type==='gemi'){let e=path.len-20;for(let q=0;q<path.len;q+=2){const p=pointOn(path,q);if(Math.hypot(p.x-b.x,p.z-b.z)<80){e=q;break}}u.end=e}
   if(type==='ucak'){u.ph=RWY[from]?'roll':'fly';u.spd=0;u.nb=0;u.dropT=0;u.hd=Math.atan2(pts[1].x-pts[0].x,pts[1].z-pts[0].z);u.alt=RWY[from]?heightAt(u.x,u.z)+1.3:28}
@@ -654,8 +659,8 @@ function simDefender(D,dt){
       if(u.foeS){const e=u.foeS,ref=e.ref;if(ref){e.x=ref.x;e.z=ref.z}u.c2=(u.c2||0)-dt;u.face=Math.atan2(e.x-u.x,e.z-u.z);
         if(u.c2<=0&&Math.hypot(e.x-u.x,e.z-u.z)<90){u.c2=3;const d=Math.hypot(e.x-u.x,e.z-u.z),from=u.from;
           // shells land on the target where this screen runs it; a ship simulated elsewhere is hurt there, so here we trade hits as before
-          for(let k=0;k<2;k++){const ox=Math.sin(u.face)*(k?-6:5),oz=Math.cos(u.face)*(k?-6:5);shell(D,u.x+ox,2.4,u.z+oz,e.x+(Math.random()-.5)*5,e.z+(Math.random()-.5)*5,1+d/70+k*.3,8+d*.1,'top',(x,z)=>{
-            if(ref&&!ref.done&&Math.hypot(ref.x-x,ref.z-z)<7){ref.hp-=naval(ref.type)?34:45;ref.fk=ref.fk||from!==D.seat;explode(x,z,1.2)}else{splash(x,z,2.2);fxAt(D,x,z,'dalga')}});flame(u.x+ox,2.8,u.z+oz,3.2,.2);puff(u.x+ox,3.2,u.z+oz,2.2,2.2,.72,1,.5)}
+          for(let k=0;k<2;k++){const mz=shipMuzzle(u,k),ox=mz.x-u.x,oz=mz.z-u.z;shell(D,mz.x,2.1,mz.z,e.x+(Math.random()-.5)*5,e.z+(Math.random()-.5)*5,.8+d/60+k*.25,2.5+d*.07,'top',(x,z)=>{
+            if(ref&&!ref.done&&Math.hypot(ref.x-x,ref.z-z)<7){ref.hp-=naval(ref.type)?34:45;ref.fk=ref.fk||from!==D.seat;explode(x,z,1.2)}else{splash(x,z,2.2);fxAt(D,x,z,'dalga')}});flame(u.x+ox,2.1,u.z+oz,3.2,.2);puff(u.x+ox,2.4,u.z+oz,2.2,2.2,.72,1,.5)}
           fxAt(D,u.x,u.z,'top');if(!ref)u.dmgT=1.2+Math.random()*.6}}
       if(u.dmgT>0){u.dmgT-=dt;if(u.dmgT<=0){u.hp-=60;explode(u.x+(Math.random()-.5)*4,u.z+(Math.random()-.5)*4,1.2)}}
       if(u.foeS||u.moving||u.hold||allied(u.from,D.seat)){}
@@ -663,9 +668,9 @@ function simDefender(D,dt){
         if(u.cd<=0){u.cd=3.4;let tg=null,bd=u.aim?32:105;const ref=u.aim||u;for(const t of D.towers){const d=Math.hypot(t.x-ref.x,t.z-ref.z);if(d<bd&&Math.hypot(t.x-u.x,t.z-u.z)<125){bd=d;tg=t}}
           if(!tg&&Math.hypot(home.x-u.x,home.z-u.z)>(u.siege?125:110)){u.atk=false;u.noT=true;u.cd=.6;continue}u.noT=false;
           const tx=tg?tg.x:home.x,tz=tg?tg.z:home.z,d=Math.hypot(tx-u.x,tz-u.z),from=u.from;u.face=Math.atan2(tx-u.x,tz-u.z);
-          for(let k=0;k<2;k++){const ox=Math.sin(u.face)*(k?-6:5),oz=Math.cos(u.face)*(k?-6:5);
-            shell(D,u.x+ox,2.4,u.z+oz,tx+(Math.random()-.5)*7,tz+(Math.random()-.5)*7,1.2+d/70+k*.35,12+d*.12,'top',(x,z)=>{explode(x,z,1.5);crater(x,z,3.2);fxAt(D,x,z,'bomba');blast(D,x,z,5.5,55,20,from,30)});
-            flame(u.x+ox,2.8,u.z+oz,3.2,.2);puff(u.x+ox,3.2,u.z+oz,2.2,2.2,.72,1,.5)}
+          for(let k=0;k<2;k++){const mz=shipMuzzle(u,k),ox=mz.x-u.x,oz=mz.z-u.z;
+            shell(D,mz.x,2.1,mz.z,tx+(Math.random()-.5)*7,tz+(Math.random()-.5)*7,1+d/60+k*.3,3+d*.08,'top',(x,z)=>{explode(x,z,1.5);crater(x,z,3.2);fxAt(D,x,z,'bomba');blast(D,x,z,5.5,55,20,from,30)});
+            flame(u.x+ox,2.1,u.z+oz,3.2,.2);puff(u.x+ox,2.4,u.z+oz,2.2,2.2,.72,1,.5)}
           fxAt(D,u.x,u.z,'top')}}
       continue}
     if(U.yol==='ucak'){planeTick(D,u,dt,home);if(D.dead)return;continue}
@@ -686,7 +691,8 @@ function simDefender(D,dt){
       if(u.lockT!=null){const tr=unitById(u.lockT);
         if(tr&&tr.hp>0&&!tr.done&&tr.fall==null){const a=u.path.pts[0],f=u.s/Math.max(1,u.path.len);u.path=polyPath([a,{x:tr.x,z:tr.z}]);u.s=f*u.path.len;u.tx=tr.x;u.tz=tr.z;u.ey=flies(UNITS[tr.type])?airY(tr):6;u.lockR=tr.remote?null:tr}else u.lockT=null}
       u.s+=U.sp*dt;const p=pointOn(u.path,u.s);u.x=p.x;u.z=p.z;u.t=clamp(u.s/u.path.len,0,1);
-      if(u.s>=u.path.len-2){u.done=true;const lr=u.lockR;if(lr&&!lr.done&&lr.hp>0&&Math.hypot(lr.x-u.tx,lr.z-u.tz)<9){lr.hp-=220;lr.fk=true;if(lr.type==='ucak'||lr.type==='balon')boom(lr.x,lr.alt||20,lr.z,6,'#ff7a2a')}if((u.ey||6)>10){boom(u.tx,u.ey,u.tz,8,'#ff7a2a');boom(u.tx,u.ey+2,u.tz,4,'#ffe08a');fxAt(D,u.tx,u.tz,'bomba')}else{boom(u.tx,6,u.tz,9,'#ff7a2a');boom(u.tx,9,u.tz,5,'#ffe08a');explode(u.tx,u.tz,5);crater(u.tx,u.tz,7);fxAt(D,u.tx,u.tz,'bomba');blast(D,u.tx,u.tz,9,150,U.dmg,u.from,80)}if(D.dead)return}
+      if(u.s>=u.path.len-2){u.done=true;const lr=u.lockR;if(lr&&!lr.done&&lr.hp>0&&Math.hypot(lr.x-u.tx,lr.z-u.tz)<9){lr.hp-=220;lr.fk=true;if(lr.type==='ucak'||lr.type==='balon')boom(lr.x,lr.alt||20,lr.z,6,'#ff7a2a')}if((u.ey||6)>10){boom(u.tx,u.ey,u.tz,8,'#ff7a2a');boom(u.tx,u.ey+2,u.tz,4,'#ffe08a');burst(u.tx,u.ey,u.tz,26,['#ffb347','#ff7a2a','#3a3a3a','#ffe08a','#555'],16,1.6,.35,22);fxAt(D,u.tx,u.tz,'bomba');      // an air burst rains fragments on whatever is below
+        {const tx=u.tx,tz=u.tz,from=u.from;for(let k=0;k<5;k++){const a=k*1.26,r=k?3.5+Math.random()*2:0;shell(D,tx,u.ey,tz,tx+Math.cos(a)*r,tz+Math.sin(a)*r,.9+Math.random()*.3,0,'frag',(x,z)=>{explode(x,z,.9);boom(x,1,z,2,'#ffb347');k||blast(D,tx,tz,8,70,10,from,55)})}}}else{boom(u.tx,6,u.tz,9,'#ff7a2a');boom(u.tx,9,u.tz,5,'#ffe08a');explode(u.tx,u.tz,5);crater(u.tx,u.tz,7);fxAt(D,u.tx,u.tz,'bomba');blast(D,u.tx,u.tz,9,150,U.dmg,u.from,80)}if(D.dead)return}
       continue}
     if(u.emerge>0)u.emerge-=dt;
     if(u.from===D.seat&&u.s>=u.end&&!u.foe){if(u.goRally){u.goRally=false;toSlot(D,u)}else if(u.rs!=null&&u.hp<U.hp){u.hp=Math.min(U.hp,u.hp+U.hp*.035*dt);if(D===ME&&Math.random()<dt*.8)floats.push({x:u.x,z:u.z,t:.3,txt:'+',heal:1})}}
@@ -756,6 +762,7 @@ function simDefender(D,dt){
     // the head keeps tracking its target between shots, and only fires once it is pointing at it
     if(t.tg&&(t.tg.hp<=0||t.tg.done||t.tg.ret||t.tg.fall!=null))t.tg=null;
     if(t.tg&&HD)t.yaw=turnTo(t.yaw||0,Math.atan2(-(t.tg.z-t.z),t.tg.x-t.x),HD.rate*dt);
+    if(t.tg&&dt>0){if(t.tpx!=null){const k=Math.min(1,dt*4);t.tvx=lerp(t.tvx||0,clamp((t.tg.x-t.tpx)/dt,-30,30),k);t.tvz=lerp(t.tvz||0,clamp((t.tg.z-t.tpz)/dt,-30,30),k)}t.tpx=t.tg.x;t.tpz=t.tg.z}else{t.tpx=null;t.tvx=t.tvz=0}     // how fast the target is really moving
     if(t.cd>0)continue;
     const r=T.menzil+(t.lvl-1)*3;let best=null,bd=1e9;
     for(const u of D.units){
@@ -764,17 +771,16 @@ function simDefender(D,dt){
       else if(Y==='ucak'?(!T.ucak||u.ph==='roll'):Y==='fuze'?!T.fuze:Y==='hava'?!T.hava:!T.yer)continue;
       const d=Math.hypot(u.x-t.x,u.z-t.z)-(u===t.tg?6:0);if(d<rr&&d<bd){bd=d;best=u}}
     if(!best){t.tg=null;t.cd=.15;continue}
-    if(best!==t.tg){t.tg=best;if(HD){t.yaw=turnTo(t.yaw||0,Math.atan2(-(best.z-t.z),best.x-t.x),HD.rate*dt)}}
+    if(best!==t.tg){t.tg=best;t.tpx=null;t.tvx=t.tvz=0;if(HD){t.yaw=turnTo(t.yaw||0,Math.atan2(-(best.z-t.z),best.x-t.x),HD.rate*dt)}}
     if(HD){const want=Math.atan2(-(best.z-t.z),best.x-t.x);let df=want-(t.yaw||0);while(df>Math.PI)df-=2*Math.PI;while(df<-Math.PI)df+=2*Math.PI;if(Math.abs(df)>.22)continue}
     t.cd=1/T.hiz;const dmg=T.dmg*(1+.6*(t.lvl-1)),gy=heightAt(t.x,t.z),cs=Math.cos(t.yaw||0),sn=-Math.sin(t.yaw||0),mz=HD?HD.mz:0,mx0=t.x+cs*mz,mz0=t.z+sn*mz,my0=gy+(t.top||5);
     if(T.gudumlu){homing(D,mx0,my0+.6,mz0,best,dmg);t.kick=.6;fxAt(D,t.x,t.z,'roket');continue}
     if(t.type==='top'){         // a real cannonball: leaves the muzzle in a puff, arcs over and bursts where the target will be
-      const d=Math.hypot(best.x-mx0,best.z-mz0),dur=.5+d/48;let ax=best.x,az=best.z;
-      if(best.path&&best.moving!==false&&best.s<best.end){const q=pointOn(best.path,Math.min(best.end,best.s+UNITS[best.type].sp*dur*.85));ax=q.x+(best.ox||0);az=q.z+(best.oz||0)}
+      const d=Math.hypot(best.x-mx0,best.z-mz0),dur=.35+d/55,ax=best.x+(t.tvx||0)*dur*.9,az=best.z+(t.tvz||0)*dur*.9;     // aim where it will be, from how it is actually moving
       const from=D.seat,nav=naval(best.type),R=T.alan,tgt=best;
-      shell(D,mx0,my0,mz0,ax,az,dur,1.2+d*.05,'top',(x,z)=>{
+      shell(D,mx0,my0,mz0,ax,az,dur,.4+d*.07,'top',(x,z)=>{
         if(nav){if(!tgt.done&&tgt.fall==null&&Math.hypot(tgt.x-x,tgt.z-z)<8)tgt.hp-=dmg;splash(x,z,2);explode(x,z,1.4)}
-        else{explode(x,z,1.5);crater(x,z,2.6);boom(x,1.5,z,R*.45,'#ffd27a');
+        else{explode(x,z,1.5);if(Math.random()<.45)crater(x,z,2.2);boom(x,1.5,z,R*.45,'#ffd27a');burst(x,heightAt(x,z)+.4,z,7,['#6b5232','#8a6a42','#4d3a24'],7,.9,.3);
           for(const u of D.units){if(u.ret||u.done||u.hp<=0||flies(UNITS[u.type])||allied(u.from,from))continue;const e=Math.hypot(u.x-x,u.z-z);if(e<R)u.hp-=dmg*(e<1.8?1:.7*(1-e/R*.6))}}
         fxAt(D,x,z,'bomba')});
       flame(mx0,my0,mz0,2.6,.18);puff(mx0+cs,my0+.3,mz0+sn,1.6,2.2,.7,.8,.5);t.kick=1;fxAt(D,t.x,t.z,'top');continue}
@@ -805,8 +811,8 @@ function planeTick(D,u,dt,home){
   const U=UNITS.ucak,rw=RWY[u.from];u.t2=(u.t2||0)+dt;
   const steer=(tx,tz,rate)=>{let d=Math.atan2(tx-u.x,tz-u.z)-u.hd;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;u.hd+=clamp(d,-1,1)*rate*dt},fwd=sp=>{u.x+=Math.sin(u.hd)*sp*dt;u.z+=Math.cos(u.hd)*sp*dt};
   if(u.ph==='park'){u.alt=heightAt(u.x,u.z)+1.3;u.moving=false;return}
-  const drop=()=>{u.dropT-=dt;if(u.dropT>0||u.nb>=10)return;u.dropT=.3;u.nb++;const from=u.from;
-    shell(D,u.x,u.alt-1.2,u.z,u.x+Math.sin(u.hd)*12,u.z+Math.cos(u.hd)*12,1.45,0,'bomb',(x,z)=>{explode(x,z,2.6);crater(x,z,4.4);fxAt(D,x,z,'bomba');blast(D,x,z,8,150,45,from,75);if(D.seat!==from)for(const t of D.towers.slice())if(t.type==='duvar'&&Math.hypot(t.x-x,t.z-z)<7){explode(t.x,t.z,1.6);removeTower(D,t)}})};     // heavy bombs: walls under them go down outright
+  const from=u.from,bomb=(x,z)=>{const d0=Math.hypot(x-u.x,z-u.z);shell(D,u.x,u.alt-1.2,u.z,x,z,1.1+d0*.01,0,'bomb',(x,z)=>{explode(x,z,2.4);crater(x,z,3.4);fxAt(D,x,z,'bomba');blast(D,x,z,8,175,55,from,85);if(D.seat!==from)for(const t of D.towers.slice())if(t.type==='duvar'&&Math.hypot(t.x-x,t.z-z)<7){explode(t.x,t.z,1.6);removeTower(D,t)}})};     // heavy bombs: walls under them go down outright
+  const drop=()=>{u.dropT-=dt;if(u.dropT>0||u.nb>=12)return;u.dropT=.3;u.nb++;bomb(u.x+Math.sin(u.hd)*12,u.z+Math.cos(u.hd)*12)};
   const over=()=>seatAt(u.x,u.z)===D.seat&&(Math.hypot(u.x-home.x,u.z-home.z)<46||D.towers.some(t=>t.type!=='duvar'&&Math.hypot(t.x-u.x,t.z-u.z)<9));
   if(u.ph==='roll'){const dx=rw.b.x-rw.a.x,dz=rw.b.z-rw.a.z,l=Math.hypot(dx,dz);u.spd=Math.min(U.sp,u.spd+dt*8);u.x+=dx/l*u.spd*dt;u.z+=dz/l*u.spd*dt;
     const gone=Math.hypot(u.x-rw.a.x,u.z-rw.a.z);u.alt=heightAt(u.x,u.z)+1.3+Math.max(0,gone-l*.65)*.5;crush(u);if(gone>=l){u.ph='fly';fxAt(D,u.x,u.z,'roket')}return}
@@ -814,11 +820,13 @@ function planeTick(D,u,dt,home){
   if(u.ph==='fly'&&u.via&&(u.wi||0)<u.via.length){const wi=u.wi||0,w=u.via[wi];steer(w.x,w.z,1.1);fwd(U.sp);
     // a waypoint inside the turning circle would have the bomber circling it for ever: once it is behind, take the next one
     const dx=w.x-u.x,dz=w.z-u.z,d=Math.hypot(dx,dz)||1,ahead=(dx*Math.sin(u.hd)+dz*Math.cos(u.hd))/d;if(d<14||(d<70&&ahead<-.2))u.wi=wi+1;
-    if(wi===1){const a=u.via[0],b=u.via[1],l2=(b.x-a.x)**2+(b.z-a.z)**2,t=((u.x-a.x)*(b.x-a.x)+(u.z-a.z)*(b.z-a.z))/l2;if(t>.26&&seatAt(u.x,u.z)===D.seat)drop()}
+    if(u.bp&&wi>=1&&u.nb<u.bp.length){const dx=Math.cos(u.ln[2]),dz=Math.sin(u.ln[2]),a=u.via[1],t=(u.x-a.x)*dx+(u.z-a.z)*dz,lead=u.alt*.2;      // released a little early so it lands on its mark
+      while(u.nb<u.bp.length&&t+lead>=u.nb*RUN_L/(RUN_N-1)){const q=u.bp[u.nb++];bomb(q.x,q.z)}}
+    else if(!u.bp&&wi===1){const a=u.via[0],b=u.via[1],l2=(b.x-a.x)**2+(b.z-a.z)**2,t=((u.x-a.x)*(b.x-a.x)+(u.z-a.z)*(b.z-a.z))/l2;if(t>.26&&seatAt(u.x,u.z)===D.seat)drop()}
     if(u.wi>=u.via.length||u.t2>110)u.ph='home';return}
   if(u.ph==='fly'){steer(home.x,home.z,.9);fwd(U.sp);if(Math.hypot(u.x-home.x,u.z-home.z)<46&&seatAt(u.x,u.z)===D.seat){u.ph='bomb';u.dropT=0}return}
   if(u.ph==='bomb'){fwd(U.sp);drop();
-    if(u.nb>=10||Math.hypot(u.x-home.x,u.z-home.z)>54)u.ph='home';return}
+    if(u.nb>=12||Math.hypot(u.x-home.x,u.z-home.z)>54)u.ph='home';return}
   const c=rw?rw.c:castlePos(u.from);
   if(u.ph==='home'){steer(c.x,c.z,.8);fwd(U.sp);if(Math.hypot(u.x-c.x,u.z-c.z)<70)u.ph='land';if(u.t2>140)u.done=true;return}
   const gy=Math.max(heightAt(u.x,u.z),0)+1.3;steer(c.x,c.z,1.3);fwd(U.sp*.7);u.alt=Math.max(gy,u.alt-dt*6);
@@ -826,6 +834,9 @@ function planeTick(D,u,dt,home){
 }
 // shells, bombs and guided rockets
 const SHELLS=[];
+// where a warship's shell leaves: the muzzle of its fore (k=0) or aft (k=1) turret, swung round to the target
+function shipMuzzle(u,k){let hd=u.dir;if(hd==null){const q=pointOn(u.path,Math.min(u.path.len,u.s+1)),p=pointOn(u.path,Math.max(0,u.s-1));hd=Math.atan2(q.x-p.x,q.z-p.z)}
+  const tz=k?-6.6:4.6,bx2=u.x+Math.sin(hd)*tz,bz=u.z+Math.cos(hd)*tz,f=u.face??hd;return{x:bx2+Math.sin(f)*4.1,z:bz+Math.cos(f)*4.1}}
 function shell(D,x0,y0,z0,x1,z1,dur,arc,kind,onHit){SHELLS.push({D,x0,y0,z0,x1,z1,t:0,dur,arc,kind,onHit})}
 function homing(D,x,y,z,tgt,dmg){SHELLS.push({D,kind:'roket',x,y,z,tgt,dmg,vx:0,vy:26,vz:0,t:0})}
 // a missile's arc: lower on short hops, so it never shoots up past a close-in camera
@@ -889,7 +900,7 @@ function botThink(D){
   const big=T.towers.filter(t=>t.type==='top'||t.type==='roket'||t.type==='hava').sort((a,b)=>TOWERS[b.type].cost-TOWERS[a.type].cost);
   let n=1+Math.min(4,D.t/100)*Math.random()|0;if(D.money>100)n+=2;
   while(n-->0){const opts=BUY.filter(k=>UNITS[k].cost<=D.money-5&&(k!=='fuze'||D.t>150)&&((k!=='denizalti'&&k!=='gemi')||(D.t>120&&!D.yard&&D.ysState===2&&(k!=='gemi'||fleet(D.seat)<MAX_SHIPS)))&&(k!=='ucak'||(D.rwState===2&&!D.hg))&&(k!=='fuze'||!(D.fcd>0))&&(!POP[k]||popOf(D.seat)+POP[k]<=POP_CAP));if(!opts.length)break;let sum=0;for(const k of opts)sum+=W[k]||1;let r=Math.random()*sum,k=opts[0];for(const q of opts){r-=W[q]||1;if(r<=0){k=q;break}}const ts=T.towers;
-    sendUnit(D,to,k,k==='fuze'&&ts.length?(t=>({at:[t.x,t.z]}))(big.length&&Math.random()<.7?big[0]:ts[Math.random()*ts.length|0]):k==='ucak'?{lane:Math.random()*LANES|0}:k==='balon'?{via:bv}:undefined)}
+    sendUnit(D,to,k,k==='fuze'&&ts.length?(t=>({at:[t.x,t.z]}))(big.length&&Math.random()<.7?big[0]:ts[Math.random()*ts.length|0]):k==='ucak'?(()=>{const T=P[to].towers.filter(t=>t.type!=='duvar'),t=T.length&&Math.random()<.7?T[Math.random()*T.length|0]:castlePos(to),r=runFor(D.seat,to,t.x,t.z);r[2]+=(Math.random()-.5)*2.4;return{ln:r}})():k==='balon'?{via:bv}:undefined)}
 }
 let botAcc=0;
 function sim(dt){
@@ -898,7 +909,7 @@ function sim(dt){
   for(const D of P){if(!local(D)||D.dead)continue;
     if(D.fcd>0)D.fcd-=dt;
     if(D.hg){D.hg.t-=dt;if(D.hg.t<=0){const q=D.hg;D.hg=null;let to=q.to;if(!P[to]||P[to].dead||allied(D.seat,to)){const f=P.filter(p=>p.on&&!p.dead&&!allied(p.seat,D.seat));to=f.length?f[Math.random()*f.length|0].seat:null}
-      if(to==null||!sendUnit(D,to,'ucak',{built:true,lane:q.lane}))D.money+=UNITS.ucak.cost;else if(D===ME)tip(EN?`Bomber took off for ${P[to].name}: run ${q.lane+1}`:`Uçak kalktı: ${P[to].name}, ${q.lane+1}. hattı bombalayacak`)}}
+      if(to==null||!sendUnit(D,to,'ucak',{built:true,ln:to===q.to?q.ln:runFor(D.seat,to)}))D.money+=UNITS.ucak.cost;else if(D===ME)tip(EN?`Bomber took off for ${P[to].name}`:`Uçak kalktı: ${P[to].name} üssünü bombalayacak`)}}
     if(D===ME)trainTick(dt);
     if(D.ysState===1){D.ysT-=dt;if(D.ysT<=0){D.ysState=2;markBuilt(D);if(D===ME)tip(TL('Tersane hazır! Artık gemi ve denizaltı yapabilirsin.','Shipyard ready! You can build ships and submarines now.'))}}
     if(D.rwState===1){D.rwT-=dt;if(D.rwT<=0){D.rwState=2;markBuilt(D);if(D===ME)tip(TL('Pist hazır! Artık uçak gönderebilirsin.','Runway ready! You can send planes now.'))}}
@@ -1483,7 +1494,7 @@ function buildCastle(s){
       add(sg,new THREE.BoxGeometry(TH,WH,l),STONE,H,y+WH/2,mx);add(sg,new THREE.BoxGeometry(TH+.5,.3,l),DARK,H,y+WH+.15,mx);
       for(let m=-l/2+.45;m<l/2;m+=1.1)add(sg,new THREE.BoxGeometry(TH+.3,.7,.55),STONE,H+.15,y+WH+.65,mx+m);
       add(sg,new THREE.CylinderGeometry(.95,1.1,WH+2.6,10),STONE,H,y+(WH+2.6)/2,sd*(gap+.6));     // gatehouse towers
-      add(sg,new THREE.ConeGeometry(1.25,1.8,10),t,H,y+WH+3.5,sd*(gap+.6))}
+      for(let i=0;i<6;i++){const b=i/6*6.283;add(sg,new THREE.BoxGeometry(.4,.5,.4),STONE,H+Math.cos(b)*.9,y+WH+2.85,sd*(gap+.6)+Math.sin(b)*.9)}}
     const y=gy(H,0);
     add(sg,new THREE.BoxGeometry(TH+.6,1.4,gap*2+.2),STONE,H,y+WH+.4,0);     // the arch over the gate
     add(sg,new THREE.BoxGeometry(.25,2.2,gap*2-.3),GATEM,H+.55,y+WH-1.4,0);     // the raised portcullis
@@ -1501,19 +1512,12 @@ function buildCastle(s){
     for(let m=-K+.2;m<=K-.2;m+=1.15)add(sg,new THREE.BoxGeometry(.5,.9,.62),STONE,K+.18,KH+.75,m);
     for(const y of[6.2,10.2])for(const m of[-1.6,1.6])add(sg,new THREE.BoxGeometry(.13,1.05,.38),DARK,K+.02,y,m);      // arrow slits
     add(sg,new THREE.BoxGeometry(.06,4.2,1.5),t,K+.05,KH-2.8,0);add(sg,new THREE.BoxGeometry(.08,.3,1.7),WOOD,K+.08,KH-.6,0);    // banner
-    add(sg,new THREE.ConeGeometry(.75,.9,3).rotateZ(Math.PI/2).scale(.12,1,1),t,K+.05,KH-5.25,0)}
-  for(const[x,z]of[[K,K],[-K,K],[K,-K],[-K,-K]]){add(g,new THREE.CylinderGeometry(.85,.55,2.8,10),STONE,x,KH-.6,z);add(g,new THREE.ConeGeometry(1.05,1.9,10),t,x,KH+1.75,z)}
+  }
+  for(const[x,z]of[[K,K],[-K,K],[K,-K],[-K,-K]])add(g,new THREE.CylinderGeometry(.85,.55,2.8,10),STONE,x,KH-.6,z);
   add(g,new THREE.BoxGeometry(1.6,2.6,.3),GATEM,K+.1,1.3,0).rotation.y=Math.PI/2;add(g,new THREE.BoxGeometry(2.2,.4,.6),STONE,K+.2,2.75,0).rotation.y=Math.PI/2;
   // a tall watch turret on one corner of the roof, flying the team flag
   add(g,new THREE.CylinderGeometry(1.05,1.15,4.2,10),STONE,-K+1.1,KH+2.1,-K+1.1);for(let i=0;i<7;i++){const b=i/7*6.283;add(g,new THREE.BoxGeometry(.42,.5,.42),STONE,-K+1.1+Math.cos(b)*1,KH+4.45,-K+1.1+Math.sin(b)*1)}
   add(g,new THREE.ConeGeometry(1.35,2.4,10),t,-K+1.1,KH+5.5,-K+1.1);add(g,new THREE.CylinderGeometry(.07,.07,3,6),WOOD,-K+1.1,KH+7.6,-K+1.1);add(g,new THREE.BoxGeometry(1.8,1,.06),t,-K+.15,KH+8.5,-K+1.1);
-  // the courtyard: a well, two lean-to sheds, hay and barrels
-  {const wx=-4.6,wz=4.6;add(g,new THREE.CylinderGeometry(.75,.8,.8,12,1,true),STONE,wx,.6,wz);add(g,new THREE.CylinderGeometry(.62,.62,.05,12),new THREE.MeshStandardMaterial({color:'#2f5b74',roughness:.2}),wx,.75,wz);
-    for(const d of[-.7,.7])add(g,new THREE.BoxGeometry(.1,1.4,.1),WOOD,wx+d,1.4,wz);add(g,new THREE.ConeGeometry(1.05,.6,4).rotateY(Math.PI/4),t,wx,2.3,wz)}
-  for(const[x,z,r]of[[4.6,4.6,0],[-4.6,-4.6,Math.PI]]){const sh=new THREE.Group();sh.position.set(x,0,z);sh.rotation.y=r;g.add(sh);
-    add(sh,new THREE.BoxGeometry(2.2,1.6,1.6),PLANK,0,.95,0);const rf=add(sh,new THREE.BoxGeometry(2.5,.12,2.1),t,0,1.95,-.1);rf.rotation.x=.3;
-    add(sh,new THREE.CylinderGeometry(.32,.32,.6,8),WOOD,1.5,.45,.6);add(sh,new THREE.BoxGeometry(.8,.6,.8),new THREE.MeshStandardMaterial({color:'#c8a656',roughness:1}),-1.5,.45,.5)}
-  for(const[x,z]of[[4.8,-2.6],[-2.6,4.9],[2.6,-4.9]])add(g,new THREE.CylinderGeometry(.3,.3,.65,8),WOOD,x,.5,z);
   const mg=mergeModel(g);mg.position.set(c.x,h0,c.z);scene.add(mg);
   const ag=new THREE.Group();archerFig(ag,t,0,0,0,1.5);const am=mergeModel(ag);am.position.set(c.x,h0+KH+.3,c.z);am.rotation.y=-a;scene.add(am);KARCH[s]={m:am,yaw:-a,want:-a,draw:0};
 }
@@ -1526,20 +1530,24 @@ function makeTowerModel(t){
 // an archer in a brimmed hat with a feather, bow raised and string drawn, looking down +x
 function archerFig(p,col,x,y,z,s=1){
   const a=new THREE.Group();a.position.set(x,y,z);a.scale.setScalar(s);p.add(a);
-  for(const sz of[-.13,.13]){add(a,new THREE.CapsuleGeometry(.11,.48,3,6),DARK,0,.38,sz);add(a,new THREE.BoxGeometry(.3,.12,.18),WOOD,.05,.06,sz)}
-  add(a,new THREE.CylinderGeometry(.25,.36,.82,9),col,0,1.02,0);add(a,new THREE.CylinderGeometry(.27,.27,.09,9),WOOD,0,.84,0);
-  add(a,new THREE.CylinderGeometry(.1,.11,.14,7),SKINM,0,1.48,0);add(a,new THREE.SphereGeometry(.2,10,8),SKINM,0,1.68,0);
-  add(a,new THREE.CylinderGeometry(.4,.4,.035,14),WOOD,0,1.8,0);add(a,new THREE.CylinderGeometry(.15,.21,.3,10),WOOD,0,1.95,0);add(a,new THREE.CylinderGeometry(.215,.215,.06,10),col,0,1.86,0);
-  const fe=add(a,new THREE.BoxGeometry(.04,.34,.08),col,-.12,2.08,.18);fe.rotation.z=.6;
-  add(a,new THREE.SphereGeometry(.18,8,6,0,6.3,0,1.6).scale(1,.6,1),DARK,-.02,1.32,0);      // shoulder cape
-  const la=add(a,new THREE.CapsuleGeometry(.075,.5,3,6),col,.36,1.36,-.12);la.rotation.z=-Math.PI/2;       // bow arm straight out
-  const ra=add(a,new THREE.CapsuleGeometry(.075,.32,3,6),col,.12,1.38,.17);ra.rotation.z=-Math.PI/2;ra.rotation.y=-.3;    // drawing arm at the cheek
-  add(a,new THREE.SphereGeometry(.07,6,5),SKINM,.66,1.36,-.12);add(a,new THREE.SphereGeometry(.07,6,5),SKINM,-.06,1.4,.2);
-  const bw=add(a,new THREE.TorusGeometry(.6,.035,5,14,2.3),WOOD,.06,1.36,-.12);bw.rotation.z=-1.15;
-  add(a,new THREE.CylinderGeometry(.01,.01,1.1,3),SKINM,.31,1.36,-.12);
-  const ar=add(a,new THREE.CylinderGeometry(.014,.014,.85,4),WOOD,.32,1.37,-.1);ar.rotation.z=-Math.PI/2;add(a,new THREE.ConeGeometry(.035,.1,4).rotateZ(-Math.PI/2),IRONM,.78,1.37,-.1);
-  const q=add(a,new THREE.CylinderGeometry(.1,.08,.55,7),WOOD,-.24,1.2,.04);q.rotation.x=.35;
-  for(const dz of[-.04,.04])add(a,new THREE.ConeGeometry(.05,.12,4),col,-.24,1.52,.1+dz);
+  const cap=(r,l,m,px,py,pz,rx=0,rz=0)=>{const o=add(a,new THREE.CapsuleGeometry(r,l,4,10),m,px,py,pz);o.rotation.set(rx,0,rz);return o};
+  // legs in a firm stance: thigh, shin and a rounded boot each
+  for(const sz of[-.15,.15]){cap(.105,.3,DARK,.02,.66,sz,sz*.6);cap(.09,.28,DARK,-.02,.3,sz*1.15,sz*.5);cap(.085,.18,WOOD,.07,.08,sz*1.2,0,Math.PI/2)}
+  add(a,new THREE.CylinderGeometry(.27,.37,.38,16),col,0,.86,0);add(a,new THREE.CylinderGeometry(.23,.28,.55,16),col,0,1.25,0);      // tunic skirt and body
+  add(a,new THREE.CylinderGeometry(.285,.285,.08,16),WOOD,0,1.03,0);add(a,new THREE.BoxGeometry(.06,.09,.1),GOLD,.27,1.03,0);
+  add(a,new THREE.SphereGeometry(.3,14,8,0,6.3,0,1.3).scale(1,.55,1.1),DARK,-.01,1.42,0);       // shoulder cape
+  add(a,new THREE.CylinderGeometry(.08,.09,.12,10),SKINM,0,1.57,0);add(a,new THREE.SphereGeometry(.17,16,12).scale(.95,1.08,.95),SKINM,0,1.74,0);
+  add(a,new THREE.ConeGeometry(.035,.08,6).rotateZ(-Math.PI/2),SKINM,.18,1.72,0);for(const sz of[-.06,.06])add(a,new THREE.SphereGeometry(.022,6,4),DARK,.15,1.77,sz);
+  add(a,new THREE.CylinderGeometry(.36,.36,.03,24),WOOD,0,1.86,0);add(a,new THREE.CylinderGeometry(.13,.17,.24,16),WOOD,0,1.98,0);add(a,new THREE.CylinderGeometry(.172,.172,.05,16),col,0,1.89,0);
+  const fe=add(a,new THREE.CapsuleGeometry(.025,.3,3,6),col,-.13,2.06,.15);fe.rotation.z=.75;
+  // bow arm straight out, drawing arm bent back to the cheek
+  cap(.07,.24,col,.22,1.42,-.13,0,-Math.PI/2);cap(.06,.24,SKINM,.5,1.42,-.13,0,-Math.PI/2);add(a,new THREE.SphereGeometry(.065,8,6),SKINM,.66,1.42,-.13);
+  cap(.07,.2,col,.06,1.4,.2,0,-Math.PI/2);cap(.06,.2,SKINM,.07,1.48,.06,Math.PI/2.4,0);add(a,new THREE.SphereGeometry(.06,8,6),SKINM,.08,1.5,-.06);
+  const bw=add(a,new THREE.TorusGeometry(.62,.032,6,20,2.3),WOOD,.06,1.42,-.13);bw.rotation.z=-1.15;
+  for(const sy of[1,-1]){const x0=.305,y0=1.42+sy*.55,x1=.1,y1=1.47,l=Math.hypot(x1-x0,y1-y0),o=add(a,new THREE.CylinderGeometry(.009,.009,l,3),SKINM,(x0+x1)/2,(y0+y1)/2,-.12);o.rotation.z=Math.atan2(-(x1-x0),y1-y0)}      // the drawn string
+  const ar=add(a,new THREE.CylinderGeometry(.014,.014,.8,4),WOOD,.42,1.44,-.11);ar.rotation.z=-Math.PI/2;add(a,new THREE.ConeGeometry(.035,.1,4).rotateZ(-Math.PI/2),IRONM,.85,1.44,-.11);
+  const q=add(a,new THREE.CylinderGeometry(.09,.075,.55,10),WOOD,-.24,1.28,.06);q.rotation.x=.35;
+  for(const dz of[-.04,.04])add(a,new THREE.ConeGeometry(.045,.12,4),col,-.24,1.6,.17+dz);
   return a}
 function buildTower(g,t,col,hg){
   const H=hg||g;
@@ -1634,11 +1642,22 @@ const PARTS={
     [new THREE.CylinderGeometry(.05,.05,1.05,6).rotateX(1.57).translate(.68,1.48,.5),'#6d4b2c',LEG([.68,2.55,0],.55,0,'arm')],[bx(.24,.24,.5,.68,1.48,1.05),'#59626c',LEG([.68,2.55,0],.55,0,'arm')],
     [cy(.15,.17,.26,0,2.72,0,8),SKIN],[sp(.34,0,3.02,.02),SKIN],[new THREE.SphereGeometry(.4,12,7,0,6.3,0,1.6).translate(0,3.1,0),'#f4c430'],[cy(.52,.52,.06,0,3.1,0,16),'#f4c430']],
   denizalti:[[new THREE.CapsuleGeometry(1.5,10,6,16).rotateX(1.57).scale(1,.8,1),'#2f3a44'],[bx(1.4,1.7,3,0,1.7,.6),'#2f3a44'],[bx(1.5,.3,3.1,0,2.2,.6),null],[cy(.09,.09,1.6,.2,3,1.1,6),'#59626c'],[bx(4.2,.14,1,0,0,-5.4),'#59626c'],[bx(.14,2.8,1,0,0,-5.4),'#59626c']],
-  gemi:[[bx(4.4,2.2,15,0,-.2,-1),'#3c454f'],[new THREE.ConeGeometry(3.1,5.2,4).rotateX(Math.PI/2).rotateZ(Math.PI/4).scale(1,.72,1).translate(0,-.2,8.8),'#3c454f'],[bx(4.5,.38,14.6,0,.6,-1),null],
-    [bx(4.1,.14,15.4,0,.98,-.6),'#7b6a52'],[bx(2.7,2.1,4.2,0,2.1,-2.6),'#a3abb3'],[bx(2.3,1.1,2.5,0,3.7,-2.9),'#bcc4cb'],[bx(2.32,.35,2.52,0,3.85,-2.9),'#29323a'],
-    [new THREE.CylinderGeometry(.62,.75,2.6,12).translate(0,4,-5.3),null],[new THREE.CylinderGeometry(.66,.66,.3,12).translate(0,5.3,-5.3),'#1e2328'],[cy(.08,.08,4.6,0,5.6,-1.6,6),'#59626c'],[bx(2,.08,.08,0,7.2,-1.6),'#59626c'],
-    [new THREE.CylinderGeometry(.95,1.05,.75,14).translate(0,1.4,3.4),'#59626c'],[new THREE.CylinderGeometry(.13,.15,3,8).rotateX(Math.PI/2).translate(-.3,1.55,5.1),'#2b3036'],[new THREE.CylinderGeometry(.13,.15,3,8).rotateX(Math.PI/2).translate(.3,1.55,5.1),'#2b3036'],
-    [new THREE.CylinderGeometry(.95,1.05,.75,14).translate(0,1.4,-7.2),'#59626c'],[new THREE.CylinderGeometry(.13,.15,3,8).rotateX(Math.PI/2).translate(-.3,1.55,-8.9),'#2b3036'],[new THREE.CylinderGeometry(.13,.15,3,8).rotateX(Math.PI/2).translate(.3,1.55,-8.9),'#2b3036']],
+  // a destroyer: sharp raked bow, red boot-topping, a bridge with windows, raked funnel, mast, boats, rails, and two gun turrets that turn on their own
+  gemi:(()=>{const G='#4a535c',Gd='#3a4249',Gl='#8e979f',W='#c9ced2',T1={p:[0,1.25,4.6],k:'tur'},T2={p:[0,1.25,-6.6],k:'tur2'};
+    const tur=(z,sw,f)=>[[cy(1.05,1.15,.5,0,1.25,z,14),Gd,sw],[new THREE.CylinderGeometry(.95,1.1,.9,8,1).scale(1,1,1.25).translate(0,1.85,z+f*.15),null,sw],[bx(1.5,.25,1.4,0,2.35,z+f*.1),Gl,sw],
+      ...[-.32,.32].flatMap(x=>[[new THREE.CylinderGeometry(.11,.15,3.1,8).rotateX(f*Math.PI/2).translate(x,1.85,z+f*2.6),'#262b30',sw],[new THREE.CylinderGeometry(.17,.17,.35,8).rotateX(Math.PI/2).translate(x,1.85,z+f*4.05),'#1a1d20',sw]])];
+    return[
+      [bx(4.2,2.3,14,0,-.25,-1.2),G],[new THREE.ConeGeometry(2.95,6.2,4).rotateX(Math.PI/2).rotateZ(Math.PI/4).scale(1,.78,1).translate(0,-.25,8.9),G],
+      [new THREE.CylinderGeometry(2.1,2.1,2.3,12,1,false,Math.PI/2,Math.PI).scale(1,1,.9).translate(0,-.25,-8.2),G],
+      [bx(4.32,.5,14.1,0,-1.05,-1.2),'#7a2a22'],[new THREE.ConeGeometry(3.05,6.3,4).rotateX(Math.PI/2).rotateZ(Math.PI/4).scale(1,.18,1).translate(0,-1.05,8.9),'#7a2a22'],
+      [bx(4.32,.14,14.2,0,.88,-1.2),'#24292d'],[bx(4.05,.12,14,0,.97,-1.2),'#8a7558'],[new THREE.ConeGeometry(2.8,5.6,4).rotateX(Math.PI/2).rotateZ(Math.PI/4).scale(1,.04,1).translate(0,.97,8.6),'#8a7558'],
+      ...[-1,1].map(sd=>[bx(.06,.45,13.6,sd*2.05,1.2,-1.6),Gl]),
+      [bx(3,1.9,4.6,0,1.95,-1.6),Gl],[bx(2.6,1.2,2.8,0,3.5,-.9),W],[bx(2.62,.32,2.82,0,3.55,-.9),'#1c2328'],[bx(3.1,.14,1.2,0,4.18,-.2),Gl],[bx(2.9,.12,3.1,0,4.15,-.9),Gd],
+      [cy(.07,.09,5,0,6.4,-1.6,6),'#59626c'],[bx(2.4,.09,.09,0,7.6,-1.6),'#59626c'],[bx(1.1,.09,.09,0,8.4,-1.6),'#59626c'],[cy(.35,.35,.25,0,9.05,-1.6,8),Gl],[bx(.04,.7,1.2,0,8.6,-2.2),null],
+      [new THREE.CylinderGeometry(.7,.85,2.6,12).rotateX(-.12).translate(0,3.6,-4.4),Gl],[new THREE.CylinderGeometry(.72,.72,.38,12).rotateX(-.12).translate(0,4.85,-4.55),'#16191c'],[bx(1.6,.08,.25,0,4.1,-4.3),null],
+      ...[-1,1].map(sd=>[new THREE.CapsuleGeometry(.35,1.6,3,8).rotateX(Math.PI/2).translate(sd*1.85,1.55,-3.9),'#e8e4da']),
+      [bx(.6,.4,.5,1.4,1.2,-8.8),Gd],[bx(.6,.4,.5,-1.4,1.2,-8.8),Gd],[cy(.05,.05,1.6,0,1.9,-9.6,5),'#59626c'],[bx(.9,.6,.04,.45,2.4,-9.6),null],
+      ...tur(4.6,T1,1),...tur(-6.6,T2,-1)]})(),
   ucak:[[new THREE.CapsuleGeometry(.95,8.6,6,12).rotateX(Math.PI/2),'#6f7d5c'],[new THREE.ConeGeometry(.95,1.6,12).rotateX(Math.PI/2).translate(0,0,5.9),'#5d6a4c'],[sp(.72,0,.62,3.2),'#8fd0ff'],
     [bx(16,.26,2.7,0,-.1,.6),'#6f7d5c'],[bx(1.1,.28,2.72,-7.6,-.1,.6),null],[bx(1.1,.28,2.72,7.6,-.1,.6),null],[new THREE.CylinderGeometry(1,1,.8,14).rotateX(Math.PI/2).translate(0,0,-1.6),null],
     [bx(.22,2.4,1.9,0,1.35,-4.7),'#6f7d5c'],[bx(5.8,.2,1.5,0,.35,-4.8),'#6f7d5c'],
@@ -1687,6 +1706,7 @@ function buildUnits(){
       m.setColorAt(0,c.set('#fff'));scene.add(m);return m})}
 }
 const turnTo=(a,b,m)=>{let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return a+Math.max(-m,Math.min(m,d))};
+let curTA=0,curTA2=0;
 const angLerp=(a,b,t)=>{let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return a+d*t};
 const mt=new THREE.Matrix4(),mr=new THREE.Matrix4(),mb=new THREE.Matrix4(),mo=new THREE.Matrix4(),qr=new THREE.Quaternion(),XA=new THREE.Vector3(1,0,0),mx=new THREE.Matrix4(),qt=new THREE.Quaternion(),UP=new THREE.Vector3(0,1,0),vp=new THREE.Vector3(),vs=new THREE.Vector3(1,1,1),tc=TEAM.map(c=>new THREE.Color(c));
 function drawUnits(rdt){
@@ -1707,7 +1727,8 @@ function drawUnits(rdt){
     const arm=-1.15-.35*f;
     for(const m of IM[type]){
       const sw=m.userData.swing;
-      if(sw&&sw.k==='prop'){mt.makeTranslation(sw.p[0],sw.p[1],sw.p[2]);mr.makeRotationZ(now()*.045);mb.makeTranslation(-sw.p[0],-sw.p[1],-sw.p[2]);m.setMatrixAt(i,mo.copy(mx).multiply(mt).multiply(mr).multiply(mb))}
+      if(sw&&(sw.k==='tur'||sw.k==='tur2')){mt.makeTranslation(sw.p[0],sw.p[1],sw.p[2]);mr.makeRotationY(sw.k==='tur2'?curTA2:curTA);mb.makeTranslation(-sw.p[0],-sw.p[1],-sw.p[2]);m.setMatrixAt(i,mo.copy(mx).multiply(mt).multiply(mr).multiply(mb))}
+      else if(sw&&sw.k==='prop'){mt.makeTranslation(sw.p[0],sw.p[1],sw.p[2]);mr.makeRotationZ(now()*.045);mb.makeTranslation(-sw.p[0],-sw.p[1],-sw.p[2]);m.setMatrixAt(i,mo.copy(mx).multiply(mt).multiply(mr).multiply(mb))}
       else if(sw&&atk!=null){
         if(sw.k==='arm')m.setMatrixAt(i,turn(sw.p,arm));
         else if(sw.k==='spear'){mt.makeTranslation(.76,2.55-1.07*Math.cos(arm),-1.07*Math.sin(arm)+.5*f);mr.makeRotationX(1.45);mb.makeTranslation(-.76,-1.75,-.28);m.setMatrixAt(i,mo.copy(mx).multiply(mt).multiply(mr).multiply(mb))}
@@ -1727,19 +1748,19 @@ function drawUnits(rdt){
       // face the way they actually move, turning smoothly, so nobody runs sideways
       let want=u.dir;
       if(u.type==='ucak')want=u.hd;
-      else if(u.atk&&u.face!=null)want=u.face;
+      else if(u.atk&&u.face!=null&&u.type!=='gemi')want=u.face;
       else if(u.px!=null){const dx=u.x-u.px,dz=u.z-u.pz;if(dx*dx+dz*dz>1e-4)want=Math.atan2(dx,dz)}
       else{const q=pointOn(u.path,u.s+.5);want=Math.atan2(q.x-u.x,q.z-u.z)}
       u.px=u.x;u.pz=u.z;u.dir=u.dir==null?want:angLerp(u.dir,want,Math.min(1,rdt*(u.type==='gemi'?2:u.type==='ucak'?20:10)));
       if(u.type==='ucak'){put('ucak',u.x,u.z,u.from,u.dir,true,u.fall!=null?u.y:u.alt,u.fall!=null?.5:u.ph==='roll'?0:u.ph==='land'?.07:-.06);
         if(u.hp<UNITS.ucak.hp*.4&&Math.random()<rdt*8)puff(u.x,u.alt,u.z,1.4,2,.2,.4,.2);continue}
-      if(u.type==='gemi'){put('gemi',u.x,u.z,u.from,u.dir,false,u.fall!=null?-.45-Math.max(0,u.fall-.6)**1.6*.9:-.45+Math.sin(now()/700+u.id)*.12,u.fall!=null?Math.min(.55,u.fall*.16):0);
+      if(u.type==='gemi'){{const on=u.face!=null&&(u.foeS||u.atk||u.c2>0);let d=(on?u.face:u.dir)-u.dir;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;u.ta=angLerp(u.ta||0,d,Math.min(1,rdt*3));u.ta2=angLerp(u.ta2||0,on?d+Math.PI:0,Math.min(1,rdt*3))}curTA=u.ta;curTA2=u.ta2;put('gemi',u.x,u.z,u.from,u.dir,false,u.fall!=null?-.45-Math.max(0,u.fall-.6)**1.6*.9:-.45+Math.sin(now()/700+u.id)*.12,u.fall!=null?Math.min(.55,u.fall*.16):0);
         if(u.moving&&Math.random()<rdt*3)ripple(u.x-Math.sin(u.dir)*7,u.z-Math.cos(u.dir)*7,7);continue}
       if(u.fall!=null){put('balon',u.x,u.z,u.from,u.dir||0,false,u.y,u.fall*1.1);continue}
       let hid=false;if(u.type==='denizalti'){hid=!subSeen(u.x,u.z,u.from);u.dy=lerp(u.dy==null?-.45:u.dy,u.under||hid?-2.9:u.moving!==false?-1.25:-.7,Math.min(1,rdt*1.5))}
       put(u.type,u.x,u.z,u.from,u.dir||0,u.moving!==false,u.dove!=null?-.45-u.dove*1.5:u.type==='denizalti'&&u.dy<-.5?u.dy:u.emerge>0?unitY(UNITS[u.type],u.x,u.z)-u.emerge*1.3:null,0,u.atk?clamp(1-u.cd/(u.cdM||1.2),0,1):null);
       if((u.type==='atli'||u.type==='dalgic'||u.type==='denizalti'&&!hid)&&heightAt(u.x,u.z)<.2&&Math.random()<rdt*7){ripple(u.x,u.z,4.5);if(Math.random()<.5)boom(u.x,.3-heightAt(u.x,u.z),u.z,.45,'#eaf7ff')}}
-    for(const o of D.remote.values()){const ox=o.x,oz=o.z;o.x=lerp(o.x,o.tx,Math.min(1,rdt*3));o.z=lerp(o.z,o.tz,Math.min(1,rdt*3));if(Math.hypot(o.x-ox,o.z-oz)>.01)o.dir=Math.atan2(o.x-ox,o.z-oz);const of=num(o.from,D.seat),oh=o.type==='denizalti'&&!subSeen(o.x,o.z,of);if(o.fl&2){o.ft+=rdt;if(naval(o.type)){put(o.type,o.x,o.z,of,o.dir||0,false,-.45-Math.max(0,o.ft-.6)**1.6*.9,Math.min(.55,o.ft*.16));if(o.ft<3&&Math.random()<rdt*2)boom(o.x+(Math.random()-.5)*8,2.5,o.z+(Math.random()-.5)*8,3,'#ff7a2a')}else put(o.type,o.x,o.z,of,o.dir||0,false,Math.max(1,20-13*o.ft*o.ft),o.ft*1.1)}else put(o.type,o.x,o.z,of,o.dir||0,!(o.fl&4),o.type==='denizalti'?(oh?-2.9:-1.25):null,0,o.fl&1?(now()/1200+o.sd)%1:null);if((o.type==='atli'||o.type==='dalgic'||o.type==='denizalti'&&!oh)&&heightAt(o.x,o.z)<.2&&Math.random()<rdt*7)ripple(o.x,o.z,4.5)}
+    for(const o of D.remote.values()){curTA=curTA2=0;const ox=o.x,oz=o.z;o.x=lerp(o.x,o.tx,Math.min(1,rdt*3));o.z=lerp(o.z,o.tz,Math.min(1,rdt*3));if(Math.hypot(o.x-ox,o.z-oz)>.01)o.dir=Math.atan2(o.x-ox,o.z-oz);const of=num(o.from,D.seat),oh=o.type==='denizalti'&&!subSeen(o.x,o.z,of);if(o.fl&2){o.ft+=rdt;if(naval(o.type)){curTA=0;put(o.type,o.x,o.z,of,o.dir||0,false,-.45-Math.max(0,o.ft-.6)**1.6*.9,Math.min(.55,o.ft*.16));if(o.ft<3&&Math.random()<rdt*2)boom(o.x+(Math.random()-.5)*8,2.5,o.z+(Math.random()-.5)*8,3,'#ff7a2a')}else put(o.type,o.x,o.z,of,o.dir||0,false,Math.max(1,20-13*o.ft*o.ft),o.ft*1.1)}else put(o.type,o.x,o.z,of,o.dir||0,!(o.fl&4),o.type==='denizalti'?(oh?-2.9:-1.25):null,0,o.fl&1?(now()/1200+o.sd)%1:null);if((o.type==='atli'||o.type==='dalgic'||o.type==='denizalti'&&!oh)&&heightAt(o.x,o.z)<.2&&Math.random()<rdt*7)ripple(o.x,o.z,4.5)}
   }
   for(const k of UKEYS)for(const m of IM[k]){const was=m.count;m.count=n[k];m.visible=n[k]>0;if(n[k]||was){m.instanceMatrix.needsUpdate=true;m.instanceColor.needsUpdate=true}}
 }
@@ -1840,8 +1861,9 @@ function drawShells(dt){
   for(const s of SHELLS){
     if(s.kind==='roket'){tv.set(s.vx,s.vy,s.vz).normalize();qt.setFromUnitVectors(ZF,tv);vp.set(s.x,s.y,s.z);mx.compose(vp,qt,vs);if(b<80)RKM.setMatrixAt(b++,mx);puff(s.x,s.y,s.z,.9,1.6,.9,.2,.15);flame(s.x-tv.x,s.y-tv.y,s.z-tv.z,1.4,.08);continue}
     const k=Math.min(1,s.t/s.dur),gy=Math.max(heightAt(s.x1,s.z1),0),x=lerp(s.x0,s.x1,k),z=lerp(s.z0,s.z1,k),y=s.kind==='bomb'?lerp(s.y0,gy,k*k):lerp(s.y0,gy,k)+s.arc*4*k*(1-k);
-    qt.identity();vp.set(x,y,z);vs.set(s.kind==='bomb'?.8:.7,s.kind==='bomb'?.8:.7,s.kind==='bomb'?1.8:.7);mx.compose(vp,qt,vs);if(a<220)SHM.setMatrixAt(a++,mx);
-    if(s.kind==='top'&&Math.random()<dt*14)puff(x,y,z,.7,1.1,.75,0,.1)}
+    const sz=s.kind==='bomb'?.8:s.kind==='frag'?.28:.62;qt.identity();vp.set(x,y,z);vs.set(sz,sz,s.kind==='bomb'?1.8:sz);mx.compose(vp,qt,vs);if(a<220)SHM.setMatrixAt(a++,mx);
+    if(s.kind==='top'){if(Math.random()<dt*28)puff(x,y,z,.45,.9,.8,0,.08);if(k<.25&&Math.random()<dt*20)flame(x,y,z,.7,.06)}
+    else if(s.kind==='frag'&&Math.random()<dt*10)puff(x,y,z,.4,.8,.4,0,.1)}
   vs.set(1,1,1);SHM.count=a;RKM.count=b;SHM.instanceMatrix.needsUpdate=true;RKM.instanceMatrix.needsUpdate=true;
 }
 function drawFx(dt){
@@ -1951,12 +1973,12 @@ const ring=new THREE.Mesh(new THREE.RingGeometry(.96,1,64).rotateX(-Math.PI/2),n
 const ring2=ring.clone();ring2.material=ring.material.clone();ring2.material.color.set('#7fd0ff');ring2.visible=false;scene.add(ring2);
 
 // craters
-let GM=null;const craterDepth=r=>1.5*Math.min(1.3,r/4);
+let GM=null;const craterDepth=r=>1.5*Math.min(1.3,r/4),CRMAX=2.2;
 function sinkGround(x,z,r){
-  if(!GM)return;const{geo,N,W}=GM,dk=geo.attributes.aDark,p=geo.attributes.position,n=geo.attributes.normal,st=W/N,ix=Math.round((x+W/2)/st),iz=Math.round((z+W/2)/st),R=Math.ceil(r*1.3/st)+1;
+  if(!GM)return;if(!GM.y0){const q=GM.geo.attributes.position;GM.y0=new Float32Array(q.count);for(let i=0;i<q.count;i++)GM.y0[i]=q.getY(i)}const{geo,N,W}=GM,dk=geo.attributes.aDark,p=geo.attributes.position,n=geo.attributes.normal,st=W/N,ix=Math.round((x+W/2)/st),iz=Math.round((z+W/2)/st),R=Math.ceil(r*1.3/st)+1;
   const at=(i,j)=>clamp(i,0,N)+clamp(j,0,N)*(N+1);
   for(let j=iz-R;j<=iz+R;j++)for(let i=ix-R;i<=ix+R;i++){if(i<0||j<0||i>N||j>N)continue;const k=at(i,j),d=Math.hypot(p.getX(k)-x,p.getZ(k)-z)/r;if(d>1.3)continue;
-    p.setY(k,p.getY(k)+(d<1?-craterDepth(r)*(1-d*d):.28*(1.3-d)/.3));
+    {const y0=GM.y0[k],y=p.getY(k);p.setY(k,d<1?Math.max(y0-CRMAX,Math.min(y,y-craterDepth(r)*(1-d*d)*(1-.7*clamp((y0-y)/CRMAX,0,1)))):Math.min(Math.max(y,y0+.3),y+.28*(1.3-d)/.3))}     // holes deepen ever more slowly and stop at CRMAX; rims never pile up
     dk.setX(k,Math.max(dk.getX(k),clamp((1.25-d)/.55,0,1)*(.72+Math.random()*.28)))}
   for(let j=iz-R-1;j<=iz+R+1;j++)for(let i=ix-R-1;i<=ix+R+1;i++){if(i<1||j<1||i>=N||j>=N)continue;const k=at(i,j),dx=p.getY(at(i-1,j))-p.getY(at(i+1,j)),dz=p.getY(at(i,j-1))-p.getY(at(i,j+1)),l=Math.hypot(dx,2*st,dz);n.setXYZ(k,dx/l,2*st/l,dz/l)}
   const r0=clamp(iz-R-1,0,N),r1=clamp(iz+R+1,0,N),st0=r0*(N+1),cnt=(r1-r0+1)*(N+1);
@@ -1966,7 +1988,7 @@ function crater(x,z,r,remote){
   if(shoreOf(x,z)<WL+1||onDeck(x,z))return;
   sinkGround(x,z,r);anyCrater=true;clearProps(x,z,r+1.6);
   const R=Math.ceil(r),cx=Math.round(x),cz=Math.round(z),D=craterDepth(r);
-  for(let j=cz-R;j<=cz+R;j++)for(let i=cx-R;i<=cx+R;i++){const X=i+L,Z=j+L;if(X<0||Z<0||X>=GN||Z>=GN)continue;const d=Math.hypot(i-x,j-z)/r;if(d<1)CRD[X+Z*GN]=Math.min(5,CRD[X+Z*GN]+D*(1-d*d))}
+  for(let j=cz-R;j<=cz+R;j++)for(let i=cx-R;i<=cx+R;i++){const X=i+L,Z=j+L;if(X<0||Z<0||X>=GN||Z>=GN)continue;const d=Math.hypot(i-x,j-z)/r;if(d<1)CRD[X+Z*GN]=Math.min(CRMAX,CRD[X+Z*GN]+D*(1-d*d)*(1-.7*Math.min(1,CRD[X+Z*GN]/CRMAX)))}
   if(!remote&&!P.every(p=>!p.on||p===ME||p.bot))say('krater',[x|0,z|0,r]);
 }
 
@@ -2002,13 +2024,16 @@ cv.addEventListener('pointerdown',e=>{ptr.set(e.pointerId,{x:e.clientX,y:e.clien
   {const t=now(),dbl=t-lastDown.t<330&&Math.hypot(e.clientX-lastDown.x,e.clientY-lastDown.y)<45;lastDown={t,x:e.clientX,y:e.clientY};
    if(ptr.size===1&&!build&&(aim==='sec'||(!aim&&dbl))){clearTimeout(tapT);press=null;cmdDraft=null;boxS={x0:e.clientX,y0:e.clientY,x1:e.clientX,y1:e.clientY};lastDown.t=0;return}
    if(ptr.size===1&&!build&&!aim&&SEL.length){const p=worldAt(e.clientX,e.clientY);cmdDraft=p?[clampV(p)]:null}
-   if(ptr.size===2){boxS=null;cmdDraft=null}}
+   if(ptr.size===2){boxS=null;cmdDraft=null;runDrag=null}
+   if(ptr.size===1&&laneTo!=null&&RUN){const h=RUN_L/2,dx=Math.cos(RUN.a),dz=Math.sin(RUN.a),c=scrOf(RUN.x,heightAt(RUN.x,RUN.z)+.3,RUN.z),en=scrOf(RUN.x+dx*(h+10),heightAt(RUN.x+dx*(h+10),RUN.z+dz*(h+10))+.3,RUN.z+dz*(h+10)),mx=e.clientX,my=e.clientY;
+     runDrag=en&&Math.hypot(en[0]-mx,en[1]-my)<34?'rot':c&&Math.hypot(c[0]-mx,c[1]-my)<38?'move':null;if(runDrag)press=null}}
   if(ptr.size===1&&(build==='duvar'||build==='sil')){press=null;paintTo(e.clientX,e.clientY)}else if(ptr.size===1&&aim==='rota'){press=null;draft=[];drawRoute(e.clientX,e.clientY)}else if(ptr.size===2){paintAt=null;draft=null}});
 cv.addEventListener('pointermove',e=>{
   const o=ptr.get(e.pointerId);
   if(!o){if(build||aim==='fuze')hover(e.clientX,e.clientY);return}
   const dx=e.clientX-o.x,dy=e.clientY-o.y;o.x=e.clientX;o.y=e.clientY;
   if(boxS&&ptr.size===1){boxS.x1=e.clientX;boxS.y1=e.clientY;return}
+  if(runDrag&&ptr.size===1&&RUN){const p=worldAt(e.clientX,e.clientY);if(p){if(runDrag==='move')runMove(p);else{const a=Math.atan2(p.z-RUN.z,p.x-RUN.x);if(Math.hypot(p.x-RUN.x,p.z-RUN.z)>4)RUN.a=a}}return}
   if(cmdDraft&&ptr.size===1&&press){if(Math.hypot(e.clientX-press.x,e.clientY-press.y)>9)press.moved=true;if(press.moved){const p=worldAt(e.clientX,e.clientY);if(p){const q=clampV(p),l=cmdDraft[cmdDraft.length-1];if(Math.hypot(q.x-l.x,q.z-l.z)>=4)cmdDraft.push(q)}}return}
   if(draft&&ptr.size===1){drawRoute(e.clientX,e.clientY);return}
   if(paintAt&&ptr.size===1){paintTo(e.clientX,e.clientY);if(build!=='sil')hover(e.clientX,e.clientY);return}
@@ -2018,7 +2043,7 @@ cv.addEventListener('pointermove',e=>{
   if(press&&press.moved){const s=view.d/innerHeight*1.3;view.tx=clamp(view.tx-dx*s,-VIEW,VIEW);view.tz=clamp(view.tz-dy*s*1.25,-VIEW,VIEW)}
   if(build||aim==='fuze')hover(e.clientX,e.clientY);
 });
-const up=e=>{ptr.delete(e.pointerId);const pr=press;press=null;paintAt=null;
+const up=e=>{ptr.delete(e.pointerId);const pr=press;press=null;paintAt=null;runDrag=null;
   try{
   if(boxS){const b=boxS;boxS=null;if(e.type==='pointerup')endBox(b);return}
   if(cmdDraft){const d=cmdDraft;cmdDraft=null;if(pr&&pr.moved&&e.type==='pointerup'&&d.length>1){order(d,[e.clientX,e.clientY]);return}}
@@ -2131,10 +2156,14 @@ function drawRally(){const p=$('rallyP');if(p.hidden)return;const R=atRally();
   const q=TQ.length?(EN?` · training ${TQ.length}`:` · eğitimde ${TQ.length}`):'';$('rTop').textContent=(EN?`Army ${popOf(ME.seat)}/${POP_CAP}`:`Ordu ${popOf(ME.seat)}/${POP_CAP}`)+q}
 // the bomber's run: across the top, the middle or the bottom of the enemy island
 let laneTo=null;
-function laneAsk(to){laneTo=to;$('laneBar').hidden=to==null;syncCmd();if(to!=null){setAim(null);setBuild(null);const c=castlePos(to);view.tx=c.x;view.tz=c.z;view.td=Math.max(view.td,170)}}
+let RUN=null,runDrag=null;
+function laneAsk(to){laneTo=to;$('laneBar').hidden=to==null;syncCmd();RUN=null;if(to!=null){setAim(null);setBuild(null);const r=runFor(ME.seat,to);RUN={x:r[0],z:r[1],a:r[2]};view.tx=r[0];view.tz=r[1];view.td=clamp(view.td,110,170)}}
+function runMove(p){if(!RUN||!p)return;if(seatAt(p.x,p.z)!==laneTo||shoreOf(p.x,p.z)<-30){if(now()-(rwTipT||0)>1500){rwTipT=now();tip(TL('Hattı düşman üssünün üstüne koy','Put the run over the enemy base'))}return}RUN.x=p.x;RUN.z=p.z}
+function runSend(){const to=laneTo;if(to==null||!RUN)return;const ln=[Math.round(RUN.x),Math.round(RUN.z),+RUN.a.toFixed(3)];laneAsk(null);if(sendUnit(ME,to,'ucak',{ln}))tip(EN?`Building a bomber: ${PLANE_T} s, then it bombs your line`:`Uçak yapılıyor: ${PLANE_T} sn, sonra çizdiğin hattı bombalar`);else tip(TL('Altının yetmiyor','Not enough gold'))}
 function laneLine(to,l){const a=castlePos(ME.seat),b=castlePos(to),side=Math.sign(b.x-a.x)||-SX[to],z=laneZ(to,l);return[{x:b.x-side*75,z},{x:b.x+side*80,z}]}
 function tap(sx,sy){
   const p=worldAt(sx,sy);if(!p||ME.dead)return;
+  if(laneTo!=null){runMove(p);return}
   if(aim==='fuze'){const c=unitAtScreen(sx,sy);fireAt(c&&!allied(c.from,ME.seat)&&c.type!=='isci'&&c.type!=='fuze'?c:p,!!c&&!allied(c.from,ME.seat)&&c.type!=='isci'&&c.type!=='fuze');return}
   if(aim==='rota')return;
   if(!build){const c=unitAtScreen(sx,sy);
@@ -2240,7 +2269,7 @@ function mkSettings(){
    ['Lock on','With units picked, tap an enemy soldier, ship or submarine: they go for it. "To muster" pulls them back to heal.'],
    ['Missile','Missile → tap a spot, or tap an enemy unit and it follows it.'],
    ['Ships','Shipyard first, then Ship. Tap your ship and draw where it goes, or tap an enemy to fight it.'],
-   ['Bomber','Runway first, then Plane, and pick one of the runs 1-6 over the enemy base.']]:[
+   ['Bomber','Runway first, then Plane. Drag the bomb line anywhere over the enemy base and turn it any way; the bombs land on the red dots.']]:[
    ['Kamera','Bir parmakla kaydır, iki parmakla yakınlaştır. "Üssüm" ve "Tüm harita" görüntüyü taşır.'],
    ['Savunma','Bir kule seç, sonra kendi toprağına dokun. Kuleye dokunup yükseltebilir ya da silebilirsin.'],
    ['Ordu','Saldırı → asker eğit. Askerler kalenin önündeki bayraklı alanda bekler ve orada iyileşir.'],
@@ -2249,7 +2278,7 @@ function mkSettings(){
    ['Kilitlen','Birlik seçiliyken düşman askerine, gemisine ya da denizaltısına dokun: ona saldırırlar. "Birliğe dön" geri çekip iyileştirir.'],
    ['Füze','Füze → bir yere ya da düşman birliğine dokun; birliğe dokunursan peşinden gider.'],
    ['Gemi','Önce Tersane, sonra Gemi. Gemine dokunup yol çiz ya da bir düşmana dokunup onunla savaştır.'],
-   ['Uçak','Önce Pist, sonra Uçak ve düşman üssünün üstündeki 1-6 hatlardan birini seç.']];
+   ['Uçak','Önce Pist, sonra Uçak. Bomba hattını düşman üssünde istediğin yere sürükle, istediğin yöne çevir; bombalar kırmızı noktalara düşer.']];
   for(const[h,t]of L){const d=document.createElement('div'),b=document.createElement('b');b.textContent=h+': ';d.append(b,document.createTextNode(t));$('helpT').append(d)}
   $('setP').append($('bSes'));$('bSes').hidden=true}
 // ---------- chat ----------
@@ -2302,7 +2331,7 @@ function mkHud(){
       if(!sendUnit(ME,to,k))tip(TL('Altının yetmiyor','Not enough gold'));else tip(`${UNITS[k].ad} → ${P[to].name}`)};$('gAtk').append(b)}
   {const b=document.createElement('button');b.id='bSec';b.title=TL('Sahadaki birliklerini kareyle seç, sonra yol çizerek götür. Kısayol: haritaya çift dokunup sürükle.','Box-select your units in the field, then drag a path to lead them. Shortcut: double-tap the map and drag.');b.innerHTML=TL('Seç<small>birlik</small>','Select<small>units</small>');b.onclick=()=>setAim(aim==='sec'?null:'sec');$('gAtk').append(b)}
   {const b=document.createElement('button');b.id='bBirlik';b.title=TL('Birlik alanında bekleyen askerlerin: kaçını göndereceğini seç, sonra yol çiz ya da hedefe dokun.','Troops waiting on your muster field: pick how many to send, then draw a path or tap a target.');b.innerHTML=TL('Birlik<small>gönder</small>','Army<small>send</small>');b.onclick=()=>openRally($('rallyP').hidden);$('gAtk').append(b)}
-  mkChat();mkSettings();mkRally();$('laneX').onclick=()=>laneAsk(null);for(const b of $('laneBar').querySelectorAll('[data-l]'))b.onclick=()=>{const l=+b.dataset.l,to=laneTo;laneAsk(null);if(to==null)return;if(sendUnit(ME,to,'ucak',{lane:l}))tip(EN?`Building a bomber: ${PLANE_T} s, then it takes off to bomb run ${l+1}`:`Uçak yapılıyor: ${PLANE_T} sn, sonra ${l+1}. hattı bombalamaya kalkar`);else tip(TL('Altının yetmiyor','Not enough gold'))}
+  mkChat();mkSettings();mkRally();$('laneX').onclick=()=>laneAsk(null);$('laneRot').onclick=()=>{if(RUN)RUN.a+=Math.PI/4};$('laneGo').onclick=runSend;
   $('cmdHome').onclick=orderRally;
   for(const D of P){if(!D.on||D===ME)continue;const b=document.createElement('button');b.dataset.s=D.seat;b.textContent=D.name;b.style.borderBottom='4px solid '+TEAM[D.seat];b.onclick=()=>setTarget(D.seat);$('gTgt').append(b)}
   for(const[k,ad]of[['muzik',TL('Müzik','Music')],['okcu',TL('Ok ve silah','Arrows & guns')],['atli',TL('Atlı','Riders')],['bomba',TL('Bomba','Bombs')],['su',TL('Su','Water')]]){const l=document.createElement('label'),c=document.createElement('input');c.type='checkbox';c.id='s_'+k;c.checked=SES.ayar[k];c.onchange=()=>SES.set(k,c.checked);l.append(c,' '+ad);$('sesP').append(l)}
@@ -2401,7 +2430,15 @@ function drawOverlay(){
   if(tutSpot){const q=scr(tutSpot.x,heightAt(tutSpot.x,tutSpot.z)+.5,tutSpot.z);if(q){const k=(Math.sin(now()/180)+1)/2,r=(W<620?20:26)+k*8,col=tutSpot.red?'255,90,60':'110,255,140';
     oc.lineWidth=4;oc.strokeStyle=`rgba(${col},${.55+k*.45})`;oc.beginPath();oc.arc(q[0],q[1],r,0,6.283);oc.stroke();oc.lineWidth=2;oc.beginPath();oc.arc(q[0],q[1],r*.45,0,6.283);oc.stroke();
     oc.fillStyle=`rgb(${col})`;oc.beginPath();oc.moveTo(q[0],q[1]-r-4);oc.lineTo(q[0]-9,q[1]-r-20);oc.lineTo(q[0]+9,q[1]-r-20);oc.fill()}}
-  if(laneTo!=null&&!P[laneTo].dead){oc.font=`700 ${W<620?15:17}px Georgia`;for(let l=0;l<LANES;l++){const[a,b]=laneLine(laneTo,l);trail([a,b],'#ffd98a');const q=scr(a.x+(b.x-a.x)*.22,2,a.z);if(q){const t=String(l+1);oc.lineWidth=4;oc.strokeStyle='rgba(0,0,0,.8)';oc.strokeText(t,q[0],q[1]-8);oc.fillStyle='#ffd98a';oc.fillText(t,q[0],q[1]-8)}}}
+  if(laneTo!=null&&!P[laneTo].dead&&RUN){const ln=[RUN.x,RUN.z,RUN.a],pts=runPts(ln),dx=Math.cos(RUN.a),dz=Math.sin(RUN.a),h=RUN_L/2;
+    trail([{x:RUN.x-dx*(h+40),z:RUN.z-dz*(h+40)},{x:RUN.x-dx*h,z:RUN.z-dz*h}],'rgba(255,217,138,.45)');trail([pts[0],pts[pts.length-1]],'#ffd98a');
+    for(const q of pts){const s2=scr(q.x,heightAt(q.x,q.z)+.3,q.z);if(!s2)continue;oc.beginPath();oc.arc(s2[0],s2[1],4.5,0,6.3);oc.fillStyle='#ff5a3a';oc.fill();oc.lineWidth=1.5;oc.strokeStyle='#2a0f08';oc.stroke()}
+    const c=scr(RUN.x,heightAt(RUN.x,RUN.z)+.3,RUN.z),e=scr(RUN.x+dx*(h+10),heightAt(RUN.x+dx*(h+10),RUN.z+dz*(h+10))+.3,RUN.z+dz*(h+10)),st=scr(RUN.x-dx*(h+40),2,RUN.z-dz*(h+40));
+    oc.font=`700 ${W<620?15:17}px Georgia`;oc.textAlign='center';oc.textBaseline='middle';
+    if(c){oc.beginPath();oc.arc(c[0],c[1],17,0,6.3);oc.fillStyle='rgba(20,20,20,.65)';oc.fill();oc.lineWidth=2.5;oc.strokeStyle='#ffd98a';oc.stroke();oc.fillStyle='#ffd98a';oc.fillText('✥',c[0],c[1]+1)}
+    if(e){oc.beginPath();oc.arc(e[0],e[1],15,0,6.3);oc.fillStyle='rgba(20,20,20,.65)';oc.fill();oc.lineWidth=2.5;oc.strokeStyle='#ffd98a';oc.stroke();oc.fillStyle='#ffd98a';oc.fillText('↻',e[0],e[1]+1)}
+    if(st){oc.fillStyle='#ffd98a';oc.lineWidth=4;oc.strokeStyle='rgba(0,0,0,.8)';oc.strokeText('✈',st[0],st[1]);oc.fillText('✈',st[0],st[1])}
+    oc.textAlign='start';oc.textBaseline='alphabetic'}
   for(const u of ME.units)if(u.type==='fuze'&&!u.ret){const tr=u.lockT!=null?unitById(u.lockT):null;if(tr){const y=flies(UNITS[tr.type])?airY(tr):unitY(UNITS[tr.type],tr.x,tr.z)+1;cross(tr.x,tr.z,'#ff4a3a',y);const q=scr(tr.x,y,tr.z);if(q){oc.lineWidth=3;oc.strokeStyle='#ff5a3a';oc.beginPath();oc.arc(q[0],q[1],naval(tr.type)?24:17,0,6.283);oc.stroke()}}else cross(u.tx,u.tz,'#ff4a3a')}
   oc.font='700 17px Georgia';oc.fillStyle='#ffd98a';
   for(const f of floats){vp.set(f.x,6+f.t*8,f.z).project(camera);if(vp.z>1)continue;oc.globalAlpha=1-f.t;oc.fillStyle=f.heal?'#7dff9a':'#ffd98a';const fx=(vp.x+1)/2*W,fy=(1-vp.y)/2*H;oc.fillText(f.txt,fx,fy);
@@ -2460,7 +2497,7 @@ function tutSteps(){
    {t:TL('Uçakla bombala','Bomb from the air'),x:TL('Uçak düşman üssünün üstünden seçtiğin hatta geçer ve bombalar, sonra geri döner. Üssün üstünde 1’den 6’ya kadar hat vardır.','A bomber flies over the enemy base along the run you pick, bombs it and comes home. There are runs 1 to 6 across the base.'),
     go:()=>RWY[0]&&look(RWY[0].c.x,RWY[0].c.z,130),
     hint:()=>{if(ME.rwState!==2){tutTab('d');return{h:TL('Savunma bölümünde parlayan Pist düğmesine bas.','In Defense, press the glowing Runway button.'),g:'#bPist'}}tutTab('a');
-      if(laneTo==null)return{h:TL('Saldırı bölümünde parlayan Uçak düğmesine bas.','In Attack, press the glowing Plane button.'),g:'#gAtk [data-k=ucak]'};return{h:TL('Bir hat numarasına bas: 1, 2, 3, 4, 5 ya da 6.','Press a run number: 1 to 6.'),g:'#laneBar [data-l]'}},
+      if(laneTo==null)return{h:TL('Saldırı bölümünde parlayan Uçak düğmesine bas.','In Attack, press the glowing Plane button.'),g:'#gAtk [data-k=ucak]'};return{h:TL('Kırmızı noktalar bombaların düşeceği yer. İstersen sürükle ya da çevir, sonra Gönder.','The red dots are where the bombs fall. Drag or turn it if you like, then press Send.'),g:'#laneGo'}},
     done:()=>!!ME.hg||P.some(D=>D.units.some(u=>u.type==='ucak'&&u.from===0))},
    {t:TL('Köprüyü onar','Rebuild the bridge'),x:TL('Füzeler ve bombalar taş köprüleri yıkar; biri az önce yıkıldı. Köprü olmadan yürüyen askerler karşıya geçemez.','Missiles and bombs bring stone bridges down; one just fell. Without it, marching soldiers cannot cross.'),tab:'d',
     go:()=>{breakDuelBridge(0);look((DBR[0].a.x+DBR[0].b.x)/2,DBR[0].a.z,120)},

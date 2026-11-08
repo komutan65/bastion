@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Dört Cephe</title>
 <script type="importmap">{"imports":{"three":"../three.min.js"}}</script>
-<link rel="stylesheet" href="lobby.css?v=20261108f">
+<link rel="stylesheet" href="lobby.css?v=20261108g">
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#0d1a26;color:#f0e8d6;font-family:Georgia,'Times New Roman',serif;touch-action:none;user-select:none;-webkit-user-select:none}
 #game,#ov{position:fixed;inset:0;width:100%;height:100%;display:block}
@@ -97,7 +97,7 @@ body.chatting #eye,body.chatting #ver{display:none}
   <div id="tools"><button id="setB" data-en="⚙ Settings">⚙ Ayarlar</button><button id="chatB" data-en="Chat">Sohbet</button><button id="bSes" data-en="Sound">Ses</button><button id="bHome" data-en="My base">Üssüm</button><button id="bAll" data-en="Whole map">Tüm harita</button></div>
   <div id="aimBar" hidden><span id="aimTxt"></span><button id="aimX" data-en="Cancel">Vazgeç</button></div>
   <div id="cmdBar" hidden><span id="cmdTxt"></span><button id="cmdHome" data-en="To muster">Birliğe dön</button><button id="cmdHold" data-en="Hold">Bekle</button><button id="cmdX" data-en="Release">Bırak</button></div>
-  <div id="laneBar" hidden><span data-en="Run:">Hat:</span><button data-l="0">1</button><button data-l="1">2</button><button data-l="2">3</button><button data-l="3">4</button><button data-l="4">5</button><button data-l="5">6</button><button id="laneX" data-en="Cancel">Vazgeç</button></div>
+  <div id="laneBar" hidden><span data-en="Drag the line or tap the base">Hattı sürükle ya da üsse dokun</span><button id="laneRot" data-en="Turn">↻ Çevir</button><button id="laneGo" data-en="Send">Gönder</button><button id="laneX" data-en="Cancel">Vazgeç</button></div>
   <div id="rallyP" hidden></div>
   <div id="setP" hidden><b data-en="Settings">Ayarlar</b>
     <button id="setNew"></button>
@@ -120,7 +120,7 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div>
 <button id="eye" title="Ekranı gizle" aria-label="Ekranı gizle" hidden>👁</button>
 
-<div id="ver" data-en="Version 14">Sürüm 14</div>
+<div id="ver" data-en="Version 15">Sürüm 15</div>
 <div id="lobby"><div class="lbox">
   <h1 data-en="FOUR FRONTS">DÖRT CEPHE</h1>
   <p id="lOnline" hidden></p>
@@ -152,6 +152,6 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div></div>
 <div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go" data-en="New match">Yeni maç</button><button id="aeWatch" data-en="Watch the match">Maçı izle</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="lobby.js?v=20261108f"></script>
+<script src="lobby.js?v=20261108g"></script>
 </body>
 </html>
