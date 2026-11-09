@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261109h';
+import {SES} from './ses.js?v=20261109i';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -10,7 +10,7 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=200,MS_COST=100,MS_T=10,MS_HP=120,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=2,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='22.1';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='23';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
@@ -614,7 +614,7 @@ function jobOf(D,id){
     return{job:'ys',x:L0.x,z:L0.z,bt:1,n:D.ysState===1?3:2,spot:k=>{const o=[[-4,2],[4,1],[-1,-4]][k%3];return{x:L0.x+o[0]*ca+o[1]*sa,z:L0.z-o[0]*sa+o[1]*ca,fx:L0.x+sa*4,fz:L0.z+ca*4}}}}
   return null}
 const JOBS=['rw','ys','ms','cs'];
-function jobRate(D,id){if(TUT)return 99;let k=0;for(const u of D.units)if(u.type==='isci'&&u.site===id&&u.atk&&u.hp>0)k++;return Math.min(1,k/2.4)}
+function jobRate(D,id){if(TUT)return id==='cs'?4:99;let k=0;for(const u of D.units)if(u.type==='isci'&&u.site===id&&u.atk&&u.hp>0)k++;return Math.min(1,k/2.4)}
 // missiles and crashes can also wreck the shared fountain and built bridges
 function hitWorld(x,z,r){
   if(!DUEL&&!fountainDown&&Math.hypot(x,z)<r+6)breakFountain();
@@ -1264,14 +1264,14 @@ function treeGeos(){
   const droop=(g,d)=>{const p=g.attributes.position;let lo=1e9;for(let i=0;i<p.count;i++)lo=Math.min(lo,p.getY(i));for(let i=0;i<p.count;i++)if(p.getY(i)<lo+.01){const x=p.getX(i),z=p.getZ(i),a=Math.atan2(z,x);p.setY(i,lo-d*(.6+.4*Math.sin(a*5)));p.setX(i,x*1.08);p.setZ(i,z*1.08)}return g};
   const pineT=(seg,rows,j)=>[0,1,2,3,4,5,6,7].map(i=>jig(droop(new THREE.ConeGeometry(3.5-i*.4,2.5-i*.1,seg,rows).rotateY(i*.7),.45-i*.03).translate(0,3.1+i*1.48,0),j,i)).concat([jig(new THREE.ConeGeometry(.45,1.7,seg>6?7:5).translate(0,15.2,0),.1,9)]);
   const pineT2=(seg,rows,j)=>[0,1,2,3,4,5].map(i=>jig(droop(new THREE.ConeGeometry(3.9-i*.52,2.9-i*.15,seg,rows).rotateY(i*1.1+.3),.55-i*.05).translate(0,2.9+i*1.75,0),j*1.15,i+30))
-    .concat([jig(new THREE.ConeGeometry(.75,2.2,seg>6?7:5).rotateZ(.22).translate(.25,13.7,0),.15,40),jig(new THREE.ConeGeometry(.42,1.4,5).rotateZ(-.55).translate(-.55,13.2,.2),.1,41)]);
+    .concat([jig(new THREE.ConeGeometry(1.15,2.6,seg>6?9:6,2).translate(0,13.55,0),.22,40),jig(new THREE.ConeGeometry(.3,.9,seg>6?6:4).translate(0,15.1,0),.06,41)]);
   const pine=merge(pineT(11,2,.5)),pine2=merge(pineT2(11,2,.5)),pine2L=merge(pineT2(6,1,.3)),
         CROWN=[...Array(13)].map((_,i)=>{const a=i*2.399,t=i/12,rr=i?1.2+((i*7)%5)*.38:0,y=i?7.1+t*3.6+((i*3)%4)*.35:9.2;return[Math.cos(a)*rr*(1.15-t*.4),y,Math.sin(a)*rr*(1.15-t*.4),i?1.25+((i*5)%4)*.22:2.3]}),
         broad=merge(CROWN.map(([x,y,z,r],i)=>jig(new THREE.IcosahedronGeometry(r,1).scale(1,.82,1).translate(x,y,z),.55,i+9))),
         BIR=[[0,10.4,0,1.6],[.9,11.6,.4,1.25],[-.8,12,-.3,1.2],[.2,13.3,.6,1.05],[-.4,9.4,.8,1.1],[.7,9.6,-.8,1.05],[-.2,14.3,-.2,.8]],birch=merge(BIR.map(([x,y,z,r],i)=>jig(new THREE.IcosahedronGeometry(r,1).scale(1,1.3,1).translate(x,y,z),.4,i+20))),
         dead=merge([new THREE.CylinderGeometry(.18,.42,7,7).translate(0,3.5,0),new THREE.CylinderGeometry(.06,.14,2.8,5).rotateZ(.9).translate(1,5.2,0),new THREE.CylinderGeometry(.05,.12,2.2,5).rotateZ(-1).translate(-.85,4.4,.2),new THREE.CylinderGeometry(.05,.1,1.8,5).rotateX(.9).translate(0,6,.7)]);
   const mat=(c,needle)=>{const m=new THREE.MeshStandardMaterial({color:c,map:LT[needle?1:0],roughness:.9,vertexColors:true});
-    m.onBeforeCompile=sh=>{sh.uniforms.uT=WIND;sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uT;').replace('#include <begin_vertex>','#include <begin_vertex>\n#ifdef USE_INSTANCING\nfloat ph=instanceMatrix[3].x*.05+instanceMatrix[3].z*.07;\n#else\nfloat ph=0.;\n#endif\nfloat sw=(sin(uT*1.4+ph)+.5*sin(uT*2.9+ph*1.7))*.012*position.y*position.y/12.;transformed.x+=sw;transformed.z+=sw*.6;')};return m};
+    m.onBeforeCompile=sh=>{sh.uniforms.uT=WIND;sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uT;').replace('#include <begin_vertex>','#include <begin_vertex>\n#ifdef USE_INSTANCING\nfloat ph=instanceMatrix[3].x*.05+instanceMatrix[3].z*.07;\n#else\nfloat ph=0.;\n#endif\nfloat sw=(sin(uT*1.4+ph)+.5*sin(uT*2.9+ph*1.7))*.012*position.y*position.y/12.;transformed.x+=sw;transformed.z+=sw*.6;'+(needle?'float th=fract(sin(ph*91.7+3.1)*4375.5),tk=max(position.y-10.5,0.)/5.5;tk*=tk;transformed.x+=tk*(th-.5)*1.7;transformed.z+=tk*(fract(th*7.31)-.5)*1.7;transformed.y+=tk*(fract(th*3.7)-.45)*1.6;transformed.xz*=1.+tk*(fract(th*5.3)-.5)*.5;':''))};m.customProgramCacheKey=()=>needle?'tn':'tb';return m};
   // far-off copies with a fraction of the triangles: a tree a few pixels tall looks the same either way
   const pineL=merge(pineT(6,1,.3)),
         broadL=merge(CROWN.filter((_,i)=>i%2===0).map(([x,y,z,r],i)=>jig(new THREE.IcosahedronGeometry(r*1.15,0).scale(1,.82,1).translate(x,y,z),.35,i+9))),
@@ -1822,10 +1822,22 @@ const PARTS={
   koc:[[bx(2.4,.5,4.6,0,1.1,0),'#6d4b2c'],[new THREE.ConeGeometry(2.1,1.9,4).rotateY(.785).scale(.85,1,1.5).translate(0,2.9,0),null],[bx(.3,1.2,.3,-1,1.9,-1.8),'#4b3320'],[bx(.3,1.2,.3,1,1.9,-1.8),'#4b3320'],[bx(.3,1.2,.3,-1,1.9,1.8),'#4b3320'],[bx(.3,1.2,.3,1,1.9,1.8),'#4b3320'],
     [new THREE.CylinderGeometry(.34,.42,6,10).rotateX(1.57).translate(0,1.7,.8),'#59402a',LEG([0,0,0],0,0,'ram')],[new THREE.ConeGeometry(.5,1,10).rotateX(1.57).translate(0,1.7,4.3),IRON,LEG([0,0,0],0,0,'ram')],
     ...[-1.3,1.3].flatMap(x=>[-1.5,1.5].map(z=>[new THREE.CylinderGeometry(.65,.65,.3,14).rotateZ(1.57).translate(x,.65,z),'#2d2a28']))],
-  balon:[[new THREE.SphereGeometry(3.4,24,16).scale(1,1.2,1).translate(0,4.2,0),null],[new THREE.TorusGeometry(3.42,.13,8,32).rotateX(1.57).translate(0,4.2,0),'#fff4d6'],[new THREE.TorusGeometry(2.7,.11,8,32).rotateX(1.57).translate(0,6.6,0),'#fff4d6'],[new THREE.TorusGeometry(2.7,.11,8,32).rotateX(1.57).translate(0,1.8,0),'#fff4d6'],[new THREE.ConeGeometry(1.5,1.8,16).rotateX(3.14).translate(0,-.4,0),null],[cy(.04,.04,2.4,-.6,-1.9,-.6,4),'#3b2614'],[cy(.04,.04,2.4,.6,-1.9,-.6,4),'#3b2614'],[cy(.04,.04,2.4,-.6,-1.9,.6,4),'#3b2614'],[cy(.04,.04,2.4,.6,-1.9,.6,4),'#3b2614'],[bx(1.6,.95,1.6,0,-3.3,0),LEATH],[sp(.5,0,-4.1,0),'#1c1c1e'],
-    [new THREE.CylinderGeometry(.26,.32,.75,10).translate(0,-2.45,.1),null],[new THREE.SphereGeometry(.2,12,10).translate(0,-1.86,.12),SKIN],[new THREE.SphereGeometry(.22,10,6,0,6.3,0,1.6).translate(0,-1.8,.1),'#5a3a22'],
-    [bx(.34,.07,.06,0,-1.84,.31),'#1c1c1e'],[new THREE.CapsuleGeometry(.07,.42,3,6).rotateX(-.9).translate(.26,-2.3,.4),null],[new THREE.SphereGeometry(.18,8,6).translate(.3,-2.6,.66),'#1c1c1e'],
-    ...[[-.82,.5],[.82,.5],[-.82,-.5],[.82,-.5],[0,-.82]].map(([x,z])=>[new THREE.SphereGeometry(.2,8,6).scale(1,1.3,1).translate(x,-3.35,z),'#c9a66b'])],
+  // a proper hot-air balloon: a teardrop envelope sewn from gores in the team colour and cream, load lines down to a wicker basket,
+  // a burner with its flame, and the bomber: dark leather coat and flying cap, goggles, one hand on the rim, a bomb in the other
+  balon:(()=>{const prof=[[.35,-.7],[1.1,-.35],[2.2,.6],[3.15,2.1],[3.6,3.8],[3.55,5.3],[3,6.6],[2,7.6],[.9,8.15],[0,8.3]].map(([r,y])=>new THREE.Vector2(r,y)),G=[],seg=(a,b,r,c)=>{const d=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]),L=d.length(),g=new THREE.CylinderGeometry(r,r,L,4);g.translate(0,L/2,0);g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize()));g.translate(a[0],a[1],a[2]);return[g,c]};
+    for(let k=0;k<12;k++)G.push([new THREE.LatheGeometry(prof,3,k*Math.PI/6,Math.PI/6),k%2?'#efe3c2':null]);
+    const WK='#8a6239',WD='#5a3f22',COAT='#262321',CAP='#3a2a1c';
+    return[...G,[new THREE.TorusGeometry(.42,.07,6,16).rotateX(1.57).translate(0,-.68,0),'#3b2614'],
+      ...[[-1,-1],[1,-1],[-1,1],[1,1]].flatMap(([x,z])=>[seg([x*.36,-.68,z*.36],[x*.74,-2.82,z*.74],.025,'#2a1d10'),seg([x*.36,-.68,z*.36],[x*1.72,1.1,z*1.72],.02,'#2a1d10')]),
+      [cy(.17,.2,.3,0,-1.2,0,8),'#59626c'],[new THREE.ConeGeometry(.11,.42,8).translate(0,-.85,0),'#ff9a3a'],[new THREE.ConeGeometry(.05,.26,6).translate(0,-.8,0),'#fff2b0'],[bx(1.3,.05,.05,0,-1.36,0),'#59626c'],[bx(.05,.05,1.3,0,-1.36,0),'#59626c'],
+      [bx(1.5,.9,1.5,0,-3.3,0),WK],[bx(1.62,.12,1.62,0,-2.84,0),WD],[bx(1.56,.1,1.56,0,-3.74,0),WD],...[-.5,0,.5].flatMap(o=>[[bx(.05,.86,1.53,o*1.4,-3.3,0).translate(0,0,0),WD],[bx(1.53,.86,.05,0,-3.3,o*1.4),WD]]).filter((_,i)=>i%2===0),
+      [new THREE.CapsuleGeometry(.22,.38,3,8).translate(0,-2.45,.1),COAT],[bx(.5,.07,.3,0,-2.62,.12),'#4a3626'],[new THREE.CylinderGeometry(.13,.16,.14,8).translate(0,-2.05,.1),'#4a3f38'],
+      [new THREE.SphereGeometry(.17,12,10).scale(1,1.1,1).translate(0,-1.84,.12),SKIN],[new THREE.SphereGeometry(.185,12,8,0,6.3,0,1.75).translate(0,-1.8,.1),CAP],[bx(.1,.16,.05,-.17,-1.9,.1),CAP],[bx(.1,.16,.05,.17,-1.9,.1),CAP],
+      [new THREE.CylinderGeometry(.055,.055,.06,8).rotateX(Math.PI/2).translate(-.07,-1.8,.28),'#b08a3a'],[new THREE.CylinderGeometry(.055,.055,.06,8).rotateX(Math.PI/2).translate(.07,-1.8,.28),'#b08a3a'],[bx(.34,.04,.04,0,-1.8,.27),'#1c1c1e'],
+      seg([-.2,-2.22,.1],[-.45,-2.62,.55],.07,COAT),seg([-.45,-2.62,.55],[-.5,-2.82,.78],.06,COAT),[new THREE.SphereGeometry(.07,6,5).translate(-.5,-2.84,.8),'#3a2a1c'],
+      seg([.2,-2.22,.1],[.42,-2.55,.5],.07,COAT),seg([.42,-2.55,.5],[.3,-2.5,.78],.06,COAT),[new THREE.CapsuleGeometry(.12,.22,3,8).rotateX(1.57).translate(.28,-2.55,.9),'#1c1c1e'],[new THREE.ConeGeometry(.12,.18,6).rotateX(-1.57).translate(.28,-2.55,.62),'#59626c'],
+      [new THREE.CapsuleGeometry(.26,.5,3,8).translate(0,-4.35,0),'#1c1c1e'],[bx(.5,.05,.5,0,-4.85,0),'#3a3f45'],[cy(.03,.03,.5,0,-3.95,0,4),'#2a1d10'],
+      ...[[-.85,.45],[.85,.45],[-.85,-.45],[.85,-.45],[0,-.85]].map(([x,z])=>[new THREE.SphereGeometry(.19,8,6).scale(1,1.35,1).translate(x,-3.35,z),'#b8956a'])]})(),
   dalgic:[...figure({pants:'#16191d',shirt:'#16191d',boot:'#16191d',hips:'#16191d',belt:'#3a3f45',armsFixed:true,face:false}),
     ...[-1,1].map(sd=>[new THREE.BoxGeometry(.42,.05,1).translate(sd*.22,.04,.36),'#e8c23a',LEG([sd*.22,1.22,0],.7,sd<0?0:3.14)]),
     [cyl(.22,.22,1.05,0,2.05,-.52,12),'#c9b23a'],[cyl(.24,.24,.06,0,2.57,-.52,12),'#59626c'],[cyl(.07,.07,.4,0,2.75,-.52,6),'#59626c'],[cyl(.47,.47,.18,0,2.25,0,14),null],
@@ -1946,7 +1958,8 @@ function drawUnits(rdt){
       u.px=u.x;u.pz=u.z;u.dir=u.dir==null?want:u.type==='gemi'&&!u.moving?turnTo(u.dir,want,rdt*.45):angLerp(u.dir,want,Math.min(1,rdt*(u.type==='gemi'?2:u.type==='ucak'?20:10)));
       if(u.type==='ucak'){put('ucak',u.x,u.z,u.from,u.dir,true,u.fall!=null?u.y:u.alt,u.fall!=null?.5:u.ph==='roll'?0:u.ph==='land'?.07:-.06);
         if(u.hp<UNITS.ucak.hp*.4&&Math.random()<rdt*8)puff(u.x,u.alt,u.z,1.4,2,.2,.4,.2);continue}
-      if(u.type==='gemi'){{const on=u.face!=null&&(u.foeS||u.atk||u.c2>0);let d=(on?u.face:u.dir)-u.dir;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;let d2=d+Math.PI;while(d2>Math.PI)d2-=2*Math.PI;const m=rdt*1.6,t1=clamp(d,-2.45,2.45),t2=on?clamp(d2,-2.44,2.44):0;u.ta=(u.ta||0)+clamp(t1-(u.ta||0),-m,m);u.ta2=(u.ta2||0)+clamp(t2-(u.ta2||0),-m,m)}      // a turret never swings round into the ship's own superstructurecurTA=u.ta;curTA2=u.ta2;put('gemi',u.x,u.z,u.from,u.dir,false,u.fall!=null?-.45-Math.max(0,u.fall-.6)**1.6*.9:-.45+Math.sin(now()/700+u.id)*.12,u.fall!=null?Math.min(.55,u.fall*.16):0);
+      if(u.type==='gemi'){{const on=u.face!=null&&(u.foeS||u.atk||u.c2>0);let d=(on?u.face:u.dir)-u.dir;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;let d2=d+Math.PI;while(d2>Math.PI)d2-=2*Math.PI;const m=rdt*1.6,t1=clamp(d,-2.45,2.45),t2=on?clamp(d2,-2.44,2.44):0;u.ta=(u.ta||0)+clamp(t1-(u.ta||0),-m,m);u.ta2=(u.ta2||0)+clamp(t2-(u.ta2||0),-m,m)}      // a turret never swings round into the ship's own superstructure
+        curTA=u.ta;curTA2=u.ta2;put('gemi',u.x,u.z,u.from,u.dir,false,u.fall!=null?-.45-Math.max(0,u.fall-.6)**1.6*.9:-.45+Math.sin(now()/700+u.id)*.12,u.fall!=null?Math.min(.55,u.fall*.16):0);
         if(u.moving&&Math.random()<rdt*3)ripple(u.x-Math.sin(u.dir)*7,u.z-Math.cos(u.dir)*7,7);continue}
       if(u.fall!=null){put('balon',u.x,u.z,u.from,u.dir||0,false,u.y,u.fall*1.1);continue}
       let hid=false;if(u.type==='denizalti'){hid=!subSeen(u.x,u.z,u.from);u.dy=lerp(u.dy==null?-.45:u.dy,u.under||hid?-2.9:u.moving!==false?-1.25:-.7,Math.min(1,rdt*1.5))}
@@ -2227,9 +2240,9 @@ cv.addEventListener('pointermove',e=>{
   if(!o){if(build||aim==='fuze')hover(e.clientX,e.clientY);return}
   const dx=e.clientX-o.x,dy=e.clientY-o.y;o.x=e.clientX;o.y=e.clientY;
   if(boxS&&ptr.size===1){boxS.x1=e.clientX;boxS.y1=e.clientY;return}
-  if(runDrag&&ptr.size===1&&RUN){const p=worldAt(e.clientX,e.clientY);if(p){if(runDrag==='move')runMove(p);else{const a=Math.atan2(p.z-RUN.z,p.x-RUN.x);if(Math.hypot(p.x-RUN.x,p.z-RUN.z)>4)RUN.a=a}}return}
-  if(cmdDraft&&ptr.size===1&&press){if(Math.hypot(e.clientX-press.x,e.clientY-press.y)>9)press.moved=true;if(press.moved){const p=worldAt(e.clientX,e.clientY);if(p){const q=clampV(p),l=cmdDraft[cmdDraft.length-1];if(Math.hypot(q.x-l.x,q.z-l.z)>=4)cmdDraft.push(q)}}return}
-  if(draft&&ptr.size===1){drawRoute(e.clientX,e.clientY);return}
+  if(runDrag&&ptr.size===1&&RUN){bozShow(e);const p=worldAt(e.clientX,e.clientY);if(p){if(runDrag==='move')runMove(p);else{const a=Math.atan2(p.z-RUN.z,p.x-RUN.x);if(Math.hypot(p.x-RUN.x,p.z-RUN.z)>4)RUN.a=a}}return}
+  if(cmdDraft&&ptr.size===1&&press){if(Math.hypot(e.clientX-press.x,e.clientY-press.y)>9)press.moved=true;if(press.moved){bozShow(e);const p=worldAt(e.clientX,e.clientY);if(p){const q=clampV(p),l=cmdDraft[cmdDraft.length-1];if(Math.hypot(q.x-l.x,q.z-l.z)>=4)cmdDraft.push(q)}}return}
+  if(draft&&ptr.size===1){bozShow(e);drawRoute(e.clientX,e.clientY);return}
   if(paintAt&&ptr.size===1){paintTo(e.clientX,e.clientY);if(build!=='sil')hover(e.clientX,e.clientY);return}
   if(ptr.size===2){const[a,b]=[...ptr.values()],d=Math.hypot(a.x-b.x,a.y-b.y);if(pinch)view.td=clamp(view.td*pinch/d,DMIN,DMAX);pinch=d;
     const s=view.d/innerHeight*1.3*.5;view.tx=clamp(view.tx-dx*s,-VIEW,VIEW);view.tz=clamp(view.tz-dy*s*1.25,-VIEW,VIEW);return}
@@ -2237,7 +2250,9 @@ cv.addEventListener('pointermove',e=>{
   if(press&&press.moved){const s=view.d/innerHeight*1.3;view.tx=clamp(view.tx-dx*s,-VIEW,VIEW);view.tz=clamp(view.tz-dy*s*1.25,-VIEW,VIEW)}
   if(build||aim==='fuze')hover(e.clientX,e.clientY);
 });
-const up=e=>{ptr.delete(e.pointerId);const pr=press;press=null;paintAt=null;runDrag=null;
+const up=e=>{ptr.delete(e.pointerId);const pr=press;press=null;paintAt=null;const rd=runDrag;runDrag=null;
+  // a line dragged onto the Cancel box at the top is thrown away
+  const boz=bozOn(e);bozHide();if(boz){cmdDraft=null;if(draft)endRoute(false);if(rd&&laneTo!=null)laneAsk(null);tip(TL('Çizgi bozuldu','Line cancelled'));return}
   try{
   if(boxS){const b=boxS;boxS=null;if(e.type==='pointerup')endBox(b);return}
   if(cmdDraft){const d=cmdDraft;cmdDraft=null;if(pr&&pr.moved&&e.type==='pointerup'&&d.length>1){order(d,[e.clientX,e.clientY]);return}}
@@ -2355,6 +2370,8 @@ function laneAsk(to){laneTo=to;$('laneBar').hidden=to==null;syncCmd();RUN=null;i
 function runMove(p){if(!RUN||!p)return;if(seatAt(p.x,p.z)!==laneTo||shoreOf(p.x,p.z)<-30){if(now()-(rwTipT||0)>1500){rwTipT=now();tip(TL('Hattı düşman üssünün üstüne koy','Put the run over the enemy base'))}return}RUN.x=p.x;RUN.z=p.z}
 function runSend(){const to=laneTo;if(to==null||!RUN)return;const ln=[Math.round(RUN.x),Math.round(RUN.z),+RUN.a.toFixed(3)];laneAsk(null);if(sendUnit(ME,to,'ucak',{ln}))tip(EN?`Building a bomber: ${PLANE_T} s, then it bombs your line`:`Uçak yapılıyor: ${PLANE_T} sn, sonra çizdiğin hattı bombalar`);else tip(TL('Altının yetmiyor','Not enough gold'))}
 function laneLine(to,l){const a=castlePos(ME.seat),b=castlePos(to),side=Math.sign(b.x-a.x)||-SX[to],z=laneZ(to,l);return[{x:b.x-side*75,z},{x:b.x+side*80,z}]}
+const bozShow=e=>{const z=$('bozZ');if(z.hidden)z.hidden=false;z.classList.toggle('on',bozOn(e))},bozHide=()=>{const z=$('bozZ');z.hidden=true;z.classList.remove('on')},
+  bozOn=e=>{const z=$('bozZ');if(z.hidden||!e||e.clientX==null)return false;const r=z.getBoundingClientRect();return e.clientX>r.left-12&&e.clientX<r.right+12&&e.clientY>r.top-12&&e.clientY<r.bottom+12};
 function tap(sx,sy){
   const p=worldAt(sx,sy);if(!p||ME.dead)return;
   if(laneTo!=null){runMove(p);return}
@@ -2519,7 +2536,7 @@ function mkHud(){
   {const b=document.createElement('button');b.id='bFuzeS';b.title=TL('Kalenin tepesine füze rampası kurar. Füze atmak için gerekir.','Puts a missile launcher on the keep roof. Needed to fire missiles.');b.onclick=()=>{if(ME.msState===2){tip(TL('Füze sistemi hazır','Missile system ready'));return}if(ME.msState===1){tip(TL('Füze sistemi kuruluyor','Missile system is being built'));return}if(buildMissileSys(ME)){tip(TL('İşçiler füze sistemini kuruyor','Workers are building the missile system'));const c=castlePos(ME.seat);view.tx=c.x;view.tz=c.z;view.td=Math.min(view.td,90)}else tip(TL('Altının yetmiyor','Not enough gold'))};$('gDef').append(b)}
   {const b=document.createElement('button');b.id='bPist';b.title=TL('Üssündeki ayrılmış alana pist yapar. Uçak göndermek için gerekir.','Builds a runway on your reserved strip. Needed to send planes.');b.onclick=()=>{if(!RWY[ME.seat]){tip(TL('Bu üste pist alanı yok','This base has no runway site'));return}if(ME.rwState===2){if(ME.rwFix){tip(TL('Pist onarılıyor','Runway is being repaired'));return}if(rwHpOf(ME)>=RW_HP){tip(TL('Pist sağlam','Runway is fine'));return}if(repairRunway(ME)){tip(TL('İşçiler pisti onarmaya gidiyor','Workers are going to repair the runway'));view.tx=RWY[ME.seat].c.x;view.tz=RWY[ME.seat].c.z}else tip(TL('Altının yetmiyor','Not enough gold'));return}if(ME.rwState===1){tip(TL('Pist yapılıyor','Runway under construction'));return}if(buildRunway(ME)){tip((EN?`Building runway: ${RUNWAY_T} s`:`Pist yapılıyor: ${RUNWAY_T} sn`));view.tx=RWY[ME.seat].c.x;view.tz=RWY[ME.seat].c.z;view.td=Math.min(view.td,120)}else tip(TL('Altının yetmiyor','Not enough gold'))};$('gDef').append(b)}
   for(const k of BUY){const b=document.createElement('button');b.dataset.k=k;b.innerHTML=(EN?`${UNITS[k].kisa||UNITS[k].ad.split(' ').pop()}<small>${UNITS[k].cost}<i class="au"></i></small>`:`${UNITS[k].kisa||UNITS[k].ad.split(' ').pop()}<small>${UNITS[k].cost}<i class="au"></i></small>`);
-    b.title=k==='gemi'?TL('Tersanede 20 saniyede yapılır, sonra limanda bekler. Gemiye dokunup yol çiz: düşmana dokunursan oraya menzili yetince ateş eder, boş denize dokunursan orada bekler. Düşman gemisini görünce savaşır.','Built in the shipyard in 20 s, then waits at the dock. Tap it and draw a path: tap an enemy to shell it once in range, or open sea to wait there. Fights enemy ships it meets.'):k==='ucak'?TL('Önce düşman üssünün üstündeki 1-6 hatlardan birini seç. Uçak yapılır, kendi kalkar, o hattı bombalar ve döner.','Pick one of the runs 1-6 over the enemy base. The bomber is built, takes off by itself, bombs that run and flies home.'):POP[k]?(EN?`Trained in ${TRAIN[k]} s, then waits on your muster field. Army → pick how many, then draw a path or tap a target.`:`${TRAIN[k]} saniyede eğitilir, sonra birlik alanında bekler. Birlik → kaç tane gideceğini seç, sonra yol çiz ya da hedefe dokun.`):{deniz:TL('Tersanede 16 saniyede hazırlanır. Denizden dolanır, üssün arkasından taramalı silahlı 10 balık adam çıkarır.','Ready in the shipyard in 16 s. Sails around and lands 10 armed frogmen behind the base.'),kara:TL('Yoldan gider. Rota çizersen o yoldan gider.','Follows the road, or your drawn route.'),su:TL('Sudan kestirme gider. Rota çizersen o yoldan gider.','Takes a shortcut through water, or your drawn route.'),hava:TL('Uçar, kuleleri bombalar. Düşerken düştüğü yere hasar verir.','Flies over and bombs towers. Damages where it crashes.'),fuze:TL('Haritada seçtiğin yere gider. Sadece hava savunması düşürür.','Flies to the spot you pick. Only air defense can stop it.')}[UNITS[k].yol];
+    b.title=k==='gemi'?TL('Tersanede 20 saniyede yapılır, sonra limanda bekler. Gemiye dokunup yol çiz: düşmana dokunursan oraya menzili yetince ateş eder, boş denize dokunursan orada bekler. Düşman gemisini görünce savaşır.','Built in the shipyard in 20 s, then waits at the dock. Tap it and draw a path: tap an enemy to shell it once in range, or open sea to wait there. Fights enemy ships it meets.'):k==='ucak'?TL('Önce düşman üssünün üstündeki 1-6 hatlardan birini seç. Uçak yapılır, kendi kalkar, o hattı bombalar ve döner.','Pick one of the runs 1-6 over the enemy base. The bomber is built, takes off by itself, bombs that run and flies home.'):POP[k]?(EN?`Trained in ${TRAIN[k]} s, then waits on your muster field. Army → pick how many, then draw a path or tap a target.`:`${TRAIN[k]} saniyede eğitilir, sonra birlik alanında bekler. Birlik → kaç tane gideceğini seç, sonra yol çiz ya da hedefe dokun.`):{deniz:TL('Tersanede 16 saniyede hazırlanır. Denizden dolanır, üssün arkasından taramalı silahlı 10 balık adam çıkarır.','Ready in the shipyard in 16 s. Sails around and lands 10 armed frogmen behind the base.'),kara:TL('Yoldan gider. Rota çizersen o yoldan gider.','Follows the road, or your drawn route.'),su:TL('Sudan kestirme gider. Rota çizersen o yoldan gider.','Takes a shortcut through water, or your drawn route.'),hava:TL('Uçar, kuleleri bombalar. Düşerken düştüğü yere hasar verir.','Flies over and bombs towers. Damages where it crashes.'),fuze:TL('Haritada seçtiğin yere gider. Sadece uçaksavar düşürür. Önce Füze Sistemi kurulmalı.','Flies to the spot you pick. Only air defense can stop it.')}[UNITS[k].yol];
     b.onclick=()=>{if(k==='fuze'){if(ME.msState!==2){tip(TL('Önce Savunma → Füze Sistemi kur','First build Defense → Missile system'));return}if(ME.fcd>0){tip(EN?`Missile reloading: ${Math.ceil(ME.fcd)} s`:`Füze dolduruluyor: ${Math.ceil(ME.fcd)} sn`);return}setAim(aim==='fuze'?null:'fuze');return}
       if(POP[k]){trainBuy(k);return}
       const to=liveTarget();if(to==null)return;if(allied(ME.seat,to)){tip(TL('Müttefikine saldıramazsın',"You can't attack an ally"));return}
@@ -2676,26 +2693,31 @@ function tutSteps(){
    {t:TL('Hoş geldin, komutan!','Welcome, commander!'),x:TL('Amacın: kendi kaleni korumak ve rakibin kalesini yıkmak. Haritayı bir parmakla kaydırırsın, iki parmakla yakınlaştırırsın. Bu derste her şey bedava ve beklemesiz.','Your goal: keep your castle standing and knock the enemy one down. Drag with one finger to move, pinch to zoom. In this lesson everything is free and instant.'),info:true},
    tower('ok',TL('Okçu kulesi kur','Build an archer tower'),TL('Okçu kulesi yakına ok atar. Yürüyen askerleri ve balonları vurur.','An archer tower shoots arrows close by. It hits marching soldiers and balloons.')),
    tower('top',TL('Top kulesi kur','Build a cannon tower'),TL('Top kulesi daha uzağa ağır gülle atar. Yan yana duran askerleri birden yaralar, denizdeki gemileri de vurur. Uçanları vuramaz.','A cannon tower throws heavy shot further. It hurts soldiers standing together and hits ships at sea. It cannot hit fliers.')),
-   tower('hava',TL('Hava savunması kur','Build air defense'),TL('Hava savunması gökyüzünü korur: balonları, füzeleri ve uçakları düşürür.','Air defense guards the sky: it brings down balloons, missiles and planes.')),
+   tower('hava',TL('Uçaksavar kur','Build anti-air'),TL('Uçaksavar gökyüzünü korur: balonları, füzeleri ve uçakları düşürür. Roketatar ise uzağa güçlü roket atar.','Anti-air guards the sky: it brings down balloons, missiles and planes. The rocket tower fires strong rockets far away.')),
    {t:TL('Kuleyi yükselt','Upgrade a tower'),x:TL('Yükseltilen kule daha uzağa ve daha sert vurur, daha zor yıkılır.','An upgraded tower shoots further and harder and is harder to knock down.'),tab:'d',
     hint:()=>{const t=ME.towers.find(o=>o.type!=='duvar');if(!t)return{h:''};if(picked===t)return{h:TL('Kulenin üstünde çıkan Yükselt düğmesine bas.','Press the Upgrade button above the tower.'),g:'#bUp'};return{h:TL('Yeşil halkadaki kulene dokun.','Tap your tower in the green ring.'),spot:{x:t.x,z:t.z}}},
     done:()=>ME.towers.some(t=>t.lvl>=2)},
+   {t:TL('Kaleye okçu koy','Put archers on the castle'),x:TL('Kalene dokununca küçük bir menü açılır: köşe kulelerine okçu koyabilirsin. Okçular yaklaşanları vurur ama yakındaki patlamalarda ölebilirler.','Tap your castle for a small menu: you can put archers on its corner towers. They shoot whoever comes close, but nearby blasts can kill them.'),tab:'d',
+    go:()=>look(home0.x,home0.z,95),
+    hint:()=>{if(castleSel)return{h:TL('Parlayan Okçu koy düğmesine bas.','Press the glowing Add archer button.'),g:'#bArch'};return{h:TL('Yeşil halkadaki kalene dokun.','Tap your castle in the green ring.'),spot:home0}},
+    done:()=>nArch(ME)>0},
+   {t:TL('Duvar ve Sil','Walls and Erase'),x:TL('Savunma bölümündeki DUVAR kısmından Duvar’a basıp parmağınla sürüklersen duvar örülür; düşman askerleri onu yıkmadan geçemez. Çok duvar koyduysan Sil’e basıp üstlerinde sürükle, hepsi kalkar.','In Defense, press Wall under WALLS and drag your finger to build a wall; enemy soldiers must break it to pass. Too many walls? Press Erase and drag over them to clear them all.'),info:true},
    {t:TL('Asker eğit','Train soldiers'),x:TL('Saldırı bölümünde asker eğitirsin. Askerler kalenin önündeki bayraklı birlik alanında toplanır ve orada iyileşir.','In the Attack section you train soldiers. They gather on the flagged muster field in front of your castle and heal there.'),tab:'a',go:()=>look(RALLY[0].x,RALLY[0].z,110),
     hint:()=>{const R=atRally();let n=0;for(const k in R)n+=R[k].length;return{h:EN?`Press the glowing Spearman button 3 times (${Math.min(n,3)}/3).`:`Parlayan Mızraklı düğmesine 3 kez bas (${Math.min(n,3)}/3).`,g:'#gAtk [data-k=piyade]',spot:RALLY[0]}},
     done:()=>{const R=atRally();let n=0;for(const k in R)n+=R[k].length;return n>=3}},
-   {t:TL('Hangi asker ne işe yarar?','What is each unit for?'),x:TL('Mızraklı: ucuz ve sağlam, askerlere karşı iyi. Süvari: çok hızlı, kıyıdan biraz denize açılabilir. Koçbaşı: kuleleri çabucak yıkar ama askerlere karşı zayıf. Balon: uçar; kuleleri, askerleri ve gemileri bombalar. Okçu ve hava savunması balonu düşürür.','Infantry: cheap and sturdy, good against soldiers. Riders: very fast, can swim a little way out to sea. Rams: knock towers down fast but are weak against soldiers. Balloons fly and bomb towers, soldiers and ships; archers and air defense shoot them down.'),info:true},
-   {t:TL('Saldır','Attack'),x:TL('Birlik alanındaki askerlerini düşman kalesine gönder.','Send the soldiers on your muster field at the enemy castle.'),tab:'a',
+   {t:TL('Hangi asker ne işe yarar?','What is each unit for?'),x:TL('Mızraklı: ucuz ve sağlam, askerlere karşı iyi. Süvari: çok hızlı, kıyıdan biraz denize açılabilir. Koçbaşı: kuleleri çabucak yıkar ama askerlere karşı zayıf. Balon: uçar, üstten bomba bırakır. Denizaltı: arkadan 10 balık adam çıkarır, onlar sis atıp sisin içinde saklanır. Savaş Gemisi denizden döver, Bombardıman uçağı havadan bombalar.','Infantry: cheap and sturdy, good against soldiers. Riders: very fast, can swim a little way out to sea. Rams: knock towers down fast but are weak against soldiers. Balloons fly and drop bombs from above. Submarine: lands 10 frogmen behind the base, who throw smoke and hide in it. The warship shells from the sea, the bomber from the air.'),info:true},
+   {t:TL('Saldır','Attack'),x:TL('Birlik alanındaki askerlerini düşman kalesine gönder. Askerler kalenin kapılarından saldırır. Çizdiğin yolu beğenmezsen parmağını kaldırmadan ekranın üstünde çıkan kırmızı ✕ alanına götür, çizgi bozulur.','Send the soldiers on your muster field at the enemy castle. They attack through its gates. Don’t like the line you drew? Keep your finger down and drag it to the CANCEL box at the top of the screen.'),tab:'a',
     hint:()=>{if(SEL.length)return{h:TL('Şimdi yeşil halkadaki düşman kalesine dokun.','Now tap the enemy castle in the green ring.'),spot:c1,look:[c1.x-30,c1.z,170]};
-      if(!$('rallyP').hidden)return{h:TL('Seç ve gönder’e bas.','Press Pick and send.'),g:'#rallyP .go'};return{h:TL('Parlayan Birlik düğmesine bas.','Press the glowing Army button.'),g:'#bBirlik'}},
+      if(!$('rallyP').hidden)return{h:TL('Seç ve gönder’e bas.','Press Pick and send.'),g:'#rallyP .go'};return{h:TL('Parlayan Ordu düğmesine bas.','Press the glowing Army button.'),g:'#bBirlik'}},
     done:()=>P[1].units.some(u=>u.from===0&&POP[u.type])},
    {t:TL('Düşmana kilitlen','Lock onto an enemy'),x:TL('Düşman askerleri kalene geliyor! Askerlerini seçip bir düşmana dokunursan hepsi ona saldırır. Kalenin yakınındaki askerlerin de kendiliğinden savaşır.','Enemy soldiers are coming for your castle! Pick your soldiers and tap an enemy: they all go for it. Soldiers near your castle also fight on their own.'),tab:'a',
     go:()=>{for(let i=0;i<4;i++)spawn(ME,'piyade',1);for(const u of ME.units)if(u.from===1)u.hp=45;for(let i=0;i<4;i++)muster(ME,'piyade');look(RALLY[0].x+15,RALLY[0].z,140)},
     hint:()=>{const f=foeHere();if(SEL.length)return{h:TL('Şimdi kırmızı düşman askerlerinden birine dokun.','Now tap one of the red enemy soldiers.'),spot:f[0]?{x:f[0].x,z:f[0].z,red:1}:null};
       return{h:TL('Parlayan Seç düğmesine bas, sonra parmağını sürükleyip askerlerinin etrafına kare çiz.','Press the glowing Select button, then drag a box round your soldiers.'),g:'#bSec',spot:RALLY[0]}},
     done:()=>!foeHere().length},
-   {t:TL('Füze at','Fire a missile'),x:TL('Füze haritanın her yerine gider. Bir düşman birliğine dokunursan kilitlenir ve o kaçsa da peşinden gider. Sadece hava savunması düşürebilir.','A missile reaches anywhere on the map. Tap an enemy unit and it locks on and follows it even when it runs. Only air defense can stop it.'),tab:'a',
+   {t:TL('Füze sistemi ve füze','Missile system and missile'),x:TL('Füze atmak için önce kalenin tepesine Füze Sistemi kurarsın. Füze haritanın her yerine gider; bir düşman birliğine dokunursan peşinden gider. Sadece uçaksavar düşürebilir. Füze sistemin vurulursa yeniden kurman gerekir.','To fire missiles you first build a Missile System on top of your castle. A missile reaches anywhere; tap an enemy unit and it chases it. Only anti-air stops it. If your missile system is hit, you must build it again.'),tab:'a',
     go:()=>look(c1.x-10,c1.z,140),
-    hint:()=>{if(aim!=='fuze')return{h:TL('Parlayan Füze düğmesine bas.','Press the glowing Missile button.'),g:'#gAtk [data-k=fuze]'};const t=P[1].towers[0];return{h:TL('Şimdi yeşil halkadaki düşman kulesine dokun.','Now tap the enemy tower in the green ring.'),spot:t?{x:t.x,z:t.z}:c1}},
+    hint:()=>{if(ME.msState!==2){tutTab('d');return{h:TL('Savunma bölümünde parlayan Füze Sistemi düğmesine bas.','In Defense, press the glowing Missile System button.'),g:'#bFuzeS'}}tutTab('a');if(aim!=='fuze')return{h:TL('Parlayan Füze düğmesine bas.','Press the glowing Missile button.'),g:'#gAtk [data-k=fuze]'};const t=P[1].towers[0];return{h:TL('Şimdi yeşil halkadaki düşman kulesine dokun.','Now tap the enemy tower in the green ring.'),spot:t?{x:t.x,z:t.z}:c1}},
     done:()=>!!tutFlags.fuze},
    {t:TL('Tersane ve gemi','Shipyard and warship'),x:TL('Gemiler denizden saldırır: kıyıdaki kuleleri ve düşman gemilerini döver.','Ships attack from the sea: they shell coastal towers and enemy ships.'),
     go:()=>look(DOCK[0].land.x,DOCK[0].land.z,120),
@@ -2711,18 +2733,22 @@ function tutSteps(){
     hint:()=>{if(ME.rwState!==2){tutTab('d');return{h:TL('Savunma bölümünde parlayan Pist düğmesine bas.','In Defense, press the glowing Runway button.'),g:'#bPist'}}tutTab('a');
       if(laneTo==null)return{h:TL('Saldırı bölümünde parlayan Bombardıman düğmesine bas.','In Attack, press the glowing Bomber button.'),g:'#gAtk [data-k=ucak]'};return{h:TL('Kırmızı noktalar bombaların düşeceği yer. İstersen sürükle ya da çevir, sonra Gönder.','The red dots are where the bombs fall. Drag or turn it if you like, then press Send.'),g:'#laneGo'}},
     done:()=>!!ME.hg||P.some(D=>D.units.some(u=>u.type==='ucak'&&u.from===0))},
+   {t:TL('Kale yıkılır, onarılır','Castles crumble and get repaired'),x:TL('Kalen vurulduğu yerden yıkılır: köşe kuleleri, surlar ve ana kule ayrı ayrı çöker, üstündeki okçu düşer. Kalenin canı biterse oyun biter! Kalene dokunup Onar’a basarsan işçiler yıkılanı yeniden örer.','Your castle crumbles where it is hit: corner towers, walls and the keep fall separately, and an archer on top falls with them. If the castle runs out of health you are out! Tap it and press Repair: workers rebuild what fell.'),tab:'d',
+    go:()=>{const S=SEGC[ME.seat]||[];for(const i of[0,4,1,8]){const q=S[i];if(!q)continue;castleHit(ME,i<8?q.x:null,i<8?q.z:null,SEG_HP*.85);boom(q.x,heightAt(q.x,q.z)+5,q.z,5,'#ff7a2a');burst(q.x,heightAt(q.x,q.z)+4,q.z,14,['#8a8478','#5d5850','#ff9a30'],10,1.2,.3)}csOf(ME)[8]=.55;ME.csd=true;fxAt(ME,home0.x,home0.z,'yikil');look(home0.x,home0.z,95)},
+    hint:()=>{if(ME.cfix)return{h:TL('İşçiler kaleni onarıyor, izle…','Workers are repairing your castle, watch…')};if(castleSel)return{h:TL('Parlayan Onar düğmesine bas.','Press the glowing Repair button.'),g:'#bFix'};return{h:TL('Yeşil halkadaki yıkık kalene dokun.','Tap your damaged castle in the green ring.'),spot:home0}},
+    done:()=>!castleNeedsFix(ME)&&!ME.cfix},
    {t:TL('Köprüyü onar','Rebuild the bridge'),x:TL('Füzeler ve bombalar taş köprüleri yıkar; biri az önce yıkıldı. Köprü olmadan yürüyen askerler karşıya geçemez.','Missiles and bombs bring stone bridges down; one just fell. Without it, marching soldiers cannot cross.'),tab:'d',
     go:()=>{breakDuelBridge(0);look((DBR[0].a.x+DBR[0].b.x)/2,DBR[0].a.z,120)},
     hint:()=>{if(build!=='kopru')return{h:TL('Parlayan Köprü düğmesine bas.','Press the glowing Bridge button.'),g:'#gDef [data-k=kopru]'};return{h:TL('Şimdi yeşil halkadaki yıkık köprüye dokun.','Now tap the fallen bridge in the green ring.'),spot:{x:(DBR[0].a.x+DBR[0].b.x)/2,z:(DBR[0].a.z+DBR[0].b.z)/2}}},
     done:()=>!DBR[0].down},
-   {t:TL('Hazırsın!','You are ready!'),x:TL('Sağ üstteki Ayarlar’dan yeni maç başlatabilir, Sohbet’ten arkadaşlarına yazabilirsin. Gerçek maçta altın azdır ve her şey biraz zaman alır: önce birkaç kule kur, sonra ordunu topla. Bol şans!','Use Settings at the top right for a new match and Chat to talk to your friends. In a real match gold is short and everything takes a little time: build a few towers first, then gather your army. Good luck!'),info:true,last:true});
+   {t:TL('Hazırsın!','You are ready!'),x:TL('Sağ üstteki Ayarlar’dan yeni maç başlatabilir, Sohbet’ten arkadaşlarına yazabilirsin. Gerçek maçta altın azdır ve her şey biraz zaman alır: önce birkaç kule kur, kalene okçu koy, sonra ordunu topla. Kalen hasar alınca onarmayı unutma. Bol şans!','Use Settings at the top right for a new match and Chat to talk to your friends. In a real match gold is short and everything takes a little time: build a few towers first, put archers on your castle, then gather your army. Repair your castle when it is hit. Good luck!'),info:true,last:true});
 }
 function tutGlow(sel){for(const e of document.querySelectorAll('.tglow'))if(!sel||!e.matches(sel))e.classList.remove('tglow');if(sel)for(const e of document.querySelectorAll(sel))e.classList.add('tglow')}
 function tutShow(){const S=TS[tutI],p=$('tutP');if(!S)return;p.hidden=false;
   $('tutN').textContent=`${tutI+1} / ${TS.length}`;$('tutT').textContent=(S.ok?'✓ ':'')+S.t;$('tutX').textContent=S.x;$('tutX').hidden=tutMini&&!S.info;$('tutM').textContent=tutMini?'▴':'▾';
   $('tutH2').textContent=S.ok?TL('Harika! Görev tamam.','Great! Job done.'):tutHint;$('tutH2').hidden=!S.ok&&!tutHint;
   $('tutB').disabled=tutI===0;const f=$('tutF');f.hidden=!(S.info||S.ok);f.textContent=S.last?TL('Bitir','Finish'):TL('İleri','Next');p.classList.toggle('ok',!!S.ok)}
-function tutGo(i){tutI=clamp(i,0,TS.length-1);const S=TS[tutI];S.ok=false;tutDone=0;tutHint='';setBuild(null);setAim(null);if(S.tab)tutTab(S.tab);if(S.go&&!S.went){S.went=true;try{S.go()}catch(e){oops(e)}}tutShow()}
+function tutGo(i){tutI=clamp(i,0,TS.length-1);const S=TS[tutI];S.ok=false;tutDone=0;tutHint='';setBuild(null);setAim(null);SEL=[];syncCmd();castleSel=false;$('csel').hidden=true;if(S.tab)tutTab(S.tab);if(S.go&&!S.went){S.went=true;try{S.go()}catch(e){oops(e)}}tutShow()}
 function tutTick(dt){
   ME.money=Math.max(ME.money,5000);ME.hp=CASTLE_HP;const E=P[1];E.money=0;E.hp=Math.max(E.hp,150);
   const S=TS[tutI];if(!S)return;
@@ -2788,7 +2814,7 @@ function frameBody(t){
   if((fno=(fno||0)+1)%15===0)forestLOD();
 }
 let fno=0,lockTipT=0;
-buildGround();buildOuter();buildWater();buildBridges();buildForest();buildDetail();buildUnits();buildSites();P.forEach(D=>{if(D.on)buildCastle(D.seat)});if(TUT)for(const D of P)D.msState=2;
+buildGround();buildOuter();buildWater();buildBridges();buildForest();buildDetail();buildUnits();buildSites();P.forEach(D=>{if(D.on)buildCastle(D.seat)});if(TUT)for(const D of P)if(D!==ME)D.msState=2;
 size();mkHud();connect();applyCam(1);if(TUT)mkTut();
 sun.shadow.autoUpdate=false;sun.shadow.needsUpdate=true;if(!GFX[gfxMode].sh)sun.castShadow=false;
 // draw every kind of object once, out of sight, so no shader is ever built in the middle of a fight

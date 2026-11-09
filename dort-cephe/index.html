@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Dört Cephe</title>
 <script type="importmap">{"imports":{"three":"../three.min.js"}}</script>
-<link rel="stylesheet" href="lobby.css?v=20261109h">
+<link rel="stylesheet" href="lobby.css?v=20261109i">
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#0d1a26;color:#f0e8d6;font-family:Georgia,'Times New Roman',serif;touch-action:none;user-select:none;-webkit-user-select:none}
 #game,#ov{position:fixed;inset:0;width:100%;height:100%;display:block}
@@ -33,6 +33,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0d1a26;color:#f0e8d6;
 #sesP{position:absolute;right:76px;top:calc(8px + env(safe-area-inset-top,0px));pointer-events:auto;display:flex;flex-direction:column;gap:6px;padding:9px 12px;background:rgba(20,28,38,.9);border-radius:7px;font-size:14px}
 #sel{position:absolute;display:flex;gap:5px;transform:translate(-50%,-120%)}
 #sel button{padding:7px 9px}
+#bozZ{white-space:nowrap;position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:30;padding:12px 20px;border-radius:14px;background:rgba(120,20,16,.72);border:2px dashed #ffb4a8;color:#fff;font:700 14px Georgia,serif;pointer-events:none;transition:transform .12s,background .12s}#bozZ.on{background:rgba(200,30,20,.92);transform:translateX(-50%) scale(1.12)}
 #csel{position:absolute;display:flex;gap:5px;transform:translate(-50%,-120%)}#csel button{padding:7px 10px;line-height:1.2}#csel small{display:block;font-size:11px;color:#ffd98a}
 .grp .sec{flex:0 0 100%;font-size:10.5px;font-weight:700;letter-spacing:.8px;color:#ffe7b0;text-shadow:0 1px 2px #000,0 0 6px #000,0 0 10px rgba(0,0,0,.8);text-align:left;margin:2px 2px -2px;line-height:1.15}
 body.nohud #hud,body.nohud #ov{display:none}
@@ -113,6 +114,7 @@ body.chatting #eye,body.chatting #ver{display:none}
   <div id="chatP" hidden><button id="chatX" aria-label="Kapat">✕</button><div id="chatLog"></div><div id="chatRow"><select id="chatTo"></select><input id="chatIn" maxlength="120" autocomplete="off" enterkeyhint="send"><button id="chatGo" data-en="Send">Gönder</button></div></div>
   <div id="ask" hidden><span id="askT"></span><button id="askY" data-en="Accept">Kabul</button><button id="askN" data-en="Decline">Reddet</button></div>
   <div id="sel" hidden><button id="bUp"></button><button id="bSell"></button></div>
+  <div id="bozZ" hidden>✕ <span data-en="Drop here to cancel">Bozmak için buraya bırak</span></div>
   <div id="csel" hidden><button id="bArch"></button><button id="bFix"></button></div>
   <div id="bar">
     <div id="tabs"><button id="tabD" data-en="Defense">Savunma</button><button id="tabA" data-en="Attack">Saldırı</button></div>
@@ -123,7 +125,7 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div>
 <button id="eye" title="Ekranı gizle" aria-label="Ekranı gizle" hidden>👁</button>
 
-<div id="ver" data-en="Version 22.1">Sürüm 22.1</div>
+<div id="ver" data-en="Version 22.1">Sürüm 23</div>
 <div id="lobby"><div class="lbox">
   <h1 data-en="FOUR FRONTS">DÖRT CEPHE</h1>
   <p id="lOnline" hidden></p>
@@ -155,6 +157,6 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div></div>
 <div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go" data-en="New match">Yeni maç</button><button id="aeWatch" data-en="Watch the match">Maçı izle</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="lobby.js?v=20261109h"></script>
+<script src="lobby.js?v=20261109i"></script>
 </body>
 </html>
