@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Dört Cephe</title>
 <script type="importmap">{"imports":{"three":"../three.min.js"}}</script>
-<link rel="stylesheet" href="lobby.css?v=20261109e">
+<link rel="stylesheet" href="lobby.css?v=20261109f">
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#0d1a26;color:#f0e8d6;font-family:Georgia,'Times New Roman',serif;touch-action:none;user-select:none;-webkit-user-select:none}
 #game,#ov{position:fixed;inset:0;width:100%;height:100%;display:block}
@@ -77,7 +77,7 @@ body.chatting #eye,body.chatting #ver{display:none}
   body[data-tab=d] #tabD,body[data-tab=a] #tabA{background:#b8862c;color:#1a1206;border-color:#ffd98a}
   body[data-tab=d] #gTgt,body[data-tab=d] #gAtk,body[data-tab=a] #gDef{display:none}
   .grp{flex-wrap:wrap;justify-content:stretch;gap:4px}.grp span{display:none}
-  .grp button{flex:1 1 22%;min-width:0;padding:4px 3px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.grp small{font-size:10px}
+  .grp button{flex:1 1 18%;min-width:0;padding:3px 2px;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.grp small{font-size:10px}
   #tools button{padding:3px 6px;font-size:10px}
   #cmdBar{font-size:12px;padding:6px 8px;gap:5px}
   #aimBar,#ask{font-size:13px;padding:7px 9px;max-width:92vw;white-space:normal}
@@ -113,7 +113,7 @@ body.chatting #eye,body.chatting #ver{display:none}
   <div id="chatP" hidden><button id="chatX" aria-label="Kapat">✕</button><div id="chatLog"></div><div id="chatRow"><select id="chatTo"></select><input id="chatIn" maxlength="120" autocomplete="off" enterkeyhint="send"><button id="chatGo" data-en="Send">Gönder</button></div></div>
   <div id="ask" hidden><span id="askT"></span><button id="askY" data-en="Accept">Kabul</button><button id="askN" data-en="Decline">Reddet</button></div>
   <div id="sel" hidden><button id="bUp"></button><button id="bSell"></button></div>
-  <div id="csel" hidden><button id="bArch"></button></div>
+  <div id="csel" hidden><button id="bArch"></button><button id="bFix"></button></div>
   <div id="bar">
     <div id="tabs"><button id="tabD" data-en="Defense">Savunma</button><button id="tabA" data-en="Attack">Saldırı</button></div>
     <div class="grp" id="gDef"><span data-en="DEFENSE">SAVUNMA</span></div>
@@ -123,7 +123,7 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div>
 <button id="eye" title="Ekranı gizle" aria-label="Ekranı gizle" hidden>👁</button>
 
-<div id="ver" data-en="Version 20">Sürüm 20</div>
+<div id="ver" data-en="Version 21">Sürüm 21</div>
 <div id="lobby"><div class="lbox">
   <h1 data-en="FOUR FRONTS">DÖRT CEPHE</h1>
   <p id="lOnline" hidden></p>
@@ -155,6 +155,6 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div></div>
 <div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go" data-en="New match">Yeni maç</button><button id="aeWatch" data-en="Watch the match">Maçı izle</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="lobby.js?v=20261109e"></script>
+<script src="lobby.js?v=20261109f"></script>
 </body>
 </html>

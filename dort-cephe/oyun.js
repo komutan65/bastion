@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261109e';
+import {SES} from './ses.js?v=20261109f';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -10,7 +10,7 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=200,MS_COST=100,MS_T=10,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=2,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='20';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='21';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
@@ -28,13 +28,13 @@ const UNITS={
 };
 const TOWERS={
   ok:{ad:TL('Okçu Kulesi','Archer Tower'),kisa:TL('Okçu','Archers'),cost:20,menzil:24,dmg:15,hiz:1.6,hp:160,hava:true,yer:true},
-  top:{ad:TL('Top Kulesi','Cannon Tower'),kisa:TL('Top','Cannon'),cost:45,menzil:38,dmg:38,hiz:.6,alan:5,hp:240,hava:false,yer:true,gemi:true},
+  top:{ad:TL('Top Kulesi','Cannon Tower'),kisa:TL('Top','Cannon'),cost:45,menzil:38,dmg:38,hiz:.6,alan:4,hp:240,hava:false,yer:true,gemi:true},
   hava:{ad:TL('Uçaksavar','Flak Gun'),kisa:TL('Uçaksavar','Flak'),cost:35,menzil:36,dmg:24,hiz:1.2,hp:150,hava:true,fuze:true,ucak:true,yer:false},
   roket:{ad:TL('Roketatar','Rocket Battery'),kisa:TL('Roketatar','Rockets'),cost:60,menzil:72,dmg:240,hiz:.3,hp:150,hava:true,fuze:true,ucak:true,yer:false,gudumlu:true},
   duvar:{ad:TL('Duvar','Wall'),kisa:TL('Duvar','Wall'),cost:8,menzil:0,dmg:0,hiz:1,hava:false,yer:false,hp:250,duvar:true}
 };
 // the castle's own archers: enough to see off a handful of raiders, not an army
-const KEEP={menzil:26,dmg:14,hiz:1.3},ARCH_COST=25,AORD=[0,2,1,3];
+const KEEP={menzil:26,dmg:14,hiz:1.3},ARCH_COST=25,ARCH_HP=40,SEG_HP=120,AORD=[0,2,1,3];
 // how hard each kind hits buildings: swords and hooves barely dent stone, the ram is made for it
 // how hard each kind hits other soldiers (times its damage)
 const UV={piyade:5,atli:5,koc:1.5,dalgic:1.6,isci:0};
@@ -200,7 +200,20 @@ function buildYard(D){if(D.ysState||D.money<YARD_COST)return false;D.money-=YARD
 // warships on the water (or being built) that belong to a base, wherever they are simulated
 function fleet(seat){let n=0;const O=P[seat];if(O&&O.yard&&O.yard.type==='gemi')n++;if(O&&O.yardV&&O.yardV.type==='gemi')n++;
   for(const D of P){if(!D.on)continue;for(const u of D.units)if(u.type==='gemi'&&u.from===seat&&u.fall==null&&!u.done)n++;if(!local(D))for(const o of D.remote.values())if(o.type==='gemi'&&o.from===seat&&!(o.fl&2))n++}return n}
-function buyArcher(D){if((D.carch||0)>=4||D.money<ARCH_COST)return false;D.money-=ARCH_COST;D.carch=(D.carch||0)+1;ARCHD=true;markBuilt(D);return true}
+const achOf=D=>D.ach||(D.ach=[0,0,0,0]),csOf=D=>D.cs||(D.cs=new Array(9).fill(0)),nArch=D=>achOf(D).filter(h=>h>0).length;
+const archSpot=D=>{const A=achOf(D),C=csOf(D);for(const k of AORD)if(A[k]<=0&&C[k]<.45)return k;return -1};      // a corner that is standing and has nobody on it
+const castleNeedsFix=D=>!D.dead&&(D.hp<CASTLE_HP-1||csOf(D).some(v=>v>.01)),castleState=D=>1-Math.max(...csOf(D).slice(0,8),1-D.hp/CASTLE_HP),
+  fixCost=D=>Math.max(10,Math.ceil(csOf(D).slice(0,8).reduce((a,v)=>a+v,0)*25+(CASTLE_HP-D.hp)*.25));
+function repairCastle(D){if(D.cfix||D.dead||!castleNeedsFix(D)||D.money<fixCost(D))return false;D.money-=fixCost(D);D.cfix=true;markBuilt(D);hire(D);return true}
+function buyArcher(D){const k=archSpot(D);if(k<0||D.money<ARCH_COST)return false;D.money-=ARCH_COST;achOf(D)[k]=ARCH_HP;ARCHD=true;markBuilt(D);return true}
+// an archer on a corner tower is exposed: blasts near him hurt him by how close they are
+function hurtArchers(D,x,z,r,dmg){const A=CARCH[D.seat];if(!A)return;const H=achOf(D);for(let k=0;k<4;k++){if(H[k]<=0)continue;const q=A[k],d=Math.hypot(q.x-x,q.z-z);if(d>=r)continue;H[k]-=dmg*(1-d/r);if(H[k]<=0)archerDies(D,k)}}
+function archerDies(D,k){const q=CARCH[D.seat][k];achOf(D)[k]=0;ARCHD=true;markBuilt(D);burst(q.x,q.y+1,q.z,10,['#7a5a3a','#3b2d24','#c9a26a'],7,1,.3);puff(q.x,q.y+1,q.z,1.6,1.8,.7,.6,.6);if(D===ME)tip(TL('Kale okçularından biri düştü','One of the castle archers fell'))}
+// the castle takes a hit where it was struck: that part crumbles a little. The keep goes down with the castle's health
+function castleHit(D,x,z,d){const C=csOf(D),S=SEGC[D.seat];if(!S)return;let bi=8;
+  if(x!=null){let bd=1e9;for(let i=0;i<8;i++){const e=Math.hypot(S[i].x-x,S[i].z-z);if(e<bd){bd=e;bi=i}}if(bd>16)bi=8}
+  if(bi<8){C[bi]=Math.min(1,C[bi]+d/SEG_HP);if(bi<4&&C[bi]>=.45&&achOf(D)[bi]>0)archerDies(D,bi)}
+  C[8]=Math.max(C[8],clamp((1-D.hp/CASTLE_HP-.35)*1.4,0,1));D.csd=true}
 function buildMissileSys(D){if(D.msState||D.money<MS_COST)return false;D.money-=MS_COST;D.msState=1;D.msT=MS_T;markBuilt(D);hire(D);return true}
 function buildRunway(D){if(!RWY[D.seat]||D.rwState||D.money<RUNWAY_COST)return false;D.money-=RUNWAY_COST;D.rwState=1;D.rwT=RUNWAY_T;markBuilt(D);return true}
 function refund(seat,m){const O=P[seat];if(!O||O.dead)return;if(local(O)){O.money+=m;if(O===ME){const c=RWY[seat]?RWY[seat].c:castlePos(seat);floats.push({x:c.x,z:c.z,t:0,txt:'+'+m});SES.para()}}else say('iade',{to:seat,m})}
@@ -526,12 +539,12 @@ function comeHome(O,type,fallen,s,hp,x,z){
   const back=polyPath(x!=null?(UNITS[type].yol==='kara'?(nav({x,z:num(z)},castlePos(O.seat))||[{x,z:num(z)},castlePos(O.seat)]):[{x,z:num(z)},castlePos(O.seat)]):pts);pts[0]=back.pts[0];
   O.units.push({id:uid++,type,from:O.seat,path:back,s:0,hp:clamp(hp,1,UNITS[type].hp),x:pts[0].x,z:pts[0].z,bomb:0,cd:0,end:back.len,ret:true});
 }
-function damageCastle(R,d){
-  R.hp=Math.max(0,R.hp-d);
+function damageCastle(R,d,x,z){
+  R.hp=Math.max(0,R.hp-d);castleHit(R,x,z,d);
   if(R.hp<=0&&!R.dead)eliminate(R);
 }
 function eliminate(R){
-  R.dead=true;R.hp=0;
+  R.dead=true;R.hp=0;{const C=csOf(R);for(let i=0;i<9;i++)C[i]=Math.max(C[i],.82+Math.random()*.18);R.ach=[0,0,0,0];ARCHD=true}     // what is left is a ruin
   for(const u of R.units){if(u.ret||u.hp<=0||u.type==='denizalti')continue;const O=P[u.from];if(!O)continue;
     if(local(O))comeHome(O,u.type,R.seat,u.s,u.hp,u.x,u.z);else say('home',{to:u.from,type:u.type,from:R.seat,s:Math.round(u.s),hp:Math.round(u.hp),x:Math.round(u.x),z:Math.round(u.z)})}
   R.units=R.units.filter(u=>u.ret&&!R.dead);
@@ -578,14 +591,13 @@ function drag(u,dt){
 function blast(D,x,z,r,towerDmg,castleDmg,from,unitDmg){
   hitWorld(x,z,r);
   // an explosion hurts everyone under it: the side that set it off only a little (friendly fire), never its own castle or runway
-  const own=from===D.seat||allied(from,D.seat);
-  for(const t of D.towers.slice()){const d=Math.hypot(t.x-x,t.z-z);if(d>=r)continue;t.hp-=towerDmg*(1-d/r*.6)*(own?FF:1);t.shake=.3;if(t.hp<=0){explode(t.x,t.z,2);crater(t.x,t.z,3.6);removeTower(D,t)}}
-  if(unitDmg)for(const o of D.units)if(!o.ret&&!flies(UNITS[o.type])&&Math.hypot(o.x-x,o.z-z)<r)o.hp-=unitDmg*(o.from===from||allied(o.from,from)?FF:1);
-  if(own)return;
+  hurtArchers(D,x,z,r+3,Math.max(unitDmg||0,towerDmg*.4));
+  for(const t of D.towers.slice()){const d=Math.hypot(t.x-x,t.z-z);if(d>=r)continue;t.hp-=towerDmg*(1-d/r*.6);t.shake=.3;if(t.hp<=0){explode(t.x,t.z,2);crater(t.x,t.z,3.6);removeTower(D,t)}}
+  if(unitDmg)for(const o of D.units)if(!o.ret&&!flies(UNITS[o.type])&&Math.hypot(o.x-x,o.z-z)<r)o.hp-=unitDmg;
   if(towerDmg&&D.rwState===2&&RWY[D.seat]){const w=RWY[D.seat],dx=x-w.c.x,dz=z-w.c.z;      // bombs and missiles crack a runway open; badly cracked, no plane can take off until it is mended
     if(Math.abs(dx*w.ux+dz*w.uz)<w.len/2+r*.6&&Math.abs(-dx*w.uz+dz*w.ux)<5+r*.6){const was=rwBad(D);D.rwHp=Math.max(0,(D.rwHp==null?RW_HP:D.rwHp)-towerDmg*.8);markBuilt(D);
       if(D===ME){if(!was&&rwBad(D))tip(TL('Pistin ağır hasarlı! Uçak kalkamaz: Savunma → Pist ile onar.','Your runway is badly damaged! No plane can take off: repair it under Defense → Runway.'));else if(now()-(rwTipT||0)>5000){rwTipT=now();tip(TL('Pistin vuruluyor!','Your runway is being hit!'))}}}}
-  const c=castlePos(D.seat);if(castleDmg&&Math.hypot(c.x-x,c.z-z)<12)damageCastle(D,castleDmg);
+  const c=castlePos(D.seat);if(castleDmg&&Math.hypot(c.x-x,c.z-z)<12)damageCastle(D,castleDmg,x,z);
 }
 const FF=.2,RW_HP=420;let rwTipT=0;
 const rwHpOf=D=>D.rwHp==null?RW_HP:D.rwHp,rwBad=D=>D.rwState===2&&rwHpOf(D)<=RW_HP*.25,rwCost=D=>Math.max(10,Math.round(90*(1-rwHpOf(D)/RW_HP)));
@@ -593,11 +605,12 @@ function repairRunway(D){if(D.rwState!==2||D.rwFix||rwHpOf(D)>=RW_HP||D.money<rw
 // work away from the towers: building the runway or the shipyard, mending the runway, building a ship. The castle's own workers walk out to do it
 function jobOf(D,id){
   if(id==='rw'){const w=RWY[D.seat];if(!w||!(D.rwState===1||D.rwFix))return null;return{job:'rw',x:w.c.x,z:w.c.z,bt:1,n:3,spot:k=>{const a=(k%3-1)*15,sd=k>2?-1:1;return{x:w.c.x+w.ux*a+w.uz*5.5*sd,z:w.c.z+w.uz*a-w.ux*5.5*sd,fx:w.c.x+w.ux*a,fz:w.c.z+w.uz*a}}}}
+  if(id==='cs'){if(!D.cfix)return null;const G=gates(D.seat),c=castlePos(D.seat),C=csOf(D),S=SEGC[D.seat]||[];return{job:'cs',x:c.x,z:c.z,bt:1,n:4,spot:k=>{let w=-1,wv=.01;for(let i=0;i<8;i++)if(C[i]>wv&&(i+k)%2===0){wv=C[i];w=i}const q=G[k%4];if(w>=0&&S[w]){const dx=S[w].x-c.x,dz=S[w].z-c.z,l=Math.hypot(dx,dz)||1;return{x:S[w].x+dx/l*3.5,z:S[w].z+dz/l*3.5,fx:S[w].x,fz:S[w].z}}return{x:q.x+(q.x-c.x)*.25,z:q.z+(q.z-c.z)*.25,fx:c.x,fz:c.z}}}}
   if(id==='ms'){if(D.msState!==1)return null;const G=gates(D.seat),c=castlePos(D.seat);return{job:'ms',x:c.x,z:c.z,bt:1,n:2,spot:k=>{const q=G[k%4];return{x:c.x+(q.x-c.x)*.62,z:c.z+(q.z-c.z)*.62,fx:c.x,fz:c.z}}}}
   if(id==='ys'){const d=DOCK[D.seat];if(!(D.ysState===1||(D.yard&&D.ysState===2)))return null;const L0=d.land,sa=Math.sin(d.ang),ca=Math.cos(d.ang);
     return{job:'ys',x:L0.x,z:L0.z,bt:1,n:D.ysState===1?3:2,spot:k=>{const o=[[-4,2],[4,1],[-1,-4]][k%3];return{x:L0.x+o[0]*ca+o[1]*sa,z:L0.z-o[0]*sa+o[1]*ca,fx:L0.x+sa*4,fz:L0.z+ca*4}}}}
   return null}
-const JOBS=['rw','ys','ms'];
+const JOBS=['rw','ys','ms','cs'];
 function jobRate(D,id){if(TUT)return 99;let k=0;for(const u of D.units)if(u.type==='isci'&&u.site===id&&u.atk&&u.hp>0)k++;return Math.min(1,k/2.4)}
 // missiles and crashes can also wreck the shared fountain and built bridges
 function hitWorld(x,z,r){
@@ -652,9 +665,17 @@ function frogSmoke(D,u,home,dt){
 }
 let smTipT=0;
 function smokeTick(D,dt){const S=D.smk;if(!S||!S.length)return;for(let i=S.length-1;i>=0;i--){const q=S[i];q.t-=dt;if(q.t<=0)S.splice(i,1)}}
+// the castle parts follow their damage: collapsing takes a moment, with dust; badly broken parts smoke, and a fallen castle burns
+function drawRuin(dt){
+  for(let s=0;s<4;s++){const U=CSU[s],D=P[s],S=SEGC[s];if(!U||!D||!S)continue;const C=csOf(D),v=U.uSeg.value;
+    for(let i=0;i<9;i++){const tgt=C[i];if(Math.abs(v[i]-tgt)<.002)continue;const up=tgt>v[i];v[i]=up?Math.min(tgt,v[i]+dt*.6):Math.max(tgt,v[i]-dt*.5);
+      if(up&&Math.random()<dt*14){const q=S[i];puff(q.x+(Math.random()-.5)*4,q.y*.6,q.z+(Math.random()-.5)*4,2.2,2.4,.82,.6,1.4);if(Math.random()<.3)burst(q.x,q.y*.7,q.z,4,['#8f8a7c','#6e6a60'],6,1,.3)}}
+    for(let i=0;i<9;i++){if(C[i]<.55||Math.random()>dt*(D.dead?2.5:1.2))continue;const q=S[i];puff(q.x+(Math.random()-.5)*3,q.y*(1-C[i]*.8)+1,q.z+(Math.random()-.5)*3,2.6,3.4,.35,1.4,1.2);if(D.dead&&Math.random()<.4)flame(q.x+(Math.random()-.5)*3,q.y*(1-C[i]*.8)+.5,q.z+(Math.random()-.5)*3,1.6,.5)}
+    const K=KARCH[s];if(K&&C[8]>.5)K.m.visible=false}}
 function drawSmoke(dt){for(const D of P){const S=D.smk;if(!S)continue;for(const q of S){const n=dt*(q.t>2?7:3);for(let j=0;j<n||Math.random()<n-j;j++){const a=Math.random()*6.28,r=Math.sqrt(Math.random())*q.r*.85,x=q.x+Math.cos(a)*r,z=q.z+Math.sin(a)*r;puff(x,heightAt(x,z)+.8+Math.random()*2,z,3.5+Math.random()*2.5,3.2,.88+Math.random()*.08,.35,1.6);if(j>8)break}}}}
 function simDefender(D,dt){
   if(D.dead)return;smokeTick(D,dt);
+  for(const t of D.towers)if(t.hp<=0){for(const q of D.towers.slice())if(q.hp<=0){explode(q.x,q.z,2);crater(q.x,q.z,3);removeTower(D,q)}break}
   D.money+=(1+Math.min(2,D.t/150))*dt;D.t+=dt;          // income grows as the match goes on
   const home=castlePos(D.seat);
   D.foeAcc=(D.foeAcc||0)+dt;if(D.foeAcc>=.2){D.foeAcc=0;scanFoes(D)}
@@ -789,8 +810,8 @@ function simDefender(D,dt){
       else if(!u.rp){u.rp=1;const n=U.yol==='kara'?nav({x:u.x,z:u.z},home):[{x:u.x,z:u.z},home];if(n){u.path=polyPath(n);u.s=0;u.end=Math.max(0,u.path.len-(5.5+u.id%5))}else u.siege=false}
       else u.siege=false}
     else if(own||(u.cmd&&!u.siege&&dh>20)){u.atk=false}         // a held position: stand and wait for orders
-    else if(air){if(u.bomb<=0){u.bomb=2;const x=home.x+(Math.random()-.5)*8,z=home.z+(Math.random()-.5)*8;boom(x,6,z,4,'#ff6a30');crater(x,z,4);fxAt(D,home.x,home.z,'bomba');damageCastle(D,U.dmg);if(D.dead)return}}
-    else{const g=u.type==='dalgic';u.atk=true;u.cdM=g?.45:1.5;u.face=Math.atan2(home.x-u.x,home.z-u.z);if(u.cd<=0){u.cd=u.cdM;if(g)gunFx(D,u,home.x+(Math.random()-.5)*5,heightAt(home.x,home.z)+5+Math.random()*6,home.z+(Math.random()-.5)*5);else boom(u.x+Math.sin(u.face)*2.5,3,u.z+Math.cos(u.face)*2.5,.8,'#ffb060');damageCastle(D,g?.8:U.dmg);if(D.dead)return}}
+    else if(air){if(u.bomb<=0){u.bomb=2;const x=home.x+(Math.random()-.5)*8,z=home.z+(Math.random()-.5)*8;boom(x,6,z,4,'#ff6a30');crater(x,z,4);fxAt(D,home.x,home.z,'bomba');damageCastle(D,U.dmg,x,z);hurtArchers(D,x,z,10,U.dmg*3.5);if(D.dead)return}}
+    else{const g=u.type==='dalgic';u.atk=true;u.cdM=g?.45:1.5;u.face=Math.atan2(home.x-u.x,home.z-u.z);if(u.cd<=0){u.cd=u.cdM;if(g)gunFx(D,u,home.x+(Math.random()-.5)*5,heightAt(home.x,home.z)+5+Math.random()*6,home.z+(Math.random()-.5)*5);else boom(u.x+Math.sin(u.face)*2.5,3,u.z+Math.cos(u.face)*2.5,.8,'#ffb060');damageCastle(D,g?.8:U.dmg,u.x,u.z);if(D.dead)return}}
     u.moving=!u.atk&&!(u.s>=u.end&&!u.tgt&&!u.off);
     if(!air&&!u.road&&(u.vx||u.vz)){const nx=u.x+u.vx*dt,nz=u.z+u.vz*dt;if(canStand(u,nx,nz)){u.x=nx;u.z=nz}}u.road=false;   // jostling never shoves anyone off a bridge
   }
@@ -807,7 +828,7 @@ function simDefender(D,dt){
       if(u.hp<=0||u.ret||u.from===D.seat||u.fall!=null||u.emerge>0||u.dove!=null||allied(u.from,D.seat)||(D.smk&&D.smk.length&&inSmoke(D,u.x,u.z)))continue;const Y=UNITS[u.type].yol;let rr=r;
       if(u.type==='gemi'){if(!T.gemi)continue;rr=shipR(t)}
       else if(Y==='ucak'?(!T.ucak||u.ph==='roll'):Y==='fuze'?!T.fuze:Y==='hava'?!T.hava:!T.yer)continue;
-      let d=Math.hypot(u.x-t.x,u.z-t.z)-(u===t.tg?6:0);if(d<rr&&d<bd&&t.type==='top'&&!naval(u.type)){for(const o of D.units)if(o.from===D.seat&&o.type!=='isci'&&Math.abs(o.x-u.x)<3.5&&Math.abs(o.z-u.z)<3.5){d+=14;break}}if(d<rr&&d<bd){bd=d;best=u}}
+      let d=Math.hypot(u.x-t.x,u.z-t.z)-(u===t.tg?6:0);if(d<rr&&d<bd&&t.type==='top'&&!naval(u.type)){if(Math.hypot(u.x-home.x,u.z-home.z)<CH*1.4)d+=10;for(const o of D.units)if(o.from===D.seat&&o.type!=='isci'&&Math.abs(o.x-u.x)<3.5&&Math.abs(o.z-u.z)<3.5){d+=14;break}}if(d<rr&&d<bd){bd=d;best=u}}
     if(!best){t.tg=null;t.cd=.15;continue}
     if(best!==t.tg){t.tg=best;t.tpx=null;t.tvx=t.tvz=0;if(HD){t.yaw=turnTo(t.yaw||0,Math.atan2(-(best.z-t.z),best.x-t.x),HD.rate*dt)}}
     if(HD){const want=Math.atan2(-(best.z-t.z),best.x-t.x);let df=want-(t.yaw||0);while(df>Math.PI)df-=2*Math.PI;while(df<-Math.PI)df+=2*Math.PI;if(Math.abs(df)>.22)continue}
@@ -818,14 +839,14 @@ function simDefender(D,dt){
       const from=D.seat,nav=naval(best.type),R=T.alan,tgt=best;
       shell(D,mx0,my0,mz0,ax,az,dur,.4+d*.07,'top',(x,z)=>{
         if(nav){if(!tgt.done&&tgt.fall==null&&Math.hypot(tgt.x-x,tgt.z-z)<8)tgt.hp-=dmg;splash(x,z,2);explode(x,z,1.4)}
-        else{explode(x,z,1.5);if(Math.random()<.45)crater(x,z,2.2);boom(x,1.5,z,R*.45,'#ffd27a');burst(x,heightAt(x,z)+.4,z,7,['#6b5232','#8a6a42','#4d3a24'],7,.9,.3);
-          for(const u of D.units){if(u.ret||u.done||u.hp<=0||flies(UNITS[u.type]))continue;const e=Math.hypot(u.x-x,u.z-z);if(e<R)u.hp-=dmg*(e<1.8?1:.7*(1-e/R*.6))*(u.from===from||allied(u.from,from)?FF:1)}
-          for(const t of D.towers.slice()){if(t.type==='duvar')continue;const e=Math.hypot(t.x-x,t.z-z);if(e<R*.7){t.hp-=dmg*FF*.5;t.shake=.2;if(t.hp<=0){explode(t.x,t.z,2);removeTower(D,t)}}}}
+        else{explode(x,z,1.05);if(Math.random()<.35)crater(x,z,1.8);boom(x,1.2,z,R*.35,'#ffd27a');burst(x,heightAt(x,z)+.4,z,5,['#6b5232','#8a6a42','#4d3a24'],6,.8,.3);hurtArchers(D,x,z,R,dmg*.5);{const hc=castlePos(D.seat);if(Math.hypot(hc.x-x,hc.z-z)<CH*1.3)damageCastle(D,dmg*.25,x,z)}
+          for(const u of D.units){if(u.ret||u.done||u.hp<=0||flies(UNITS[u.type]))continue;const e=Math.hypot(u.x-x,u.z-z);if(e<R)u.hp-=dmg*(e<1.8?1:.7*(1-e/R*.6))*(u.from===from||allied(u.from,from)?.7:1)}
+          for(const t of D.towers.slice()){if(t.type==='duvar')continue;const e=Math.hypot(t.x-x,t.z-z);if(e<R*.7){t.hp-=dmg*.6*(1-e/R);t.shake=.2;if(t.hp<=0){explode(t.x,t.z,2);removeTower(D,t)}}}}
         fxAt(D,x,z,'gulle')});
       flame(mx0,my0,mz0,2.6,.18);puff(mx0+cs,my0+.3,mz0+sn,1.6,2.2,.7,.8,.5);t.kick=1;fxAt(D,t.x,t.z,'top');continue}
     best.hp-=best.type==='fuze'?dmg*1.8:dmg;tracer(mx0,my0+.1,mz0,best.x,altOf(best),best.z,t.type==='ok'?.14:.09);if(t.type==='hava'){flame(mx0,my0+1.2,mz0,1.2,.08);t.kick=.4}fxAt(D,t.x,t.z,t.type==='hava'?'flak':'okcu');
   }
-  {const A=CARCH[D.seat],n=Math.min(4,D.carch||0);if(A)for(let k=0;k<n;k++){const q=A[AORD[k]],key='kc'+k;D[key]=(D[key]||0)-dt;if(D[key]>0)continue;let best=null,bd=KEEP.menzil;
+  {const A=CARCH[D.seat],H=achOf(D);if(A)for(let k=0;k<4;k++){if(H[k]<=0)continue;const q=A[k],key='kc'+k;D[key]=(D[key]||0)-dt;if(D[key]>0)continue;let best=null,bd=KEEP.menzil;
     for(const u of D.units){if(u.hp<=0||u.ret||u.fall!=null||u.emerge>0||u.dove!=null||allied(u.from,D.seat)||(D.smk&&D.smk.length&&inSmoke(D,u.x,u.z)))continue;const Y=UNITS[u.type].yol;if(Y==='deniz'||Y==='ucak'||Y==='fuze')continue;const d=Math.hypot(u.x-q.x,u.z-q.z);if(d<bd){bd=d;best=u}}
     if(best){D[key]=1/KEEP.hiz;best.hp-=KEEP.dmg;q.want=Math.atan2(-(best.z-q.z),best.x-q.x);tracer(q.x,q.y+2.1,q.z,best.x,unitY(UNITS[best.type],best.x,best.z)+1.2,best.z);fxAt(D,q.x,q.z,'okcu')}else D[key]=.3}}
   const left=[];
@@ -894,7 +915,8 @@ function simShells(dt){
 }
 function botThink(D){
   if(D.dead||TUT)return;
-  if((D.carch||0)<4&&D.money>=ARCH_COST+(D.carch||0)*15&&D.t>6+(D.carch||0)*40&&Math.random()<.35&&buyArcher(D))return;
+  {const n=nArch(D);if(n<4&&D.money>=ARCH_COST+n*15&&D.t>6+n*40&&Math.random()<.35&&buyArcher(D))return}
+  if((D.hp<CASTLE_HP*.6||csOf(D).some(v=>v>.5))&&!D.cfix&&D.money>=fixCost(D)+30&&Math.random()<.2&&repairCastle(D))return;
   if(!D.msState&&D.t>110&&D.money>=MS_COST+20&&Math.random()<.25&&buildMissileSys(D))return;
   if(D.rwState===2&&rwHpOf(D)<RW_HP*.6&&repairRunway(D))return;
   const road=ROAD[D.seat],aa=D.towers.filter(t=>t.type==='hava').length,gr=D.towers.filter(t=>t.type==='ok'||t.type==='top').length;
@@ -956,6 +978,7 @@ function sim(dt){
     else if(D.hg){D.hg.t-=dt;if(D.hg.t<=0){const q=D.hg;D.hg=null;let to=q.to;if(!P[to]||P[to].dead||allied(D.seat,to)){const f=P.filter(p=>p.on&&!p.dead&&!allied(p.seat,D.seat));to=f.length?f[Math.random()*f.length|0].seat:null}
       if(to==null||!sendUnit(D,to,'ucak',{built:true,ln:to===q.to?q.ln:runFor(D.seat,to)}))D.money+=UNITS.ucak.cost;else if(D===ME)tip(EN?`Bomber took off for ${P[to].name}`:`Uçak kalktı: ${P[to].name} üssünü bombalayacak`)}}
     if(D===ME)trainTick(dt);
+    if(D.cfix){const k=jobRate(D,'cs'),C=csOf(D);let left=false;for(let i=0;i<9;i++){if(C[i]>0){C[i]=Math.max(0,C[i]-dt*.08*k);left=left||C[i]>0}}D.hp=Math.min(CASTLE_HP,D.hp+dt*14*k);if(!left&&D.hp>=CASTLE_HP){D.cfix=false;markBuilt(D);if(D===ME)tip(TL('Kale onarıldı','Castle repaired'))}}
     if(D.msState===1){D.msT-=dt*jobRate(D,'ms');if(D.msT<=0){D.msState=2;markBuilt(D);if(D===ME)tip(TL('Füze sistemi hazır! Artık füze atabilirsin.','Missile system ready! You can fire missiles now.'))}}
     if(D.ysState===1){D.ysT-=dt*jobRate(D,'ys');if(D.ysT<=0){D.ysState=2;markBuilt(D);if(D===ME)tip(TL('Tersane hazır! Artık gemi ve denizaltı yapabilirsin.','Shipyard ready! You can build ships and submarines now.'))}}
     if(D.rwFix){D.rwHp=Math.min(RW_HP,rwHpOf(D)+RW_HP/16*dt*jobRate(D,'rw'));if(D.rwHp>=RW_HP){D.rwFix=false;markBuilt(D);if(D===ME)tip(TL('Pist onarıldı','Runway repaired'))}}
@@ -974,13 +997,13 @@ const say=(event,payload)=>{if(net&&!P.every(p=>!p.on||p===ME||p.bot))net.send({
 function markBuilt(D){D.dirty=true}
 function snapshot(){
   if(ME.dead)return;
-  const s={s:A.seat,h:Math.round(ME.hp),rw:ME.rwState||0,ms:ME.msState||0,ca:ME.carch||0,rh:Math.round(rwHpOf(ME)),ys:ME.ysState||0,yd:ME.yard?[UKEYS.indexOf(ME.yard.type),Math.round((1-ME.yard.t/ME.yard.T)*100)]:0,u:ME.units.filter(u=>u.type!=='isci'||u.hp>0).slice(0,90).map(u=>[u.id,UKEYS.indexOf(u.type),u.x|0,u.z|0,Math.ceil(u.hp/UNITS[u.type].hp*10),u.from,(u.atk?1:0)|(u.fall!=null?2:0)|(u.moving===false?4:0)])};
+  const s={s:A.seat,h:Math.round(ME.hp),rw:ME.rwState||0,ms:ME.msState||0,ca:achOf(ME).map(h=>Math.round(h)),cs:csOf(ME).map(v=>Math.round(v*100)),rh:Math.round(rwHpOf(ME)),ys:ME.ysState||0,yd:ME.yard?[UKEYS.indexOf(ME.yard.type),Math.round((1-ME.yard.t/ME.yard.T)*100)]:0,u:ME.units.filter(u=>u.type!=='isci'||u.hp>0).slice(0,90).map(u=>[u.id,UKEYS.indexOf(u.type),u.x|0,u.z|0,Math.ceil(u.hp/UNITS[u.type].hp*10),u.from,(u.atk?1:0)|(u.fall!=null?2:0)|(u.moving===false?4:0)])};
   if(ME.dirty||Date.now()%5000<500){ME.dirty=false;s.t=ME.towers.map(t=>[t.id,TKEYS.indexOf(t.type),t.x,t.z,t.lvl,t.bt>0&&!t.up?Math.round((1-t.bt/t.BT)*100):100])}
   say('snap',s);
 }
 function onSnap(m){
   if(!m)return;const R=P[num(m.s,-1)];if(!R||R===ME||R.bot||!R.on)return;
-  R.seen=performance.now();R.hp=clamp(num(m.h,R.hp),0,CASTLE_HP);R.rwState=clamp(num(m.rw),0,2);R.msState=clamp(num(m.ms),0,2);R.carch=clamp(num(m.ca),0,4);R.rwHp=clamp(num(m.rh,RW_HP),0,RW_HP);R.ysState=clamp(num(m.ys),0,2);
+  R.seen=performance.now();R.hp=clamp(num(m.h,R.hp),0,CASTLE_HP);R.rwState=clamp(num(m.rw),0,2);R.msState=clamp(num(m.ms),0,2);if(Array.isArray(m.ca)){const a=achOf(R);for(let k=0;k<4;k++){const v=clamp(num(m.ca[k]),0,ARCH_HP);if((v>0)!==(a[k]>0))ARCHD=true;a[k]=v}}if(Array.isArray(m.cs)){const c=csOf(R);for(let k=0;k<9;k++)c[k]=clamp(num(m.cs[k])/100,0,1)}R.rwHp=clamp(num(m.rh,RW_HP),0,RW_HP);R.ysState=clamp(num(m.ys),0,2);
   {const y=Array.isArray(m.yd)&&UKEYS[m.yd[0]]?{type:UKEYS[m.yd[0]],f:clamp(num(m.yd[1])/100,0,1)}:null;R.yardV=y}
   if(Array.isArray(m.u)){const seen=new Set();for(const a of m.u.slice(0,90)){if(!Array.isArray(a)||!UKEYS[a[1]])continue;seen.add(a[0]);const o=R.remote.get(a[0]),fl=num(a[6]);if(o){o.tx=num(a[2]);o.tz=num(a[3]);o.pct=num(a[4],10)/10;o.fl=fl}else R.remote.set(a[0],{type:UKEYS[a[1]],x:num(a[2]),z:num(a[3]),tx:num(a[2]),tz:num(a[3]),pct:num(a[4],10)/10,from:clamp(num(a[5],R.seat),0,3),fl,sd:Math.random(),ft:0})}
     for(const k of R.remote.keys())if(!seen.has(k))R.remote.delete(k)}
@@ -1208,10 +1231,10 @@ const outerY=(x,z)=>landH(x,z);
 const outerSlope=(x,z)=>{const a=landH(x+3,z)-landH(x-3,z),b=landH(x,z+3)-landH(x,z-3);return Math.hypot(a,b)/6};
 const WIND={value:0};let TGC=null;
 // a weathered boulder: a sphere pushed in and out by layered noise, flat underneath, with a few sharp breaks
-function rockGeo(det){
-  const g=new THREE.IcosahedronGeometry(1,det),p=g.attributes.position,hs=(x,y,z,f)=>{const h=Math.sin(x*f*12.99+y*f*78.23+z*f*37.72)*43758.5;return h-Math.floor(h)};
+function rockGeo(det,seed=0){
+  const g=new THREE.IcosahedronGeometry(1,det),p=g.attributes.position,hs=(x,y,z,f)=>{const h=Math.sin(x*f*12.99+y*f*78.23+z*f*37.72+seed*17.3)*43758.5;return h-Math.floor(h)},el=[[1,.68,.92],[1.25,.5,.8],[.85,.95,.85]][seed%3];
   for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i);let r=1+.22*(hs(x,y,z,.7)-.5)+.1*(hs(x,y,z,2.3)-.5)+.05*(hs(x,y,z,6.1)-.5);
-    const fy=y*r*.68;p.setXYZ(i,x*r*(1.1+.15*Math.sin(z*3)),fy<-.25?-.25-(fy+.25)*.15:fy+(Math.abs(x+z)<.3?-.06:0),z*r*.92)}
+    const fy=y*r*el[1];p.setXYZ(i,x*r*el[0]*(1.1+.15*Math.sin(z*3+seed)),fy<-.25?-.25-(fy+.25)*.15:fy+(Math.abs(x+z)<.3?-.06:0),z*r*el[2])}
   g.deleteAttribute('normal');const q=g.toNonIndexed();q.computeVertexNormals();return q}
 function treeGeos(){
   if(TGC)return TGC;
@@ -1276,8 +1299,11 @@ function buildForest(){
     const x=(R()-.5)*REACH*2,z=(R()-.5)*REACH*2;if(outerD(x,z)<10)continue;{const hh=landH(x,z),sl=outerSlope(x,z);if(hh>105+R()*25||sl>.42+R()*.12)continue}
     const g=fbm(grove,x*.007+40,z*.007+40);if(R()>smooth(.22,.5,g)*.9+.1)continue;          // groves and clearings
     const r=R(),K=r<KIND[0].n?KIND[0]:r<KIND[0].n+KIND[1].n?KIND[1]:KIND[2];if(K.k>=K.cap)continue;
-    const sc=.75+R()*.75*(.6+g);vp.set(x,outerY(x,z)-.15,z);qt.setFromAxisAngle(UP,R()*6.28);vs.set(sc*(.9+R()*.2),sc*(.85+R()*.35),sc*(.9+R()*.2));mx.compose(vp,qt,vs);
-    const sh=.78+R()*.34;col.setRGB(sh*(.92+R()*.12),sh,sh*(.85+R()*.15));
+    const sc=.75+R()*.75*(.6+g),fm=R();let ax=1,ay=1,tr=1,tg=1,tb=1;      // slim spruces and squat firs among the pines, broad oaks and tall poplars among the broadleaves
+    if(K===KIND[0]){if(fm<.3){ax=.66;ay=1.32;tr=.8;tg=.9;tb=.98}else if(fm<.55){ax=1.25;ay=.78;tr=1.1;tg=1.06;tb=.82}}
+    else if(K===KIND[1]){if(fm<.3){ax=1.3;ay=.86;tr=.92;tg=1;tb=.82}else if(fm<.45){ax=.62;ay=1.38;tr=1.08;tg=1.08;tb=.88}}
+    vp.set(x,outerY(x,z)-.15,z);TEUL.set((R()-.5)*.08,R()*6.28,(R()-.5)*.08);qt.setFromEuler(TEUL);vs.set(sc*ax*(.9+R()*.2),sc*ay*(.85+R()*.35),sc*ax*(.9+R()*.2));mx.compose(vp,qt,vs);
+    const sh=.78+R()*.34;col.setRGB(sh*(.92+R()*.12)*tr,sh*tg,sh*(.85+R()*.15)*tb);
     {const T=K.tiles[tileOf(x,z)];T.m.push(mx.clone());T.c.push(col.clone())}K.k++;done++;
     const gx=Math.round((x+REACH)/(2*REACH)*DN),gz=Math.round((z+REACH)/(2*REACH)*DN);for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++){const X=gx+i,Z=gz+j;if(X>=0&&Z>=0&&X<DN&&Z<DN)dens[X+Z*DN]=Math.min(1,dens[X+Z*DN]+(i||j?.12:.3))}}
   vs.set(1,1,1);
@@ -1285,7 +1311,7 @@ function buildForest(){
     K.parts.forEach(([g,,leafy,,gl],i)=>{const mk=geo=>{const m=new THREE.InstancedMesh(geo,K.mats[i],T.m.length);T.m.forEach((q,j)=>{m.setMatrixAt(j,q);if(leafy)m.setColorAt(j,T.c[j])});m.computeBoundingSphere();scene.add(m);return m};
       const h=mk(g);if(gl){const l=mk(gl);l.visible=false;ft.hi.push(h);ft.lo.push(l)}})});
   // boulders strewn over the hills beyond the sea, more of them on the steep ground
-  {const n=small?220:520,rk=new THREE.InstancedMesh(rockGeo(1),new THREE.MeshStandardMaterial({color:'#fff',roughness:.93,flatShading:true}),n),cc=new THREE.Color();rk.receiveShadow=true;let k=0,t2=0;
+  for(let rv=0;rv<3;rv++){const n=small?75:175,rk=new THREE.InstancedMesh(rockGeo(1,rv),new THREE.MeshStandardMaterial({color:'#fff',roughness:.93,flatShading:true}),n),cc=new THREE.Color();rk.receiveShadow=true;let k=0,t2=0;
     while(k<n&&t2++<n*30){const x=(R()-.5)*REACH*2.6,z=(R()-.5)*REACH*2.6;if(outerD(x,z)<6)continue;const sl=outerSlope(x,z),hh=landH(x,z);if(R()>.25+sl*1.6||hh>170)continue;
       const sc=(.7+R()*2.2)*(1+sl);vp.set(x,outerY(x,z)-.2*sc,z);qt.setFromAxisAngle(UP,R()*6.28);vs.set(sc*(.8+R()*.5),sc*(.6+R()*.5),sc*(.8+R()*.5));mx.compose(vp,qt,vs);rk.setMatrixAt(k,mx);
       const v=.42+R()*.22;cc.setRGB(v*1.02,v,v*(.9+R()*.12));rk.setColorAt(k,cc);k++}
@@ -1293,6 +1319,7 @@ function buildForest(){
   forestLOD();
   {const big=new Float32Array(256*256);for(let j=0;j<256;j++)for(let i=0;i<256;i++){const x=i/256*2000-1000,z=j/256*2000-1000,I=Math.round((x+REACH)/(2*REACH)*DN),J=Math.round((z+REACH)/(2*REACH)*DN);big[i+j*256]=I>=0&&J>=0&&I<DN&&J<DN?dens[I+J*DN]:.6}FDENS.image.data.set(big)}FDENS.needsUpdate=true;
 }
+const TEUL=new THREE.Euler();
 function buildDetail(){
   const TG=treeGeos(),rock=TG.rock;
   const cap=small?60:110,mk=(geo,mat)=>{const m=new THREE.InstancedMesh(geo,mat,cap);m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;m.count=cap;mx.makeScale(0,0,0);for(let i=0;i<cap;i++)m.setMatrixAt(i,mx);scene.add(m);return m};
@@ -1300,18 +1327,18 @@ function buildDetail(){
     pine:[mk(TG.trunk,new THREE.MeshStandardMaterial({color:'#4b3320',roughness:.95})),mk(TG.pine,TG.mat('#3f7a37',1))],
     broad:[mk(TG.trunk2,new THREE.MeshStandardMaterial({color:'#55392a',roughness:.95})),mk(TG.broad,TG.mat('#4a7f34',0))],
     dead:[mk(TG.dead,new THREE.MeshStandardMaterial({color:'#3b2d24',roughness:1}))],
-    rock:[mk(rock,new THREE.MeshStandardMaterial({color:'#fff',roughness:.92,flatShading:true}))]};
-  const n={pine:0,broad:0,dead:0,rock:0},col=new THREE.Color(),RC=['#8b8a80','#c2a571','#aeb8bf','#3b322e'];
+    rock:[mk(rock,new THREE.MeshStandardMaterial({color:'#fff',roughness:.92,flatShading:true}))],rock2:[mk(rockGeo(2,1),new THREE.MeshStandardMaterial({color:'#fff',roughness:.92,flatShading:true}))],rock3:[mk(rockGeo(2,2),new THREE.MeshStandardMaterial({color:'#fff',roughness:.92,flatShading:true}))]};
+  const n={pine:0,broad:0,dead:0,rock:0,rock2:0,rock3:0},col=new THREE.Color(),RC=['#8b8a80','#c2a571','#aeb8bf','#3b322e'];
   let sd=4242;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;let tries=0;
   while(tries++<6000&&PROPS.length<cap*3){
     const x=(R()-.5)*L*2,z=(R()-.5)*L*2,s=seatAt(x,z),c=castlePos(s);
     if(shoreOf(x,z)<WL+5||roadDist(x,z)<7.5||Math.hypot(x-c.x,z-c.z)<20||reserved(s,x,z)||Math.hypot(x,z)<30)continue;
     if(PROPS.some(p=>Math.hypot(p.x-x,p.z-z)<9))continue;
-    const r=R(),k=biomeAt(x,z)===0?(r<.4?'broad':r<.75?'pine':'rock'):s===1?(r<.18?'dead':'rock'):s===2?(r<.6?'pine':'rock'):(r<.45?'dead':'rock');
-    if(n[k]>=cap)continue;const i=n[k]++,y=baseHeight(x,z),sc=k==='rock'?.9+R()*1.6:.55+R()*.35,rot=R()*6.28;
-    qt.setFromAxisAngle(UP,rot);vp.set(x,y-(k==='rock'?.25*sc:.1),z);vs.set(sc,sc*(k==='rock'?.8+R()*.5:1),sc);mx.compose(vp,qt,vs);
-    if(k==='rock')col.set(RC[s]).multiplyScalar(.8+R()*.35);else if(s===2)col.setRGB(.85,.92,.95);else col.setRGB(.8+R()*.3,.85+R()*.25,.8+R()*.2);
-    for(const m of PROPM[k]){m.setMatrixAt(i,mx);if(k==='rock'||m.material.vertexColors)m.setColorAt(i,col)}
+    const r=R(),k0=biomeAt(x,z)===0?(r<.4?'broad':r<.75?'pine':'rock'):s===1?(r<.18?'dead':'rock'):s===2?(r<.6?'pine':'rock'):(r<.45?'dead':'rock'),k=k0==='rock'?['rock','rock2','rock3'][R()*3|0]:k0,isR=k0==='rock';
+    if(n[k]>=cap)continue;const i=n[k]++,y=baseHeight(x,z),sc=isR?.9+R()*1.6:.55+R()*.35,rot=R()*6.28,fm=R(),ax=isR?1:k==='pine'?(fm<.3?.68:fm<.55?1.22:1):k==='broad'?(fm<.3?1.28:fm<.45?.65:1):1,ay=isR?.8+R()*.5:k==='pine'?(fm<.3?1.3:fm<.55?.8:1):k==='broad'?(fm<.3?.86:fm<.45?1.35:1):1;
+    TEUL.set(isR?0:(R()-.5)*.08,rot,isR?0:(R()-.5)*.08);qt.setFromEuler(TEUL);vp.set(x,y-(isR?.25*sc:.1),z);vs.set(sc*ax,sc*ay,sc*ax);mx.compose(vp,qt,vs);
+    if(isR)col.set(RC[s]).multiplyScalar(.8+R()*.35);else if(s===2)col.setRGB(.85,.92,.95);else col.setRGB(.8+R()*.3,.85+R()*.25,.8+R()*.2);
+    for(const m of PROPM[k]){m.setMatrixAt(i,mx);if(isR||m.material.vertexColors)m.setColorAt(i,col)}
     PROPS.push({k,i,x,z,y,s:sc,rot,col:col.clone(),alive:true})}
   vs.set(1,1,1);for(const k in PROPM)for(const m of PROPM[k]){m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true}
 }
@@ -1408,7 +1435,7 @@ const PROPS=[];let PROPM=null;
 function clearProps(x,z,r){for(const p of PROPS)if(p.alive&&Math.hypot(p.x-x,p.z-z)<r)breakProp(p,x,z)}
 function breakProp(p,fx,fz){
   p.alive=false;const k=PROPM[p.k];mx.makeScale(0,0,0);for(const m of k)m.setMatrixAt(p.i,mx),m.instanceMatrix.needsUpdate=true;
-  if(p.k==='rock'){burst(p.x,p.y+.6,p.z,9,['#8b8a80','#6e6c66','#a7a49a'],6,1.2,.35);puff(p.x,p.y+.5,p.z,1.6,1.8,.55,.6,.5);return}
+  if(p.k.startsWith('rock')){burst(p.x,p.y+.6,p.z,9,['#8b8a80','#6e6c66','#a7a49a'],6,1.2,.35);puff(p.x,p.y+.5,p.z,1.6,1.8,.55,.6,.5);return}
   // a falling tree reuses its own forest material, so knocking one down never builds a new shader
   let dx=p.x-fx,dz=p.z-fz;const l=Math.hypot(dx,dz)||1;
   if(FALLP.length>=FALLCAP)FALLP.shift();
@@ -1556,9 +1583,11 @@ function buildCastle(s){
   const g=new THREE.Group(),c=castlePos(s),t=teamM[s],h0=heightAt(c.x,c.z),a=CANG[s];g.rotation.y=-a;
   const gy=(lx,lz)=>{const X=c.x+lx*Math.cos(a)-lz*Math.sin(a),Z=c.z+lx*Math.sin(a)+lz*Math.cos(a);return Math.max(heightAt(X,Z),h0-1.2)-h0};
   const H=CH,WH=4.2,TH=1.3,gap=1.9;
-  add(g,new THREE.BoxGeometry(H*2,.5,H*2),DARK,0,.05,0);
+  // the castle is cut into parts that are damaged one by one: 0-3 corner towers, 4-7 walls with their gates, 8 the keep, 9 the floor; 10-18 the rubble each part leaves
+  const SG=[...Array(19)].map((_,i)=>{const q=new THREE.Group();q.userData.seg=i;g.add(q);return q});
+  add(SG[9],new THREE.BoxGeometry(H*2,.5,H*2),DARK,0,.05,0);
   // curtain walls, each split by a gate in its middle
-  for(let k=0;k<4;k++){const sg=new THREE.Group();sg.rotation.y=k*Math.PI/2;g.add(sg);
+  for(let k=0;k<4;k++){const sg=new THREE.Group();sg.rotation.y=k*Math.PI/2;SG[4+k].add(sg);
     for(const sd of[-1,1]){const l=H-gap-1.2,mx=sd*(gap+1.2+l/2);const y=gy(H,mx);
       add(sg,new THREE.BoxGeometry(TH,WH,l),STONE,H,y+WH/2,mx);add(sg,new THREE.CylinderGeometry(.72,1.05,1,4,1).rotateY(Math.PI/4).scale(1,1,l/1.2),STONE,H,y+.45,mx);add(sg,new THREE.BoxGeometry(TH+.5,.3,l),DARK,H,y+WH+.15,mx);
       for(let m=-l/2+.45;m<l/2;m+=1.1)add(sg,new THREE.BoxGeometry(TH+.3,.7,.55),STONE,H+.15,y+WH+.65,mx+m);
@@ -1570,29 +1599,34 @@ function buildCastle(s){
     add(sg,new THREE.BoxGeometry(.06,1.1,.8),t,H+.95,y+WH-.2,0)}
   // corner towers
   const CT=[];
-  for(const[x,z]of[[H,H],[-H,H],[H,-H],[-H,-H]]){const y=gy(x,z);add(g,new THREE.CylinderGeometry(1.55,1.8,WH+3.6,18),STONE,x,y+(WH+3.6)/2,z);add(g,new THREE.CylinderGeometry(1.85,2.3,1.4,18),STONE,x,y+.6,z);
+  [[H,H],[-H,H],[H,-H],[-H,-H]].forEach(([x,z],ci)=>{const g=SG[ci];const y=gy(x,z);add(g,new THREE.CylinderGeometry(1.55,1.8,WH+3.6,18),STONE,x,y+(WH+3.6)/2,z);add(g,new THREE.CylinderGeometry(1.85,2.3,1.4,18),STONE,x,y+.6,z);
     add(g,new THREE.CylinderGeometry(1.85,1.55,.5,18),STONE,x,y+WH+3.55,z);add(g,new THREE.CylinderGeometry(1.62,1.62,.12,18),DARK,x,y+WH+3.62,z);
     for(let i=0;i<10;i++){const b=i/10*6.283;add(g,new THREE.BoxGeometry(.5,.62,.42),STONE,x+Math.cos(b)*1.66,y+WH+4.1,z+Math.sin(b)*1.66).rotation.y=-b}
     for(const b of[.4,2.0,3.6,5.2])add(g,new THREE.BoxGeometry(.12,.9,.3),DARK,x+Math.cos(b)*1.66,y+WH+1.2,z+Math.sin(b)*1.66).rotation.y=-b;      // arrow slits
-    CT.push([x,y+WH+3.68,z])}
+    CT.push([x,y+WH+3.68,z])});
   // the keep: a square stone donjon with corner turrets, banners and a fighting top where the castle's one archer stands
   const K=3.6;
-  add(g,new THREE.BoxGeometry(K*2+.6,1.2,K*2+.6),STONE,0,.6,0);add(g,new THREE.BoxGeometry(K*2,KH,K*2),STONE,0,KH/2,0);
-  for(const y of[4.2,8.4])add(g,new THREE.BoxGeometry(K*2+.25,.28,K*2+.25),DARK,0,y,0);       // string courses
-  add(g,new THREE.BoxGeometry(K*2+.9,.4,K*2+.9),DARK,0,KH+.1,0);
-  for(let k=0;k<4;k++){const sg=new THREE.Group();sg.rotation.y=k*Math.PI/2;g.add(sg);
+  add(SG[8],new THREE.BoxGeometry(K*2+.6,1.2,K*2+.6),STONE,0,.6,0);add(SG[8],new THREE.BoxGeometry(K*2,KH,K*2),STONE,0,KH/2,0);
+  for(const y of[4.2,8.4])add(SG[8],new THREE.BoxGeometry(K*2+.25,.28,K*2+.25),DARK,0,y,0);       // string courses
+  add(SG[8],new THREE.BoxGeometry(K*2+.9,.4,K*2+.9),DARK,0,KH+.1,0);
+  for(let k=0;k<4;k++){const sg=new THREE.Group();sg.rotation.y=k*Math.PI/2;SG[8].add(sg);
     for(let m=-K+.2;m<=K-.2;m+=1.15)add(sg,new THREE.BoxGeometry(.5,.9,.62),STONE,K+.18,KH+.75,m);
     for(const y of[6.2,10.2])for(const m of[-1.6,1.6])add(sg,new THREE.BoxGeometry(.13,1.05,.38),DARK,K+.02,y,m);      // arrow slits
     add(sg,new THREE.BoxGeometry(.06,4.2,1.5),t,K+.05,KH-2.8,0);add(sg,new THREE.BoxGeometry(.08,.3,1.7),WOOD,K+.08,KH-.6,0);    // banner
   }
-  for(const[x,z]of[[K,K],[-K,K],[K,-K],[-K,-K]])add(g,new THREE.CylinderGeometry(.85,.55,2.8,10),STONE,x,KH-.6,z);
-  add(g,new THREE.BoxGeometry(1.6,2.6,.3),GATEM,K+.1,1.3,0).rotation.y=Math.PI/2;add(g,new THREE.BoxGeometry(2.2,.4,.6),STONE,K+.2,2.75,0).rotation.y=Math.PI/2;
+  for(const[x,z]of[[K,K],[-K,K],[K,-K],[-K,-K]])add(SG[8],new THREE.CylinderGeometry(.85,.55,2.8,10),STONE,x,KH-.6,z);
+  add(SG[8],new THREE.BoxGeometry(1.6,2.6,.3),GATEM,K+.1,1.3,0).rotation.y=Math.PI/2;add(SG[8],new THREE.BoxGeometry(2.2,.4,.6),STONE,K+.2,2.75,0).rotation.y=Math.PI/2;
   // a tall watch turret on one corner of the roof, flying the team flag
   // the stair-head on the roof: a squat stone hut with a low door the workers come out of to tend the launcher
-  add(g,new THREE.BoxGeometry(2.2,1.9,2.2),STONE,-K+1.3,KH+1.15,-K+1.3);add(g,new THREE.BoxGeometry(2.45,.22,2.45),DARK,-K+1.3,KH+2.2,-K+1.3);
-  add(g,new THREE.BoxGeometry(.75,1.25,.08),GATEM,-K+1.3,KH+.82,-K+2.42);add(g,new THREE.BoxGeometry(1,.16,.14),STONE,-K+1.3,KH+1.52,-K+2.44);
-  add(g,new THREE.CylinderGeometry(.06,.06,2.2,6),WOOD,-K+.4,KH+3.3,-K+.4);add(g,new THREE.BoxGeometry(1.3,.8,.05),t,-K+1.07,KH+4.0,-K+.4);
-  const mg=mergeModel(g);mg.position.set(c.x,h0,c.z);scene.add(mg);
+  add(SG[8],new THREE.BoxGeometry(2.2,1.9,2.2),STONE,-K+1.3,KH+1.15,-K+1.3);add(SG[8],new THREE.BoxGeometry(2.45,.22,2.45),DARK,-K+1.3,KH+2.2,-K+1.3);
+  add(SG[8],new THREE.BoxGeometry(.75,1.25,.08),GATEM,-K+1.3,KH+.82,-K+2.42);add(SG[8],new THREE.BoxGeometry(1,.16,.14),STONE,-K+1.3,KH+1.52,-K+2.44);
+  add(SG[8],new THREE.CylinderGeometry(.06,.06,2.2,6),WOOD,-K+.4,KH+3.3,-K+.4);add(SG[8],new THREE.BoxGeometry(1.3,.8,.05),t,-K+1.07,KH+4.0,-K+.4);
+  {let sd=91+s*7;const R=()=>(sd=(sd*16807)%2147483647)/2147483647,pile=(q,x,z,rad,n)=>{for(let k=0;k<n;k++){const a=R()*6.283,r=Math.sqrt(R())*rad,sz=.35+R()*.8,b=add(q,new THREE.BoxGeometry(sz*(1+R()),sz*(.6+R()*.5),sz*(1+R())),R()<.8?STONE:DARK,x+Math.cos(a)*r,sz*.3,z+Math.sin(a)*r);b.rotation.set(R()*.6,R()*3,R()*.6)}};
+    [[H,H],[-H,H],[H,-H],[-H,-H]].forEach(([x,z],ci)=>pile(SG[10+ci],x*1.05,z*1.05,2.8,14));
+    for(let k=0;k<4;k++){const q=new THREE.Group();q.rotation.y=k*Math.PI/2;SG[14+k].add(q);pile(q,H+.6,-3.5,2,8);pile(q,H+.6,3.5,2,8);pile(q,H+1,0,1.6,5)}
+    pile(SG[18],0,0,5.2,26)}
+  const mg=mergeCastle(g,s);mg.position.set(c.x,h0,c.z);scene.add(mg);
+  {g.updateMatrixWorld(true);const bb=new THREE.Box3();SEGC[s]=[...Array(9)].map((_,i)=>{bb.setFromObject(SG[i]);const ce=bb.getCenter(new THREE.Vector3());CSU[s].uTop.value[i]=bb.max.y;return{x:c.x+ce.x,z:c.z+ce.z,y:h0+bb.max.y}})}
   // the missile launcher on the keep roof: a turntable, a launcher box and two missiles ready on the rails. Built from the Defence menu
   const ag=new THREE.Group();add(ag,new THREE.CylinderGeometry(1.5,1.7,.5,16),STEEL,0,.25,0);add(ag,new THREE.BoxGeometry(1.4,.9,1.4),DARK,0,.95,0);
   const rk=new THREE.Group();rk.position.set(0,2.5,0);rk.rotation.z=1.2;ag.add(rk);const rk0=new THREE.Group();rk0.position.x=1.05;rk.add(rk0);add(rk0,new THREE.BoxGeometry(5.6,.3,1.3),t,.2,0,0);for(const z of[-.5,.5])add(rk0,new THREE.BoxGeometry(5.4,.18,.14),STEEL,.2,.22,z);
@@ -1602,14 +1636,35 @@ function buildCastle(s){
   const am=mergeModel(ag);am.position.set(c.x+1,h0+KH+.3,c.z+1);am.rotation.y=-a;am.visible=false;scene.add(am);KARCH[s]={m:am,yaw:-a,want:-a,draw:0};
   CARCH[s]=CT.map(([lx,ly,lz])=>{const X=c.x+lx*Math.cos(a)-lz*Math.sin(a),Z=c.z+lx*Math.sin(a)+lz*Math.cos(a),yw=Math.atan2(-(Z-c.z),X-c.x);return{x:X,z:Z,y:h0+ly,yaw:yw,want:yw,s}});ARCHD=true;
 }
-const KARCH=[],CARCH=[];let ARCHD=true,ARCHI=null;
+const KARCH=[],CARCH=[],SEGC=[],CSU=[];
+// the castle's materials learn to crumble: every vertex knows its part, and a part that is hurt is sheared off to a jagged stump,
+// blackened, while its rubble rises round its foot. All of it in the vertex shader, so a ruin costs nothing extra to draw
+const CRUMBLE=`int si=int(aSeg+.5);float cd=0.;
+  if(si>=10){cd=uSeg[si-10];transformed.y=cd<.22?-8.:transformed.y*min(1.,(cd-.22)*2.2);cd=0.;}
+  else if(si<9){cd=uSeg[si];if(cd>0.){float top=uTop[si];float cut=top-(top-.5)*cd*.86+(sin(position.x*2.1+position.z*1.3)*.9+sin(position.x*4.7-position.z*3.9)*.6+sin(position.x*9.3+position.z*7.1)*.35)*cd*1.4;if(transformed.y>cut)transformed.y=cut;}}`;
+function crumbleMat(m,U,depth){const q=depth?new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking}):m.clone();
+  q.onBeforeCompile=sh=>{sh.uniforms.uSeg=U.uSeg;sh.uniforms.uTop=U.uTop;
+    sh.vertexShader='attribute float aSeg;\nuniform float uSeg[10];\nuniform float uTop[10];\nvarying float vCD;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n{'+CRUMBLE+'vCD=cd;}');
+    if(!depth)sh.fragmentShader='varying float vCD;\n'+sh.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb*=1.-.55*vCD;')};
+  q.customProgramCacheKey=()=>'crumble'+(depth?'d':'');return q}
+function mergeCastle(g,s){
+  const U=CSU[s]={uSeg:{value:new Array(10).fill(0)},uTop:{value:new Array(10).fill(20)}};
+  g.updateMatrixWorld(true);const by=new Map();
+  g.traverse(o=>{if(!o.isMesh)return;let p=o,sg=9;while(p){if(p.userData&&p.userData.seg!=null){sg=p.userData.seg;break}p=p.parent}
+    let a=by.get(o.material);if(!a)by.set(o.material,a=[]);const q=(o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone());q.applyMatrix4(o.matrixWorld);q.userData.seg=sg;a.push(q)});
+  const out=new THREE.Group(),dm=crumbleMat(null,U,true);
+  for(const[mat,list]of by){let n=0;for(const q of list)n+=q.attributes.position.count;const P3=new Float32Array(n*3),N3=new Float32Array(n*3),U2=new Float32Array(n*2),S1=new Float32Array(n);let o=0;
+    for(const q of list){const c=q.attributes.position.count;P3.set(q.attributes.position.array,o*3);N3.set(q.attributes.normal.array,o*3);if(q.attributes.uv)U2.set(q.attributes.uv.array,o*2);S1.fill(q.userData.seg,o,o+c);o+=c;q.dispose()}
+    const mg=new THREE.BufferGeometry();mg.setAttribute('position',new THREE.BufferAttribute(P3,3));mg.setAttribute('normal',new THREE.BufferAttribute(N3,3));mg.setAttribute('uv',new THREE.BufferAttribute(U2,2));mg.setAttribute('aSeg',new THREE.BufferAttribute(S1,1));mg.computeBoundingSphere();
+    const m=new THREE.Mesh(mg,crumbleMat(mat,U));m.customDepthMaterial=dm;m.castShadow=m.receiveShadow=true;out.add(m)}
+  return out}let ARCHD=true,ARCHI=null;
 // the castles' corner archers share one instanced model, so sixteen of them cost a handful of draw calls
 function drawArchers(dt){
   if(!ARCHI){const g=new THREE.Group();archerFig(g,TEAM_W,0,0,0,1.25);ARCHI=bakeIms(g)}
   for(let i=0;i<CARCH.length;i++){const A=CARCH[i];if(!A)continue;for(const q of A)if(q.yaw!==q.want){q.yaw=angLerp(q.yaw,q.want,Math.min(1,dt*8));if(Math.abs(q.yaw-q.want)<.002)q.yaw=q.want;ARCHD=true}}
-  let sig=0;for(let i=0;i<P.length;i++)if(P[i].on&&!P[i].dead)sig+=(1+Math.min(4,P[i].carch||0))*Math.pow(6,i);if(sig!==drawArchers.sig){drawArchers.sig=sig;ARCHD=true}
+  let sig=0;for(let i=0;i<P.length;i++)if(P[i].on&&!P[i].dead)sig+=(1+nArch(P[i]))*Math.pow(6,i);if(sig!==drawArchers.sig){drawArchers.sig=sig;ARCHD=true}
   if(!ARCHD)return;ARCHD=false;let k=0;
-  for(let i=0;i<CARCH.length;i++){const A=CARCH[i],D=P[i];if(!A||!D||!D.on||D.dead)continue;for(let j=0;j<Math.min(4,D.carch||0);j++){const q=A[AORD[j]];vp.set(q.x,q.y,q.z);qt.setFromAxisAngle(UP,q.yaw);vs.set(1,1,1);mx.compose(vp,qt,vs);for(const m of ARCHI){m.setMatrixAt(k,mx);if(m.instanceColor)m.setColorAt(k,tc[i])}k++}}
+  for(let i=0;i<CARCH.length;i++){const A=CARCH[i],D=P[i];if(!A||!D||!D.on||D.dead)continue;for(let j=0;j<4;j++){if(achOf(D)[j]<=0)continue;const q=A[j];vp.set(q.x,q.y,q.z);qt.setFromAxisAngle(UP,q.yaw);vs.set(1,1,1);mx.compose(vp,qt,vs);for(const m of ARCHI){m.setMatrixAt(k,mx);if(m.instanceColor)m.setColorAt(k,tc[i])}k++}}
   for(const m of ARCHI){m.count=k;m.visible=k>0;m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;m.computeBoundingSphere()}}
 // a missile leaving the keep: the launcher swings round, fire and smoke burst out of its rails
 function launchFx(s,at){const k=KARCH[s],c=castlePos(s),y=Math.max(heightAt(c.x,c.z),0)+KH+2.4;if(k&&at)k.want=Math.atan2(-(at.z-c.z),at.x-c.x);
@@ -1980,9 +2035,9 @@ function drawFx(dt){
   for(const D of P)for(const t of D.towers){const h=t.mesh;if(!h)continue;if(t.shake>0){t.shake-=dt;h.shake=Math.max(t.shake,0);if(t.shake<=0)h.tpl.dirty=true}
     if(t.yaw!=null&&h.yaw!==t.yaw){h.yaw=angLerp(h.yaw,t.yaw,Math.min(1,dt*14));if(Math.abs(h.yaw-t.yaw)<.002)h.yaw=t.yaw;h.tpl.hdirty=true}
     if(t.kick>0){t.kick=Math.max(0,t.kick-dt*2.5);h.kick=t.kick;h.tpl.hdirty=true}}
-  aimRemote(dt);drawSmoke(dt);
+  aimRemote(dt);drawSmoke(dt);drawRuin(dt);
   drawArchers(dt);
-  for(let i=0;i<KARCH.length;i++){const k=KARCH[i];if(!k)continue;const D=P[i];k.m.visible=!!(D&&D.on&&!D.dead&&D.msState);if(k.m.visible){const sy=D.msState===1?.15+.85*clamp(1-(local(D)?D.msT/MS_T:.5),0,1):1;if(k.m.scale.y!==sy)k.m.scale.y=sy}if(!k.m.visible)continue;if(k.yaw!==k.want){k.yaw=angLerp(k.yaw,k.want,Math.min(1,dt*9));k.m.rotation.y=k.yaw}}
+  for(let i=0;i<KARCH.length;i++){const k=KARCH[i];if(!k)continue;const D=P[i];k.m.visible=!!(D&&D.on&&!D.dead&&D.msState&&csOf(D)[8]<=.5);if(k.m.visible){const sy=D.msState===1?.15+.85*clamp(1-(local(D)?D.msT/MS_T:.5),0,1):1;if(k.m.scale.y!==sy)k.m.scale.y=sy}if(!k.m.visible)continue;if(k.yaw!==k.want){k.yaw=angLerp(k.yaw,k.want,Math.min(1,dt*9));k.m.rotation.y=k.yaw}}
   drawTowers();
   drawSprites(dt);animPlaza(dt);animProps(dt);WIND.value=now()/1000;
 }
@@ -2442,8 +2497,8 @@ function mkHud(){
   {const b=document.createElement('button');b.id='bSec';b.title=TL('Sahadaki birliklerini kareyle seç, sonra yol çizerek götür. Kısayol: haritaya çift dokunup sürükle.','Box-select your units in the field, then drag a path to lead them. Shortcut: double-tap the map and drag.');b.innerHTML=TL('Seç<small>birlik</small>','Select<small>units</small>');b.onclick=()=>setAim(aim==='sec'?null:'sec');$('gAtk').append(b)}
   {const b=document.createElement('button');b.id='bBirlik';b.title=TL('Birlik alanında bekleyen askerlerin: kaçını göndereceğini seç, sonra yol çiz ya da hedefe dokun.','Troops waiting on your muster field: pick how many to send, then draw a path or tap a target.');b.innerHTML=TL('Birlik<small>gönder</small>','Army<small>send</small>');b.onclick=()=>openRally($('rallyP').hidden);$('gAtk').append(b)}
   {const sec=(g,t)=>{const d=document.createElement('div');d.className='sec';d.textContent=t;return d},G=$('gDef'),A=$('gAtk'),q=sel=>G.querySelector(sel)||A.querySelector(sel);
-    G.append(sec(G,TL('KULELER · kuleye dokun: yükselt ya da sil','TOWERS · tap one to upgrade or remove')));for(const k of TKEYS)G.append(q(`[data-k=${k}]`));
-    G.append(sec(G,TL('YAPILAR','BUILDINGS')));for(const e of[q('[data-k=kopru]'),$('bTersane'),$('bPist'),$('bFuzeS')])if(e)G.append(e);
+    G.append(sec(G,TL('KULELER · kuleye dokun: yükselt ya da sil','TOWERS · tap one to upgrade or remove')));for(const k of TKEYS)if(k!=='duvar')G.append(q(`[data-k=${k}]`));
+    G.append(sec(G,TL('YAPILAR','BUILDINGS')));for(const e of[q('[data-k=duvar]'),q('[data-k=kopru]'),$('bTersane'),$('bPist'),$('bFuzeS')])if(e)G.append(e);
     A.append(sec(A,TL('ASKER YETİŞTİR · birlik alanında bekler','TRAIN · they wait on your muster field')));for(const k of BUY)if(POP[k])A.append(q(`[data-k=${k}]`));
     A.append(sec(A,TL('ORDUNU GÖNDER','SEND YOUR ARMY')));for(const e of[$('bBirlik'),$('bSec')])if(e)A.append(e);
     A.append(sec(A,TL('ÖZEL SALDIRI','SPECIAL ATTACKS')));for(const k of BUY)if(!POP[k])A.append(q(`[data-k=${k}]`))}
@@ -2459,6 +2514,7 @@ function mkHud(){
   $('eye').onclick=toggleHud;
   $('bUp').onclick=()=>{if(picked)upgrade(ME,picked);const t=picked;pick(t)};
   $('bSell').onclick=()=>{if(picked)sellTower(picked)};
+  $('bFix').onclick=()=>{if(repairCastle(ME)){SES.para();tip(TL('İşçiler kaleyi onarıyor','Workers are repairing the castle'))}else tip(TL('Altının yetmiyor','Not enough gold'))};
   $('bArch').onclick=()=>{if(buyArcher(ME)){SES.para();tip(TL('Okçu kalenin köşe kulesine çıktı','An archer climbed onto a corner tower'))}else tip(TL('Altının yetmiyor','Not enough gold'))};
   $('aeAgain').onclick=()=>bye();$('aeWatch').onclick=()=>{$('arenaEnd').hidden=true};
   $('aimX').onclick=()=>setAim(null);
@@ -2512,9 +2568,10 @@ function drawHud(){
    drawRally();if(TUT)$('tutP').style.bottom=($('bar').offsetHeight+18)+'px'}
   {const a=$('bAlly'),al=target!=null&&allied(ME.seat,target)&&target!==ME.seat;a.innerHTML=al?TL('İttifakı boz<small>seçili</small>','Break alliance<small>selected</small>'):TL('İttifak<small>teklif et</small>','Alliance<small>offer</small>');a.disabled=ME.dead||target==null;$('bJoin').disabled=ME.dead||!ALLY[ME.seat].some(Boolean)}
   for(const D of P){if(!D.row)continue;D.row.className=(D.dead?'dead ':'')+(target===D.seat?'on':'');const tb=$('gTgt').querySelector(`[data-s="${D.seat}"]`);if(tb)tb.disabled=D.dead;D.row.firstChild.textContent=(D!==ME&&allied(D.seat,ME.seat)?'🤝 ':'')+D.name+(D===ME?TL(' (sen)',' (you)'):'');D.row.lastChild.style.width=D.hp/CASTLE_HP*100+'%'}
-  if(!ME.carch&&!castleTip&&!TUT&&ME.t>5){castleTip=true;tip(TL('İpucu: kalene dokun, köşe kulelerine okçu koy.','Tip: tap your castle to put archers on its corner towers.'))}
-  if(castleSel){const c=castlePos(ME.seat),n=ME.carch||0;vp.set(c.x,heightAt(c.x,c.z)+KH+4,c.z).project(camera);const e=$('csel');e.style.left=(vp.x+1)/2*innerWidth+'px';e.style.top=(1-vp.y)/2*innerHeight+'px';
-    const h=n>=4?TL('Kalede 4 okçu var','4 archers on the castle'):(EN?`Add archer ${n}/4<small>${ARCH_COST}<i class="au"></i></small>`:`Okçu koy ${n}/4<small>${ARCH_COST}<i class="au"></i></small>`);if($('bArch').innerHTML!==h)$('bArch').innerHTML=h;$('bArch').disabled=n>=4||ME.money<ARCH_COST}
+  if(!nArch(ME)&&!castleTip&&!TUT&&ME.t>5){castleTip=true;tip(TL('İpucu: kalene dokun, köşe kulelerine okçu koy.','Tip: tap your castle to put archers on its corner towers.'))}
+  if(castleSel){const c=castlePos(ME.seat),n=nArch(ME),sp=archSpot(ME);vp.set(c.x,heightAt(c.x,c.z)+KH+4,c.z).project(camera);const e=$('csel');e.style.left=(vp.x+1)/2*innerWidth+'px';e.style.top=(1-vp.y)/2*innerHeight+'px';
+    const h=n>=4?TL('Kalede 4 okçu var','4 archers on the castle'):sp<0?TL('Okçu duracak sağlam kule yok<small>önce onar</small>','No sound tower for an archer<small>repair first</small>'):(EN?`Add archer ${n}/4<small>${ARCH_COST}<i class="au"></i></small>`:`Okçu koy ${n}/4<small>${ARCH_COST}<i class="au"></i></small>`);if($('bArch').innerHTML!==h)$('bArch').innerHTML=h;$('bArch').disabled=sp<0||ME.money<ARCH_COST;
+    const need=castleNeedsFix(ME),f=ME.cfix?(EN?`Repairing ${Math.round(castleState(ME)*100)}%`:`Onarılıyor %${Math.round(castleState(ME)*100)}`):need?(EN?`Repair<small>${fixCost(ME)}<i class="au"></i></small>`:`Onar<small>${fixCost(ME)}<i class="au"></i></small>`):TL('Kale sağlam','Castle is sound');if($('bFix').innerHTML!==f)$('bFix').innerHTML=f;$('bFix').disabled=ME.cfix||!need||ME.money<fixCost(ME)}
   if(picked){$('bUp').textContent=picked.lvl>=3?TL('En üst seviye','Max level'):(EN?`Upgrade ${upCost(picked)}`:`Yükselt ${upCost(picked)}`);$('bUp').disabled=picked.lvl>=3||ME.money<upCost(picked);$('bSell').textContent=(EN?`Remove +${Math.floor(picked.paid/2)}`:`Sil +${Math.floor(picked.paid/2)}`);
     vp.set(picked.x,heightAt(picked.x,picked.z),picked.z).project(camera);$('sel').style.left=(vp.x+1)/2*innerWidth+'px';$('sel').style.top=(1-vp.y)/2*innerHeight+'px'}
 }
