@@ -57,6 +57,10 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
   // rocket meeting a missile in the sky: a hard crack, a big airburst and a ringing echo
   roketVur(v=1,p=0){if(!this.ok('rv',.1,'bomba'))return;const t=this.ctx.currentTime;this.hit(t,'highpass',7000,1200,1.4*v,.14,.7);this.tone(t,190,40,1.2*v,.7);this.tone(t,1100,300,.3*v,.35,'triangle');
     this.play('patla',1.1*v,p,1.2);setTimeout(()=>{try{this.play('patla',.55*v,p,.7,1400)}catch(e){}},90)},
+  // masonry coming down: a deep rolling rumble, heavy thuds, then stones clattering for a while
+  yikil(v=1,p=0){if(!this.ok('yk',.9,'bomba'))return;const t=this.ctx.currentTime;this.hit(t,'lowpass',420,60,1.1*v,2.4,.8);this.tone(t,60,24,.9*v,1.8);
+    for(let i=0;i<4;i++)setTimeout(()=>{try{this.play('patla',(.5-.08*i)*v,p,.5+Math.random()*.15,900)}catch(e){}},90+i*260+Math.random()*120);
+    for(let i=0;i<16;i++)this.hit(t+.3+i*.12+Math.random()*.1,'bandpass',600+Math.random()*1800,500,(.35-.018*i)*v,.05,4)},
   // a missile: the deepest, longest boom in the game, with a second rumble rolling after it
   fuze(v=1,p=0){if(!this.ok('fz',.25,'bomba'))return;const t=this.ctx.currentTime;this.tone(t,75,20,1.5*v,1.5);this.hit(t,'lowpass',700,50,1.3*v,1.6,.7);this.play('patla',1.15*v,p,.55,1800);setTimeout(()=>{try{this.play('patla',.7*v,p,.42,700);this.tone(this.ctx.currentTime,55,22,.8*v,1.1)}catch(e){}},170)},
   // a missile taking off: a rising roar
