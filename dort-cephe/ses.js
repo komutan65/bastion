@@ -3,7 +3,8 @@ const CH=[[57,60,64,67],[53,57,60,64],[48,52,55,60],[55,59,62,67]],PENT=[69,72,7
 const KEY='cephe_ses';
 let saved={};try{saved=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){}
 export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:saved.okcu!==false,atli:saved.atli!==false,bomba:saved.bomba!==false,su:saved.su!==false},
-  init(){if(this.ctx){if(this.pz){if(!document.hidden)this.wake()}else if(this.ctx.state==='suspended')this.ctx.resume();return}const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;let c;try{c=this.ctx=new AC()}catch(e){return}
+  init(){if(this.ctx&&this.ctx.state==='closed')this.ctx=null;if(this.ctx){const c=this.ctx;if(document.hidden)return;if(this.pz)this.wake();else if(c.state!=='running'){const up=()=>{try{this.out.gain.cancelScheduledValues(c.currentTime);this.out.gain.setTargetAtTime(.7,c.currentTime+.05,.12)}catch(e){}};c.resume().then(up,()=>{})}return}     // phones put the sound to sleep (or 'interrupted') when the game goes to the background: any touch brings it back
+  const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;let c;try{c=this.ctx=new AC()}catch(e){return}
     this.out=c.createGain();this.out.gain.value=.7;const comp=c.createDynamicsCompressor();this.out.connect(comp);comp.connect(c.destination);
     this.mus=c.createGain();this.mus.gain.value=this.ayar.muzik?.6:0;this.mus.connect(this.out);
     this.dl=c.createDelay(2);this.dl.delayTime.value=.43;const fb=c.createGain();fb.gain.value=.42;const dlf=c.createBiquadFilter();dlf.type='lowpass';dlf.frequency.value=1700;this.dl.connect(dlf);dlf.connect(fb);fb.connect(this.dl);const wet=c.createGain();wet.gain.value=.55;dlf.connect(wet);wet.connect(this.mus);

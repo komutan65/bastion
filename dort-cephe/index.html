@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Dört Cephe</title>
 <script type="importmap">{"imports":{"three":"../three.min.js"}}</script>
-<link rel="stylesheet" href="lobby.css?v=20261110a">
+<link rel="stylesheet" href="lobby.css?v=20261110b">
 <style>
+button,input,select,a,label{touch-action:manipulation}
 html,body{margin:0;height:100%;overflow:hidden;background:#0d1a26;color:#f0e8d6;font-family:Georgia,'Times New Roman',serif;touch-action:none;user-select:none;-webkit-user-select:none}
 #game,#ov{position:fixed;inset:0;width:100%;height:100%;display:block}
 #ov{pointer-events:none}
@@ -60,7 +61,7 @@ body.nohud #hud,body.nohud #ov{display:none}
 #chatRow button{padding:5px 10px}#chatX{position:absolute;right:6px;top:6px;padding:2px 8px;z-index:1}#chatLog{padding-right:30px}
 body.chatting #eye,body.chatting #ver{display:none}
 #tutP{position:absolute;left:50%;bottom:180px;transform:translateX(-50%);width:min(460px,94vw);box-sizing:border-box;pointer-events:auto;padding:10px 12px;background:rgba(18,26,40,.95);border:2px solid #ffd98a;border-radius:10px;font-size:14px;line-height:1.35}
-#tutP[hidden]{display:none}#tutP.ok{border-color:#9df0b4}#tutH{display:flex;justify-content:space-between;align-items:baseline;color:#ffd98a}#tutP.ok #tutH{color:#9df0b4}#tutN{font-size:12px;opacity:.75}
+#tutP[hidden]{display:none}#bar.thide{display:none!important}body.tut #rivals,body.tut #chatB,body.tut #bSes,body.tut #bHome,body.tut #bAll,body.tut #cmdBar,body.tut #ver{display:none!important}body.tut #tutP{padding:8px 10px}body.tut #tutX{font-size:13.5px}#tutP.ok{border-color:#9df0b4}#tutH{display:flex;justify-content:space-between;align-items:baseline;color:#ffd98a}#tutP.ok #tutH{color:#9df0b4}#tutN{font-size:12px;opacity:.75}
 #tutX{margin:0 0 8px;font-size:13px;opacity:.9}#tutX[hidden]{display:none}#tutM{padding:0 8px!important;margin-left:6px;font-size:14px}#tutH2{margin:6px 0 6px;padding:7px 9px;border-radius:7px;background:#ffd98a;color:#1a1206;font-weight:700;font-size:15px}
 #tutP.ok{background:rgba(22,96,52,.97);border-color:#9df0b4;border-width:3px;box-shadow:0 0 24px rgba(120,255,160,.7)}#tutP.ok #tutH2{background:#9df0b4;font-size:17px}#tutP.ok #tutH{color:#fff}
 .tglow{animation:tglow 1s ease-in-out infinite;border-color:#fff!important;position:relative;z-index:3}
@@ -125,7 +126,7 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div>
 <button id="eye" title="Ekranı gizle" aria-label="Ekranı gizle" hidden>👁</button>
 
-<div id="ver" data-en="Version 22.1">Sürüm 24</div>
+<div id="ver" data-en="Version 22.1">Sürüm 25</div>
 <div id="lobby"><div class="lbox">
   <h1 data-en="FOUR FRONTS">DÖRT CEPHE</h1>
   <p id="lOnline" hidden></p>
@@ -157,6 +158,6 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div></div>
 <div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go" data-en="New match">Yeni maç</button><button id="aeWatch" data-en="Watch the match">Maçı izle</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="lobby.js?v=20261110a"></script>
+<script src="lobby.js?v=20261110b"></script>
 </body>
 </html>

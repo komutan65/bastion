@@ -71,7 +71,7 @@ async function enter(m){
   onlineAt(m.tutorial?'egitim':'oyun');
   window.ARENA={seat,id,room:String(m.room),players:m.players,sb,duel:!!m.duel,tutorial:!!m.tutorial};
   $('lStatus').textContent=L('Harita hazırlanıyor…','Preparing the map…');
-  try{await import('./oyun.js?v=20261110a');$('lobby').hidden=true}
+  try{await import('./oyun.js?v=20261110b');$('lobby').hidden=true}
   catch(e){console.error(e);err(L('Oyun yüklenemedi. Sayfayı yenile.','The game failed to load. Refresh the page.'))}
 }
 function join(name){
