@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261110d';
+import {SES} from './ses.js?v=20261110e';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -10,7 +10,7 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=200,MS_COST=100,MS_T=10,MS_HP=120,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=4,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='26.1';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='27';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
@@ -310,6 +310,9 @@ function runwayOf(s){
   return{a,b,c:m,ux,uz,len};
 }
 const RWY=[0,1,2,3].map(runwayOf);
+// 1v1 is fair: the second base gets exactly the first base's layout, turned round to its own side of the map
+const duelRot=p=>{const c0=castlePos(0),c1=castlePos(1),t=Math.atan2(c1.z,c1.x)-Math.atan2(c0.z,c0.x),C=Math.cos(t),S=Math.sin(t);return{x:p.x*C-p.z*S,z:p.x*S+p.z*C}};
+if(DUEL&&RWY[0]){const r=RWY[0],c0=castlePos(0),c1=castlePos(1),t=Math.atan2(c1.z,c1.x)-Math.atan2(c0.z,c0.x),C=Math.cos(t),S=Math.sin(t);RWY[1]={...r,a:duelRot(r.a),b:duelRot(r.b),c:duelRot(r.c),ux:r.ux*C-r.uz*S,uz:r.ux*S+r.uz*C}}
 // the muster field: trained soldiers wait here, on an open flank of the castle well clear of the road, and heal while they wait.
 // Every base tries the same spots in the same order, so each gets its field at the same distance
 const RALLY=[0,1,2,3].map(s=>{const c=castlePos(s);if(!ROAD[s])return c;const a0=castleAng(s),rw=RWY[s],dk=DOCK[s];
@@ -318,6 +321,7 @@ const RALLY=[0,1,2,3].map(s=>{const c=castlePos(s);if(!ROAD[s])return c;const a0
   const sg=DUEL?(s?-1:1):SX[s]*SZ[s];
   for(const d of[27,31,35,24])for(const da of[1.25,-1.25,1.7,-1.7,.85,-.85,2.2,-2.2,Math.PI]){const a=a0+da*sg,x=c.x+Math.cos(a)*d,z=c.z+Math.sin(a)*d;if(ok(x,z))return{x:Math.round(x),z:Math.round(z)}}
   return{x:Math.round(c.x+Math.cos(a0+1.25)*27),z:Math.round(c.z+Math.sin(a0+1.25)*27)}});
+if(DUEL){const r=duelRot(RALLY[0]);RALLY[1]={x:Math.round(r.x),z:Math.round(r.z)}}
 function reserved(s,x,z){
   {const q=RALLY[s];if(q&&Math.hypot(x-q.x,z-q.z)<12.5)return true}
   const r=RWY[s];if(r){const dx=x-r.c.x,dz=z-r.c.z,a=dx*r.ux+dz*r.uz,b=-dx*r.uz+dz*r.ux;if(Math.abs(a)<31&&Math.abs(b)<8)return true}
@@ -634,9 +638,9 @@ function jobOf(D,id){
   if(id==='cs'){if(!D.cfix)return null;const G=gates(D.seat),c=castlePos(D.seat),C=csOf(D),S=SEGC[D.seat]||[];return{job:'cs',x:c.x,z:c.z,bt:1,n:4,spot:k=>{let w=-1,wv=.01;for(let i=0;i<8;i++)if(C[i]>wv&&(i+k)%2===0){wv=C[i];w=i}const q=G[k%4];if(w>=0&&S[w]){const dx=S[w].x-c.x,dz=S[w].z-c.z,l=Math.hypot(dx,dz)||1;return{x:S[w].x+dx/l*3.5,z:S[w].z+dz/l*3.5,fx:S[w].x,fz:S[w].z}}return{x:q.x+(q.x-c.x)*.25,z:q.z+(q.z-c.z)*.25,fx:c.x,fz:c.z}}}}
   if(id==='ms'){if(D.msState!==1)return null;const G=gates(D.seat),c=castlePos(D.seat);return{job:'ms',x:c.x,z:c.z,bt:1,n:2,spot:k=>{const q=G[k%4];return{x:c.x+(q.x-c.x)*.62,z:c.z+(q.z-c.z)*.62,fx:c.x,fz:c.z}}}}
   if(id==='pw'){const w=D.pw;if(!w)return null;let ex,ez,fx,fz;     // public works: the castle's workers walk out and rebuild a bridge or the plaza themselves
-    if(w.k==='br'){const b=DBR[w.i],c=castlePos(D.seat),e=Math.hypot(b.a.x-c.x,b.a.z-c.z)<Math.hypot(b.b.x-c.x,b.b.z-c.z)?b.a:b.b,o=e===b.a?b.b:b.a,l=Math.hypot(o.x-e.x,o.z-e.z)||1;ex=e.x-(o.x-e.x)/l*3;ez=e.z-(o.z-e.z)/l*3;fx=e.x+(o.x-e.x)/l*6;fz=e.z+(o.z-e.z)/l*6}
+    if(w.k==='br'){const b=DBR[w.i],c=castlePos(D.seat),e=Math.hypot(b.a.x-c.x,b.a.z-c.z)<Math.hypot(b.b.x-c.x,b.b.z-c.z)?b.a:b.b,o=e===b.a?b.b:b.a,l=Math.hypot(o.x-e.x,o.z-e.z)||1;ex=e.x-(o.x-e.x)/l*1.2;ez=e.z-(o.z-e.z)/l*1.2;fx=e.x+(o.x-e.x)/l*4;fz=e.z+(o.z-e.z)/l*4}
     else{const c=castlePos(D.seat),l=Math.hypot(c.x,c.z)||1;ex=c.x/l*17;ez=c.z/l*17;fx=0;fz=0}
-    return{job:'pw',x:ex,z:ez,bt:1,n:3,spot:k=>{const a=(k-1)*2.6,px=-(fz-ez),pz=fx-ex,pl=Math.hypot(px,pz)||1;return{x:ex+px/pl*a,z:ez+pz/pl*a,fx,fz}}}}
+    return{job:'pw',x:ex,z:ez,bt:1,n:3,spot:k=>{const a=(k-1)*2.4,px=-(fz-ez),pz=fx-ex,pl=Math.hypot(px,pz)||1;return{x:ex+px/pl*a,z:ez+pz/pl*a,fx,fz}}}}
   if(id==='ys'){const d=DOCK[D.seat];if(!(D.ysState===1||(D.yard&&D.ysState===2)))return null;const L0=d.land,sa=Math.sin(d.ang),ca=Math.cos(d.ang);
     return{job:'ys',x:L0.x,z:L0.z,bt:1,n:D.ysState===1?3:2,spot:k=>{const o=[[-4,2],[4,1],[-1,-4]][k%3];return{x:L0.x+o[0]*ca+o[1]*sa,z:L0.z-o[0]*sa+o[1]*ca,fx:L0.x+sa*4,fz:L0.z+ca*4}}}}
   return null}
@@ -998,7 +1002,6 @@ function botThink(D){
   if(gr<(3+D.t/60)*(st.twr||1)&&D.money>=20&&place(gr>2&&Math.random()<.4&&D.money>=45?'top':'ok'))return;
   if(!D.rwState&&D.t>150&&D.money>RUNWAY_COST+60&&Math.random()<.06&&buildRunway(D))return;
   if(D.towers.filter(t=>t.type==='roket').length<1&&D.t>240&&D.money>90&&place('roket'))return;
-  if(fountainDown&&now()-downAt>100000&&D.money>=PLAZA_COST+60&&Math.random()<.01){D.money-=PLAZA_COST;D.pw={k:'pl',t:10};hire(D);return}
   if(DUEL&&D.money>=DBR_FIX+80&&Math.random()<.02){const i=DBR.findIndex(b=>b.down&&b.main!=null&&now()-b.downAt>60000);if(i>=0&&!P.some(o=>o.pw&&o.pw.i===i)){D.money-=DBR_FIX;D.pw={k:'br',i,t:9};hire(D);return}}
   if(D.money<12||D.t<(st.atkT||45)||gr<(st.minG==null?3:st.minG))return;      // build first, attack after the opening
   D.atk=(D.atk||0)-1;if(D.atk>0)return;D.atk=3+Math.random()*3|0;
@@ -1033,7 +1036,9 @@ function sim(dt){
     if(D===ME)trainTick(dt);
     if(D.cfix){const k=jobRate(D,'cs'),C=csOf(D);let left=false;for(let i=0;i<9;i++){if(C[i]>0){C[i]=Math.max(0,C[i]-dt*.08*k);left=left||C[i]>0}}D.hp=Math.min(CASTLE_HP,D.hp+dt*14*k);if(D.msState===2&&D.msHp<MS_HP)D.msHp=Math.min(MS_HP,D.msHp+dt*10*k);if(!left&&D.hp>=CASTLE_HP){D.cfix=false;markBuilt(D);if(D===ME)tip(TL('Kale onarıldı','Castle repaired'))}}
     if(D.msState===1){D.msT-=dt*jobRate(D,'ms');if(D.msT<=0){D.msState=2;markBuilt(D);if(D===ME)tip(TL('Füze sistemi hazır! Artık füze atabilirsin.','Missile system ready! You can fire missiles now.'))}}
-    if(D.pw){const w=D.pw;w.t-=dt*jobRate(D,'pw');if(w.k==='br'&&!DBR[w.i].down||w.k==='pl'&&!fountainDown)D.pw=null;else if(w.t<=0){D.pw=null;markBuilt(D);if(w.k==='br')fixDuelBridge(w.i);else repairPlaza()}}
+    if(D.pw){const w=D.pw;w.t-=dt*jobRate(D,'pw');const b=w.k==='br'&&DBR[w.i];if(w.k==='br'&&(!b.down||b.lowering))D.pw=null;else if(w.k==='pl')D.pw=null;
+      else{if(!b.g){buildWoodBridge(b,D.seat);b.g.rotation.x=-1.42}w.T=w.T||9;b.g.scale.z=clamp(1-w.t/w.T,.04,1);     // the timber bridge grows upright on our bank while they hammer
+        if(w.t<=0){D.pw=null;markBuilt(D);fixDuelBridge(w.i,false,D.seat)}}}
     if(D.ysState===1){D.ysT-=dt*jobRate(D,'ys');if(D.ysT<=0){D.ysState=2;markBuilt(D);if(D===ME)tip(TL('Tersane hazır! Artık gemi ve denizaltı yapabilirsin.','Shipyard ready! You can build ships and submarines now.'))}}
     if(D.rwFix){D.rwHp=Math.min(RW_HP,rwHpOf(D)+RW_HP/16*dt*jobRate(D,'rw'));if(D.rwHp>=RW_HP){D.rwFix=false;markBuilt(D);if(D===ME)tip(TL('Pist onarıldı','Runway repaired'))}}
     if(D.rwState===1){D.rwT-=dt*jobRate(D,'rw');if(D.rwT<=0){D.rwState=2;markBuilt(D);if(D===ME)tip(TL('Pist hazır! Artık uçak gönderebilirsin.','Runway ready! You can send planes now.'))}}
@@ -1086,7 +1091,7 @@ function connect(){
      .on('broadcast',{event:'yenimac'},({payload})=>onNewMatch(payload))
      .on('broadcast',{event:'cesme'},()=>breakFountain(true))
      .on('broadcast',{event:'dkopru'},({payload})=>breakDuelBridge(clamp(num(payload&&payload.i,-1),-1,3),true))
-     .on('broadcast',{event:'dkopruonar'},({payload})=>fixDuelBridge(clamp(num(payload&&payload.i,-1),-1,3),true))
+     .on('broadcast',{event:'dkopruonar'},({payload})=>fixDuelBridge(clamp(num(payload&&payload.i,-1),-1,3),true,clamp(num(payload&&payload.s,0),0,3)))
      .on('broadcast',{event:'onar'},()=>repairPlaza(true))
      .on('broadcast',{event:'iade'},({payload})=>{const m=payload||{};if(m.to===A.seat&&!ME.dead){ME.money+=clamp(num(m.m),0,100);SES.para()}})
      .on('broadcast',{event:'ez'},({payload})=>{const m=payload||{};if(m.to!==A.seat)return;const x=num(m.x),z=num(m.z);for(const o of ME.units)if(fighter(o.type)&&!o.ret&&Math.hypot(o.x-x,o.z-z)<4.6){o.hp=0;o.fk=true;sparks(o.x,o.z)}})
@@ -1554,27 +1559,31 @@ function buildBridges(rise){
 let DBM=null;
 function buildDuelBridges(){for(const b of DBR)buildDuelBridge(b)}
 function buildDuelBridge(b){
-  if(!DBM){const tex=cobble(),deckT=tex.clone();deckT.repeat.set(1.5,2);deckT.needsUpdate=true;DBM={deck:new THREE.MeshStandardMaterial({map:deckT,bumpMap:deckT,bumpScale:.25,roughness:.85}),side:new THREE.MeshStandardMaterial({color:'#9a9284',roughness:.9}),dark:new THREE.MeshStandardMaterial({color:'#6e675c',roughness:.95}),lamp:new THREE.MeshStandardMaterial({color:'#ffd58a',emissive:'#ffb347',emissiveIntensity:.9,roughness:.4})}}
-  // 1v1: a fortified stone bridge on arches, with crenellated parapets and a lantern-lit gate pillar at each corner. Built in a few solid sections so it breaks into pieces
-  const{deck,side,dark,lamp}=DBM,Y=1.06,W=BRW;const g=new THREE.Group(),l=Math.hypot(b.b.x-b.a.x,b.b.z-b.a.z),N=4,sl=l/N;g.position.set((b.a.x+b.b.x)/2,0,(b.a.z+b.b.z)/2);g.rotation.y=Math.atan2(b.b.x-b.a.x,b.b.z-b.a.z);
-  const box=(G,w,h,d,m,x,y,z)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);G.add(o);return o};
-  for(let k=0;k<N;k++){const S=new THREE.Group(),z0=-l/2+sl*k+sl/2;
-    box(S,W*2+.6,.6,sl,deck,0,Y-.3,z0);box(S,W*2+1.1,.35,sl,dark,0,Y-.75,z0);
-    for(const sx of[-1,1]){box(S,.55,.85,sl,side,sx*(W+.05),Y+.42,z0);for(let m=-sl/2+.55;m<sl/2-.3;m+=1.9)box(S,.62,.55,.9,side,sx*(W+.05),Y+1.1,z0+m);     // parapet with merlons
-      const ar=new THREE.Mesh(new THREE.TorusGeometry(sl/2-1.3,.42,6,14,Math.PI).rotateY(Math.PI/2),dark);ar.position.set(sx*(W+.15),Y-.85,z0);ar.rotation.x=Math.PI;S.add(ar)}       // an arch under the deck on each face
-    if(k<N-1){box(S,W*2+1.6,5,2.2,side,0,Y-3.1,z0+sl/2);for(const sx of[-1,1]){const cw=new THREE.Mesh(new THREE.CylinderGeometry(1.15,1.15,5,3),side);cw.position.set(sx*(W+.9),Y-3.1,z0+sl/2);cw.rotation.y=sx>0?0:Math.PI;S.add(cw)}}     // piers with cutwaters
-    const M=mergeModel(S);g.add(M)}
-  for(const ez of[-1,1])for(const sx of[-1,1]){const S=new THREE.Group(),z=ez*(l/2-.7),x=sx*(W+.3);box(S,1.5,2.8,1.5,side,x,Y+1.4,z);box(S,1.8,.3,1.8,dark,x,Y+2.9,z);
-    const cap=new THREE.Mesh(new THREE.ConeGeometry(1.05,1,4).rotateY(Math.PI/4),dark);cap.position.set(x,Y+3.55,z);S.add(cap);box(S,.12,.9,.12,dark,x,Y+4.4,z);box(S,.42,.5,.42,lamp,x,Y+5.05,z);g.add(mergeModel(S))}
-  scene.add(g);b.g=g}
+  if(!DBM){const tex=cobble(),deckT=tex.clone();deckT.repeat.set(1.5,6);deckT.needsUpdate=true;DBM={deck:new THREE.MeshStandardMaterial({map:deckT,bumpMap:deckT,bumpScale:.25,roughness:.85}),side:new THREE.MeshStandardMaterial({color:'#8f8a7c',roughness:.9})}}
+  const{deck,side}=DBM,Y=1.06;
+  {const g=new THREE.Group(),l=Math.hypot(b.b.x-b.a.x,b.b.z-b.a.z);g.position.set((b.a.x+b.b.x)/2,0,(b.a.z+b.b.z)/2);g.rotation.y=Math.atan2(b.b.x-b.a.x,b.b.z-b.a.z);
+    const m=new THREE.Mesh(new THREE.BoxGeometry(BRW*2+.6,.6,l),[side,side,deck,side,side,side]);m.position.y=Y-.3;m.castShadow=m.receiveShadow=true;g.add(m);
+    for(const sx of[-1,1]){const r=new THREE.Mesh(new THREE.BoxGeometry(.42,.62,l),side);r.position.set(sx*(BRW+.1),Y+.3,0);r.castShadow=true;g.add(r);
+      for(let k=0;k<4;k++){const q=new THREE.Mesh(new THREE.CylinderGeometry(.6,.85,4,10),side);q.position.set(sx*(BRW-.9),Y-2.4,-l/2+6+k*(l-12)/3);q.castShadow=true;g.add(q)}
+      for(let k=0;k<2;k++){const q=new THREE.Mesh(new THREE.BoxGeometry(.8,1.6,.8),side);q.position.set(sx*(BRW+.1),Y+.6,(k?1:-1)*(l/2-.6));q.castShadow=true;g.add(q)}}
+    scene.add(g);b.g=g}
+}
+// a fallen stone bridge is never rebuilt in stone: the castle's workers knock together a timber bridge at the water's edge,
+// standing it up on their own bank as it grows, then let it drop across to the far bank
+function buildWoodBridge(b,seat){const c=castlePos(seat),A=Math.hypot(b.a.x-c.x,b.a.z-c.z)<=Math.hypot(b.b.x-c.x,b.b.z-c.z),e=A?b.a:b.b,o=A?b.b:b.a,l=Math.hypot(o.x-e.x,o.z-e.z),W=BRW*2-.6;
+  const g=new THREE.Group();g.rotation.order='YXZ';g.position.set(e.x,1.06,e.z);g.rotation.y=Math.atan2(o.x-e.x,o.z-e.z);const n=10,cl=l/n;
+  for(let i=0;i<n;i++){const sec=new THREE.Group();sec.position.z=cl*(i+.5);g.add(sec);add(sec,new THREE.BoxGeometry(W,.4,cl-.12),WOOD,0,-.2,0);for(const sx of[-1,1])add(sec,new THREE.BoxGeometry(.3,.85,cl-.1),WOOD,sx*W/2,.38,0);
+    add(sec,new THREE.BoxGeometry(W+.5,.22,.32),WOOD,0,-.45,cl/2-.2);if(i%2)for(const sx of[-1,1])add(sec,new THREE.CylinderGeometry(.42,.5,4,8),WOOD,sx*(W/2-.6),-2.2,0)}
+  for(const sx of[-1,1]){add(g,new THREE.BoxGeometry(.4,2.8,.4),teamM[seat],sx*(W/2+.1),1.3,.3);add(g,new THREE.BoxGeometry(.4,2.8,.4),WOOD,sx*(W/2+.1),1.3,l-.3)}
+  scene.add(g);b.g=g;b.wood=true;b.from=seat;b.e=e;b.o=o;return g}
 // the 1v1 stone bridges go down like the plaza: any blast on them, and they can be rebuilt for gold
 function breakDuelBridge(i,remote){
-  const b=DBR[i];if(!b||b.down)return;b.down=true;b.downAt=now();navLand=null;const g=b.g;b.g=null;
+  const b=DBR[i];if(!b||b.down)return;const wd=!!b.wood;b.down=true;b.downAt=now();navLand=null;const g=b.g;b.g=null;b.wood=false;
   if(g){g.updateMatrixWorld(true);for(const m of[...g.children]){const v=new THREE.Vector3(),q=new THREE.Quaternion();m.getWorldPosition(v);m.getWorldQuaternion(q);const w=new THREE.Group();w.position.copy(v);w.quaternion.copy(q);m.position.set(0,0,0);m.quaternion.identity();w.add(m);scene.add(w);wreck.push({g:w,t:-Math.random()*.1,r:.4+Math.random()*1.2})}scene.remove(g)}
   const mx0=(b.a.x+b.b.x)/2,mz0=(b.a.z+b.b.z)/2;explode(mx0,mz0,3);quake=Math.max(quake,1.6*clamp(1-Math.hypot(mx0-view.x,mz0-view.z)/(view.d*1.4),0,1));
-  for(let k=0;k<=8;k++){const x=lerp(b.a.x,b.b.x,k/8),z=lerp(b.a.z,b.b.z,k/8);burst(x,1.5,z,7,['#8f8a7c','#6e6a60','#b0ab9c'],9,1.4,.35);puff(x,2,z,3.4,3.6,.72,1.6,1.4);if(k%2)splash(x,z,2.4)
+  for(let k=0;k<=8;k++){const x=lerp(b.a.x,b.b.x,k/8),z=lerp(b.a.z,b.b.z,k/8);burst(x,1.5,z,7,wd?['#6d4b2c','#4b3320','#a08560']:['#8f8a7c','#6e6a60','#b0ab9c'],9,1.4,.35);puff(x,2,z,3.4,3.6,.72,1.6,1.4);if(k%2)splash(x,z,2.4)
     setTimeout(()=>{splash(x+(Math.random()-.5)*4,z+(Math.random()-.5)*4,3.4);ripple(x,z,8);if(k%3===0)burst(x,.6,z,6,['#d8eef5','#ffffff','#9fc6d6'],8,1.2,.3)},420+k*90+Math.random()*250)}     // the spans crash down one after another and throw up the sea
-  fxAt(ME,mx0,mz0,'bomba');tip(TL('Taş köprü yıkıldı! Köprü aracıyla onarabilirsin.','A stone bridge fell! Rebuild it with the Bridge tool.'));
+  fxAt(ME,mx0,mz0,'bomba');tip(TL('Köprü yıkıldı! Köprü düğmesiyle işçilerin tahta köprü kurabilir.','A bridge fell! Use the Bridge button and your workers build a timber one.'));
   for(const D of P)if(local(D))for(const u of D.units){
     if(!fighter(u.type)||u.ret||UNITS[u.type].yol!=='kara')continue;
     if(segD(u.x,u.z,b)<BRW+.6){u.sink=Math.random()*-.25;continue}     // they drop off the broken deck into the sea and go under
@@ -1583,10 +1592,9 @@ function breakDuelBridge(i,remote){
     if(n){u.path=polyPath(n);u.s=0;u.end=u.path.len-(u.cmd?0:7+u.id%5);u.off=false;u.reS=false}else{u.path=polyPath([{x:u.x,z:u.z},{x:u.x+.01,z:u.z}]);u.s=0;u.end=0;u.cmd=true;u.hold=true}}
   if(!remote)say('dkopru',{i});
 }
-function fixDuelBridge(i,remote){
-  const b=DBR[i];if(!b||!b.down)return;b.down=false;navLand=null;buildDuelBridge(b);
-  for(const m of b.g.children){m.userData.y=m.position.y;m.position.y-=9}FALL.push({kind:'rise2',o:b.g,t:0});
-  SES.para();tip(TL('Taş köprü yeniden yapıldı','The stone bridge is rebuilt'));if(!remote)say('dkopruonar',{i});
+function fixDuelBridge(i,remote,seat){
+  const b=DBR[i];if(!b||!b.down||b.lowering)return;if(!b.g||!b.wood){if(b.g)scene.remove(b.g);buildWoodBridge(b,seat??ME.seat);b.g.rotation.x=-1.42}b.g.scale.z=1;b.lowering=true;
+  FALL.push({kind:'lower',o:b.g,t:0,b});tip(TL('Tahta köprü karşı kıyıya indiriliyor…','The timber bridge is being lowered across…'));if(!remote)say('dkopruonar',{i,s:seat??ME.seat});
 }
 const duelBridgeAt=p=>{let bi=-1,bd=10;DBR.forEach((b,i)=>{const d=segD(p.x,p.z,b);if(d<bd){bd=d;bi=i}});return bi};
 function brickTex(){const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');g.fillStyle='#55534e';g.fillRect(0,0,256,256);
@@ -2190,6 +2198,8 @@ function breakBridge(b,remote){
 const FALL=[];
 function animPlaza(dt){
   for(let i=FALL.length-1;i>=0;i--){const f=FALL[i];f.t+=dt;
+    if(f.kind==='lower'){const k=Math.min(1,f.t/1.5);f.o.rotation.x=-1.42*(1-k*k);     // it tips over and drops across, faster and faster, then slams down
+      if(k>=1){FALL.splice(i,1);const b=f.b;b.lowering=false;b.down=false;navLand=null;const o=b.o||b.b;burst(o.x,1.4,o.z,14,['#6d4b2c','#4b3320','#a08560'],10,1.3,.35);puff(o.x,1.5,o.z,3,3.4,.7,1.4,1.2);splash(o.x,o.z,2.6);ripple(o.x,o.z,6);quake=Math.max(quake,.5);fxAt(ME,o.x,o.z,'dalga');SES.para();tip(TL('Tahta köprü kuruldu, yol açık!','The timber bridge is down, the way is open!'))}continue}
     if(f.kind==='rise2'){const k=Math.min(1,f.t/1.8),e=1-Math.pow(1-k,3);for(const m of f.o.children)m.position.y=m.userData.y-9*(1-e);if(k>=1)FALL.splice(i,1);continue}
     if(f.kind==='rise'){const k=Math.min(1,f.t/2.2),e=1-Math.pow(1-k,3);f.o.position.y=-9*(1-e);
       if(Math.random()<dt*14){const a=Math.random()*6.28,r=10+Math.random()*5;puff(Math.cos(a)*r,1,Math.sin(a)*r,2.2,2.4,.62,1.4,.8);if(k<.7)splash(Math.cos(a)*r,Math.sin(a)*r,1.2)}
@@ -2334,7 +2344,6 @@ function eraseAt(x,z){let best=null,bd=2.6;for(const t of ME.towers){if(t.type!=
 function sellTower(t){const back=Math.floor(t.paid/2);ME.money+=back;floats.push({x:t.x,z:t.z,t:0,txt:'+'+back});SES.para();removeTower(ME,t)}
 function hover(sx,sy){
   const p=worldAt(sx,sy);if(p&&aim==='fuze'){ring.visible=true;ring.position.set(p.x,Math.max(heightAt(p.x,p.z),0)+.4,p.z);ring.scale.setScalar(9);ring.material.color.set(fuzeTo(p)!=null?'#ff5a3a':'#888');return}
-  if(p&&build==='kopru'&&fountainDown&&Math.hypot(p.x,p.z)<22){ring.visible=true;ring.position.set(0,1.2,0);ring.scale.setScalar(13);ring.material.color.set(ME.money>=PLAZA_COST?'#8dff9a':'#ff7a6a');return}
   if(p&&build==='kopru'&&DUEL){const i=duelBridgeAt(p);if(i>=0&&DBR[i].down){const b=DBR[i];ring.visible=true;ring.position.set((b.a.x+b.b.x)/2,1.2,(b.a.z+b.b.z)/2);ring.scale.setScalar(16);ring.material.color.set(ME.money>=DBR_FIX?'#8dff9a':'#ff7a6a');return}}
   if(p&&build==='kopru'){const b=bridgeSpot(p);ring.visible=true;ring.position.set(p.x,1.2,p.z);ring.scale.setScalar(6);ring.material.color.set(b&&ME.money>=BRIDGE_COST?'#8dff9a':'#ff7a6a');return}
   if(!p||!build||build==='sil')return;const x=snap(p.x),z=snap(p.z);
@@ -2448,7 +2457,7 @@ function tap(sx,sy){
   for(const D of P)if(D.on&&D!==ME&&!D.dead&&!build){const c=castlePos(D.seat);if(Math.hypot(p.x-c.x,p.z-c.z)<16){setTarget(D.seat);return}}
   if(!build){const c=castlePos(ME.seat);if(Math.hypot(p.x-c.x,p.z-c.z)<CH*1.45){pick(null);castleSel=!wasC;$('csel').hidden=!castleSel;return}}
   if(build==='sil'){eraseAt(p.x,p.z);return}
-  if(build==='kopru'&&fountainDown&&Math.hypot(p.x,p.z)<22){if(ME.money<PLAZA_COST){tip((EN?`Repairing the plaza costs ${PLAZA_COST} gold`:`Meydanı onarmak: ${PLAZA_COST} {au}`));return}if(ME.pw){tip(TL('İşçilerin zaten bir onarımda','Your workers are already on a repair job'));return}ME.money-=PLAZA_COST;ME.pw={k:'pl',t:10};hire(ME);tip(TL('İşçiler meydanı onarmaya gidiyor','Your workers are off to rebuild the plaza'));setBuild(null);return}
+  if(build==='kopru'&&fountainDown&&Math.hypot(p.x,p.z)<16){tip(TL('Yıkılan meydan bir daha yapılmaz. Suyun üstünde başka bir yere tahta köprü kur.','A fallen plaza is never rebuilt. Lay a timber bridge somewhere else over the water.'));return}
   if(build==='kopru'&&DUEL){const i=duelBridgeAt(p);if(i>=0&&DBR[i].down){if(ME.money<DBR_FIX){tip((EN?`Rebuilding costs ${DBR_FIX} gold`:`Onarmak: ${DBR_FIX} {au}`));return}if(ME.pw){tip(TL('İşçilerin zaten bir onarımda','Your workers are already on a repair job'));return}ME.money-=DBR_FIX;ME.pw={k:'br',i,t:9};hire(ME);tip(TL('İşçiler köprüyü onarmaya gidiyor','Your workers are off to rebuild the bridge'));setBuild(null);return}}
   if(build==='kopru'){const b=bridgeSpot(p);
     if(!b)tip(TL('Köprü için nehrin üstüne dokun (ortadan biraz uzakta)','Tap on the river to build a bridge (a bit away from the middle)'));

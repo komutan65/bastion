@@ -12,7 +12,8 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
     this.padF=c.createBiquadFilter();this.padF.type='lowpass';this.padF.frequency.value=600;this.padF.Q.value=.7;this.padG=c.createGain();this.padG.gain.value=.2;this.padF.connect(this.padG);this.padG.connect(this.mus);this.padG.connect(this.dl);
     this.sfx=c.createGain();this.sfx.gain.value=.6;this.sfx.connect(this.out);
     const nb=c.createBuffer(1,c.sampleRate,c.sampleRate),d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;this.noise=nb;
-    const t=c.currentTime;this.tC=t+.1;this.ci=0;this.tN=t+2.5;this.tB=t+1;this.bi=0;this.iv=setInterval(()=>this.sched(),60);setTimeout(()=>{try{this.bake()}catch(e){}},0)},
+    const t=c.currentTime;this.tC=t+.1;this.ci=this.ci||0;this.tN=t+2.5;this.tB=t+.3;this.bi=this.bi||0;     // a rebuilt sound engine carries the music on from where it was, not from the top
+    this.iv=setInterval(()=>this.sched(),60);setTimeout(()=>{try{this.bake()}catch(e){}},0)},
   // leaving the page: fade out first, then sleep, so the speaker never cracks
   pause(){const c=this.ctx;if(c&&document.hidden)this.stale=true;if(!c||this.pz)return;this.pz=true;try{this.out.gain.cancelScheduledValues(c.currentTime);this.out.gain.setTargetAtTime(0,c.currentTime,.02)}catch(e){}clearTimeout(this.pzT);this.pzT=setTimeout(()=>{if(this.pz&&c.state==='running')c.suspend().catch(()=>{})},140)},
   wake(){const c=this.ctx;if(!c||!this.pz)return;this.pz=false;clearTimeout(this.pzT);const up=()=>{try{this.out.gain.cancelScheduledValues(c.currentTime);this.out.gain.setValueAtTime(0,c.currentTime);this.out.gain.setTargetAtTime(.7,c.currentTime+.05,.15)}catch(e){}};if(c.state!=='running')c.resume().then(up,()=>{});else up()},
