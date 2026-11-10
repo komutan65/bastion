@@ -3,7 +3,8 @@ const CH=[[57,60,64,67],[53,57,60,64],[48,52,55,60],[55,59,62,67]],PENT=[69,72,7
 const KEY='cephe_ses';
 let saved={};try{saved=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){}
 export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:saved.okcu!==false,atli:saved.atli!==false,bomba:saved.bomba!==false,su:saved.su!==false},
-  init(){if(this.ctx&&this.ctx.state==='closed')this.ctx=null;if(this.ctx){const c=this.ctx;if(document.hidden)return;if(this.pz)this.wake();else if(c.state!=='running'){const up=()=>{try{this.out.gain.cancelScheduledValues(c.currentTime);this.out.gain.setTargetAtTime(.7,c.currentTime+.05,.12)}catch(e){}};c.resume().then(up,()=>{})}return}     // phones put the sound to sleep (or 'interrupted') when the game goes to the background: any touch brings it back
+  init(){if(this.ctx&&this.stale&&!document.hidden){this.stale=false;const o=this.ctx;clearInterval(this.iv);try{o.close()}catch(e){}this.ctx=null;this.pz=false}     // back from the background: phones often leave the old sound engine mute for good, so the first touch builds a fresh one
+  if(this.ctx&&this.ctx.state==='closed')this.ctx=null;if(this.ctx){const c=this.ctx;if(document.hidden)return;if(this.pz)this.wake();else if(c.state!=='running'){const up=()=>{try{this.out.gain.cancelScheduledValues(c.currentTime);this.out.gain.setTargetAtTime(.7,c.currentTime+.05,.12)}catch(e){}};c.resume().then(up,()=>{})}return}     // phones put the sound to sleep (or 'interrupted') when the game goes to the background: any touch brings it back
   const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;let c;try{c=this.ctx=new AC()}catch(e){return}
     this.out=c.createGain();this.out.gain.value=.7;const comp=c.createDynamicsCompressor();this.out.connect(comp);comp.connect(c.destination);
     this.mus=c.createGain();this.mus.gain.value=this.ayar.muzik?.6:0;this.mus.connect(this.out);
@@ -11,9 +12,9 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
     this.padF=c.createBiquadFilter();this.padF.type='lowpass';this.padF.frequency.value=600;this.padF.Q.value=.7;this.padG=c.createGain();this.padG.gain.value=.2;this.padF.connect(this.padG);this.padG.connect(this.mus);this.padG.connect(this.dl);
     this.sfx=c.createGain();this.sfx.gain.value=.6;this.sfx.connect(this.out);
     const nb=c.createBuffer(1,c.sampleRate,c.sampleRate),d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;this.noise=nb;
-    const t=c.currentTime;this.tC=t+.1;this.ci=0;this.tN=t+2.5;this.tB=t+1;this.bi=0;setInterval(()=>this.sched(),60);setTimeout(()=>{try{this.bake()}catch(e){}},0)},
+    const t=c.currentTime;this.tC=t+.1;this.ci=0;this.tN=t+2.5;this.tB=t+1;this.bi=0;this.iv=setInterval(()=>this.sched(),60);setTimeout(()=>{try{this.bake()}catch(e){}},0)},
   // leaving the page: fade out first, then sleep, so the speaker never cracks
-  pause(){const c=this.ctx;if(!c||this.pz)return;this.pz=true;try{this.out.gain.cancelScheduledValues(c.currentTime);this.out.gain.setTargetAtTime(0,c.currentTime,.02)}catch(e){}clearTimeout(this.pzT);this.pzT=setTimeout(()=>{if(this.pz&&c.state==='running')c.suspend().catch(()=>{})},140)},
+  pause(){const c=this.ctx;if(c&&document.hidden)this.stale=true;if(!c||this.pz)return;this.pz=true;try{this.out.gain.cancelScheduledValues(c.currentTime);this.out.gain.setTargetAtTime(0,c.currentTime,.02)}catch(e){}clearTimeout(this.pzT);this.pzT=setTimeout(()=>{if(this.pz&&c.state==='running')c.suspend().catch(()=>{})},140)},
   wake(){const c=this.ctx;if(!c||!this.pz)return;this.pz=false;clearTimeout(this.pzT);const up=()=>{try{this.out.gain.cancelScheduledValues(c.currentTime);this.out.gain.setValueAtTime(0,c.currentTime);this.out.gain.setTargetAtTime(.7,c.currentTime+.05,.15)}catch(e){}};if(c.state!=='running')c.resume().then(up,()=>{});else up()},
   set(k,v){this.ayar[k]=v;try{localStorage.setItem(KEY,JSON.stringify(this.ayar))}catch(e){}if(k==='muzik'&&this.mus)this.mus.gain.setTargetAtTime(v?.6:0,this.ctx.currentTime,.1)},
   mf:m=>440*Math.pow(2,(m-69)/12),
@@ -50,11 +51,12 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
   tone(t,f0,f1,peak,dur,type='sine'){const c=this.ctx,o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(f1,t+dur);o.connect(g);g.connect(this.sfx);this.env(g,t,.004,peak,0,dur);o.start(t);o.stop(t+dur+.05)},
   // rocket leaving the rack: a hard "tak" then the hiss of the motor ("şşş")
   // a rocket leaving its rail: a dull thump and crack as the motor lights, then a tearing roar that drops in pitch as it races away, crackling
+  // a rocket leaving its tube: a hard punch, a sharp crack, then a tearing whoosh that crackles away
   roket(v=1,p=0){if(!this.ok('r',.15,'bomba'))return;const c=this.ctx,t=c.currentTime;
-    this.tone(t,130,45,.9*v,.18);this.hit(t,'highpass',5000,1800,1*v,.05,.9);this.play('tufek',.55*v,p,1.15,4200);
-    this.hit(t+.02,'bandpass',2600,650,1.05*v,1.3,1.6);this.hit(t+.05,'lowpass',900,180,.55*v,1.1,1);
-    for(let i=0;i<14;i++)this.hit(t+.05+i*.07+Math.random()*.04,'bandpass',700+Math.random()*2200,260,(.5-.028*i)*v,.035,3);
-    this.play('vin',.45*v,p,.95)},
+    this.tone(t,160,38,1.35*v,.32);this.tone(t,90,30,.9*v,.5,'triangle');this.hit(t,'highpass',6500,2000,1.5*v,.07,.8);this.play('patla',.55*v,p,1.5,3800);this.play('tufek',.7*v,p,1.05,4200);
+    this.hit(t+.02,'bandpass',3200,520,1.45*v,1.7,1.4);this.hit(t+.04,'lowpass',1100,140,.9*v,1.4,.9);
+    for(let i=0;i<22;i++)this.hit(t+.05+i*.06+Math.random()*.04,'bandpass',800+Math.random()*2600,300,(.62-.026*i)*v,.035,3);
+    this.play('vin',.6*v,p,.95)},
   // rocket meeting a missile in the sky: a hard crack, a big airburst and a ringing echo
   roketVur(v=1,p=0){if(!this.ok('rv',.1,'bomba'))return;const t=this.ctx.currentTime;this.hit(t,'highpass',7000,1200,1.4*v,.14,.7);this.tone(t,190,40,1.2*v,.7);this.tone(t,1100,300,.3*v,.35,'triangle');
     this.play('patla',1.1*v,p,1.2);setTimeout(()=>{try{this.play('patla',.55*v,p,.7,1400)}catch(e){}},90)},
@@ -65,7 +67,12 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
   // a missile: the deepest, longest boom in the game, with a second rumble rolling after it
   fuze(v=1,p=0){if(!this.ok('fz',.25,'bomba'))return;const t=this.ctx.currentTime;this.tone(t,75,20,1.5*v,1.5);this.hit(t,'lowpass',700,50,1.3*v,1.6,.7);this.play('patla',1.15*v,p,.55,1800);setTimeout(()=>{try{this.play('patla',.7*v,p,.42,700);this.tone(this.ctx.currentTime,55,22,.8*v,1.1)}catch(e){}},170)},
   // a missile taking off: a rising roar
-  fuzeCik(v=1,p=0){if(!this.ok('fc',.3,'bomba'))return;const t=this.ctx.currentTime;this.hit(t,'bandpass',260,1600,.8*v,1.1,1.1);this.tone(t,60,140,.5*v,.9,'sawtooth');this.play('vin',.7*v,p,.5)},
+  // a missile lifting off its launcher: an ignition blast that thumps the chest, then a long rising roar with crackle
+  fuzeCik(v=1,p=0){if(!this.ok('fc',.3,'bomba'))return;const t=this.ctx.currentTime;
+    this.tone(t,58,26,1.7*v,.9);this.play('patla',1*v,p,.62,1500);this.hit(t,'lowpass',1300,110,1.7*v,1.9,.8);this.hit(t,'highpass',5000,1500,1*v,.1,.8);
+    this.hit(t+.08,'bandpass',240,1700,1.25*v,2.8,1.1);this.tone(t+.06,55,160,.75*v,2.2,'sawtooth');this.hit(t+.2,'lowpass',500,90,.9*v,2.6,.7);
+    for(let i=0;i<26;i++)this.hit(t+.15+i*.075+Math.random()*.05,'bandpass',600+Math.random()*2400,250,(.55-.019*i)*v,.04,3);
+    this.play('vin',.85*v,p,.45)},
   // a cannonball landing: a short punchy thud
   gulle(v=1,p=0){if(!this.ok('gl',.12,'bomba'))return;const t=this.ctx.currentTime;this.tone(t,150,48,.8*v,.28);if(!this.play('patla',.55*v,p,1.3,2600))this.hit(t,'lowpass',1600,150,.7*v,.3)},
   // a warship's gun: heavier and lower than a tower cannon
