@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261111b';
+import {SES} from './ses.js?v=20261111c';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -10,7 +10,7 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=200,MS_COST=100,MS_T=10,MS_HP=120,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=4,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='29';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='29.1';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
@@ -2000,6 +2000,15 @@ function chrMat(tex){const m=new THREE.MeshStandardMaterial({color:'#ffffff',rou
   if(tex)m.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aTeam;varying float vTeam;').replace('#include <begin_vertex>','#include <begin_vertex>\nvTeam=aTeam;');
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vTeam;').replace('#include <color_fragment>','#if defined(USE_COLOR)\n diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vColor.rgb*1.5,vTeam);\n#endif')};     // only the cloak takes the team colour
   return m}
+// one static model (KayKit nature, CC0) from the same baked format: first frame only
+async function loadGeo(key){const r=await fetch('model/'+key+'.bin?v='+VER);if(!r.ok)throw new Error(key);const buf=await r.arrayBuffer(),dv=new DataView(buf),jl=dv.getUint32(0,true),pad=a=>a+((4-a%4)%4);
+  const h=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,4,jl)));let o=4+pad(jl);const nv=h.nv;const IA=h.big?new Uint32Array(buf,o,h.ni):new Uint16Array(buf,o,h.ni);o+=pad(IA.byteLength);const UV=new Float32Array(buf,o,nv*2);o+=UV.byteLength;o+=pad(nv);if(h.hasCol)o+=pad(nv*3);
+  const a=new Int16Array(buf,o,nv*3),P3=new Float32Array(nv*3);for(let i=0;i<P3.length;i++)P3[i]=a[i]*h.q;const g=new THREE.BufferGeometry();g.setIndex(new THREE.BufferAttribute(new (h.big?Uint32Array:Uint16Array)(IA),1));g.setAttribute('position',new THREE.BufferAttribute(P3,3));g.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(UV),2));g.computeVertexNormals();g.computeBoundingSphere();return g}
+// swap the hand-built trees and rocks for the modelled ones once they have loaded (the old ones stay if anything fails)
+async function nicerProps(){try{const[pi,br]=await Promise.all(['t_pine','t_broad'].map(loadGeo));
+  const t=new THREE.TextureLoader().load('model/hexagons_medieval.png?v='+VER);t.colorSpace=THREE.SRGBColorSpace;t.flipY=false;const M=new THREE.MeshStandardMaterial({map:t,roughness:.85});
+  const set=(k,g)=>{const ms=PROPM[k];if(!ms)return;ms[ms.length-1].geometry=g;ms[ms.length-1].material=M;for(let i=0;i<ms.length-1;i++)ms[i].visible=false;if(FALLM[k])FALLM[k].forEach((f,i)=>{f.geometry=ms[i].geometry;f.material=ms[i].material;f.visible=i===ms.length-1&&f.count>0})};
+  set('pine',pi);set('pine2',pi);set('broad',br)}catch(e){console.warn('props',e)}}
 async function loadChr(key){try{
   const r=await fetch('model/'+key+'.bin?v='+VER);if(!r.ok)return;const buf=await r.arrayBuffer(),dv=new DataView(buf),jl=dv.getUint32(0,true),pad=a=>a+((4-a%4)%4);
   const h=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,4,jl)));let o=4+pad(jl);const nv=h.nv;
@@ -2977,7 +2986,7 @@ function frameBody(t){
   if((fno=(fno||0)+1)%15===0)forestLOD();
 }
 let fno=0,lockTipT=0;
-buildGround();buildOuter();buildWater();buildBridges();buildForest();buildDetail();buildUnits();loadChars();buildSites();P.forEach(D=>{if(D.on)buildCastle(D.seat)});if(TUT)for(const D of P)if(D!==ME)D.msState=2;
+buildGround();buildOuter();buildWater();buildBridges();buildForest();buildDetail();buildUnits();loadChars();nicerProps();buildSites();P.forEach(D=>{if(D.on)buildCastle(D.seat)});if(TUT)for(const D of P)if(D!==ME)D.msState=2;
 size();mkHud();connect();applyCam(1);if(TUT)mkTut();
 sun.shadow.autoUpdate=false;sun.shadow.needsUpdate=true;if(!GFX[gfxMode].sh)sun.castShadow=false;
 // draw every kind of object once, out of sight, so no shader is ever built in the middle of a fight
