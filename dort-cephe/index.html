@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Dört Cephe</title>
 <script type="importmap">{"imports":{"three":"../three.min.js"}}</script>
-<link rel="stylesheet" href="lobby.css?v=20261111i">
+<link rel="stylesheet" href="lobby.css?v=20261111j">
 <style>
 /* Georgia draws numbers at uneven heights (old-style figures): every digit in the game comes from an even, upright font instead */
 @font-face{font-family:'Rakam';src:local('Helvetica Neue'),local('HelveticaNeue'),local('Arial'),local('Roboto'),local('Segoe UI');unicode-range:U+0030-0039,U+002E,U+002C,U+002B,U+002F,U+0025}
@@ -32,7 +32,11 @@ body[data-tab=d] #tabD,body[data-tab=y] #tabY,body[data-tab=a] #tabA{background:
 .grp{display:none;gap:7px;flex-wrap:wrap;justify-content:center;padding:9px;background:linear-gradient(180deg,rgba(30,40,56,.93),rgba(16,22,32,.93));border:1px solid rgba(255,217,138,.5);border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.5)}
 body[data-tab=d] #gDef,body[data-tab=y] #gYap,body[data-tab=a] #gTgt,body[data-tab=a] #gAtk{display:flex}
 .grp span,.grp .sec{display:none!important}
-.grp button{width:78px;height:64px;border-radius:13px;padding:4px 3px;font-size:12.5px;line-height:1.15;display:flex;flex-direction:column;align-items:center;justify-content:center;white-space:normal;box-shadow:0 2px 5px rgba(0,0,0,.4),inset 0 1px 2px rgba(255,255,255,.12)}
+.grp button{width:82px;height:64px;border-radius:13px;padding:3px 4px;font-size:12px;line-height:1.12;display:flex;flex-direction:column;align-items:center;justify-content:center;white-space:normal;overflow:hidden;text-align:center;word-break:break-word;hyphens:auto;box-shadow:0 2px 5px rgba(0,0,0,.4),inset 0 1px 2px rgba(255,255,255,.12)}
+.grp button small{display:block;max-width:100%;font-size:10.5px;line-height:1.1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tabs button.mini{width:auto;min-width:64px;height:46px;border-radius:23px;align-self:center;padding:2px 12px;font-size:12px;line-height:1.1;background:radial-gradient(circle at 35% 28%,#4f6a58,#1d2a22 72%)}
+#tabs button.mini small{display:block;font-size:9.5px;color:#ffd98a;white-space:nowrap}
+#tabs button.mini.on{background:radial-gradient(circle at 35% 28%,#ffe9a8,#c8902e 72%);color:#1a1206}
 #rot{position:fixed;right:10px;bottom:calc(168px + env(safe-area-inset-bottom,0px));z-index:6;display:flex;flex-direction:column;gap:8px}
 #rot button{width:42px;height:42px;border-radius:50%;font-size:21px;line-height:1;padding:0;color:#fff;background:rgba(20,28,38,.75);border:1px solid #c9b07a;box-shadow:0 2px 6px rgba(0,0,0,.45)}
 .grp small{display:block;font-size:11px;color:#ffd98a}
@@ -84,8 +88,9 @@ body.chatting #eye,body.chatting #ver{display:none}
 @media(max-width:760px){
   #rivals{width:104px;font-size:11px}#rivals button{padding:2px 5px}#money{font-size:16px;padding:4px 9px}#rivals{top:calc(42px + env(safe-area-inset-top,0px))}
   #bar{gap:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px))}
-  #tabs{gap:14px}#tabs button{width:56px;height:56px;font-size:10px}#tabs button b{font-size:21px}
-  .grp{gap:5px;padding:7px}.grp button{width:64px;height:54px;font-size:11px;border-radius:11px}.grp small{font-size:10px}
+  #tabs button{width:54px;height:54px;font-size:10px}#tabs button b{font-size:21px}
+  .grp{gap:5px;padding:7px}.grp button{width:68px;height:56px;font-size:10.5px;border-radius:11px;padding:2px 3px}.grp button small{font-size:9px}
+  #tabs{gap:8px}#tabs button.mini{height:40px;min-width:52px;padding:2px 8px;font-size:10.5px}
   #rot{bottom:auto;top:calc(150px + env(safe-area-inset-top,0px));right:8px}#rot button{width:36px;height:36px;font-size:18px}
   #tools button{padding:3px 6px;font-size:10px}
   #cmdBar{font-size:12px;padding:6px 8px;gap:5px}
@@ -135,7 +140,7 @@ body.chatting #eye,body.chatting #ver{display:none}
 <button id="eye" title="Ekranı gizle" aria-label="Ekranı gizle" hidden>👁</button>
 <div id="rot"><button id="rotL" title="Haritayı sola döndür" aria-label="Haritayı sola döndür">⟲</button><button id="rotR" title="Haritayı sağa döndür" aria-label="Haritayı sağa döndür">⟳</button></div>
 
-<div id="ver" data-en="Version 35">Sürüm 35</div>
+<div id="ver" data-en="Version 36">Sürüm 36</div>
 <div id="lobby"><div class="lbox">
   <h1 data-en="FOUR FRONTS">DÖRT CEPHE</h1>
   <p id="lOnline" hidden></p>
@@ -167,6 +172,6 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div></div>
 <div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go" data-en="New match">Yeni maç</button><button id="aeWatch" data-en="Watch the match">Maçı izle</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="lobby.js?v=20261111i"></script>
+<script src="lobby.js?v=20261111j"></script>
 </body>
 </html>

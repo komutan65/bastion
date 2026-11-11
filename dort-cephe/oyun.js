@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261111i';
+import {SES} from './ses.js?v=20261111j';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -10,7 +10,7 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=200,MS_COST=100,MS_T=10,MS_HP=120,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=4,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='35';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='36';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
@@ -127,7 +127,11 @@ const bridges=[];
 const segD=(x,z,b)=>{const dx=b.b.x-b.a.x,dz=b.b.z-b.a.z,t=clamp(((x-b.a.x)*dx+(z-b.a.z)*dz)/(dx*dx+dz*dz),0,1);return Math.hypot(x-b.a.x-dx*t,z-b.a.z-dz*t)};
 const onBridge=(x,z)=>bridges.some(b=>segD(x,z,b)<3.6);
 const onDeck=(x,z)=>{if(DUEL)return onDeckFixed(x,z)||onBridge(x,z);const r=Math.hypot(x,z);return(!fountainDown&&(r<13||(r<25&&roadDist(x,z)<5.3)))||onBridge(x,z);return r<13||(r<25&&roadDist(x,z)<4.5)||onBridge(x,z)};
-const unitY=(u,x,z)=>u.yol==='ucak'?28:u.yol==='hava'?20:u.yol==='fuze'?34:u.yol==='deniz'?-.45:u.yol==='su'?(onBridge(x,z)?1.08:Math.max(heightAt(x,z),-.75)):onDeck(x,z)?1.08:deckY(x,z);
+const unitY=(u,x,z)=>u.yol==='ucak'?28:u.yol==='hava'?20:u.yol==='fuze'?34:u.yol==='deniz'?-.45:u.yol==='su'?(onBridge(x,z)||onDeck(x,z)?1.08:nearDeck(x,z)&&heightAt(x,z)<1.08?1.08:Math.max(heightAt(x,z),-.75)):onDeck(x,z)?1.08:deckY(x,z);     // a swimming horse climbs onto a bridge rather than through it
+// the drawn height of a horse, man or ram: it rides up steps and over lips with a little jump, and drops back under gravity, so edges and craters are hopped instead of clipped
+function hopY(u,x,z,dt){const ty=unitY(UNITS[u.type],x,z);if(u.jy==null||Math.abs(u.jy-ty)>6){u.jy=ty;u.jv=0;return ty}
+  const kick=u.type==='atli'?7.5:u.type==='koc'?3:5.5;if(ty>u.jy+.12&&u.jv<=0)u.jv=Math.min(kick,Math.sqrt(2*22*(ty-u.jy+.35)));
+  u.jv-=22*dt;u.jy+=u.jv*dt;if(u.jy<ty){u.jy=ty;u.jv=0}return u.jy}
 const deckY=(x,z)=>{const h=heightAt(x,z);return h<1.08&&nearDeck(x,z)?1.08:Math.max(h,.2)};
 const flies=U=>U.yol==='hava'||U.yol==='fuze'||U.yol==='ucak';
 const fighter=t=>!flies(UNITS[t])&&UNITS[t].yol!=='deniz';
@@ -719,7 +723,8 @@ function scanFoes(D){
   const n=D.units.length;
   for(let i=0;i<n;i++){const a=D.units[i];if(!fighter(a.type)||a.ret)continue;const ra=a.type==='koc'?2.3:a.type==='atli'?1.8:.95;
     for(let j=i+1;j<n;j++){const b=D.units[j];if(!fighter(b.type)||b.ret)continue;const m=ra+(b.type==='koc'?2.3:b.type==='atli'?1.8:.95),dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz)||.01;
-      if(d<m){const k=(m-d)/d*5;a.vx-=dx*k;a.vz-=dz*k;b.vx+=dx*k;b.vz+=dz*k}}}
+      if(d<m){const k=(m-d)/d*5;a.vx-=dx*k;a.vz-=dz*k;b.vx+=dx*k;b.vz+=dz*k;
+        if((a.type==='koc'||b.type==='koc'||d<m*.6)&&!a.road&&!b.road){const h=(m-d)/d*.25,ax=a.x-dx*h,az=a.z-dz*h,bx=b.x+dx*h,bz=b.z+dz*h;if(canStand(a,ax,az)){a.x=ax;a.z=az}if(canStand(b,bx,bz)){b.x=bx;b.z=bz}}}}}     // big bodies are pushed apart outright, never left overlapping
   // foes don't melt into each other either: a knight striking a ram stands at its nose, not inside it
   const BR=t=>t==='koc'?2.9:t==='atli'?1.6:1;
   for(const a of D.units){if(!fighter(a.type)||a.ret||a.fall!=null||a.type==='balon'||a.type==='isci')continue;const ra=BR(a.type);
@@ -2155,7 +2160,7 @@ function horseGeo(ph,run){
     // a loft along z: section 'up' is +y, so the path frame is built with side = x
     tube(pts,rad,COAT,18)}
   // the neck sweeps up from the withers and arches forward; the head hangs from the poll, deep at the cheek, long to a soft muzzle
-  const nk=run?.09*Math.sin(T*2+1.2):.07*Math.sin(T)-.03,poll=V(0,Y(2.88+nk),1.98+nk*.4);
+  const nk=run?.09*Math.sin(T*2+1.2):-.24*Math.max(0,Math.sin(T))**2+.05*Math.sin(T*3)+.02,poll=V(0,Y(2.88+nk),1.98+nk*.4);
   {const N=[[V(0,Y(2.0),.98),.36,.56],[V(0,Y(2.3),1.35),.3,.46],[V(0,Y(2.58+nk*.5),1.66+nk*.2),.22,.34],[V(0,Y(2.8+nk),1.88+nk*.35),.17,.25],[poll,.15,.2]];tube(N.map(a=>a[0]),N.map(a=>[a[1],a[2]*.8,a[2]*1.1]),COAT,16)}
   {const hd=V(0,-.62,.62).normalize(),H=[[0,.15,.2],[.12,.17,.25],[.3,.15,.24],[.5,.12,.18],[.68,.1,.14],[.82,.1,.13],[.9,.07,.08],[.94,.02,.02]].map(([t,rx,ry])=>[poll.clone().add(V(0,.04,.02)).addScaledVector(hd,t),rx,ry]);
     tube(H.map(a=>a[0]),H.map(a=>[a[1],a[2]*.85,a[2]*1.05]),COAT,14);
@@ -2170,7 +2175,7 @@ function horseGeo(ph,run){
   {const sw=run?Math.sin(T*2)*.18:Math.sin(T*2)*.28,lift=run?.35:0,TT=[[0,1.98,-1.6,.1],[sw*.2,1.92+lift*.2,-1.78-lift*.15,.13],[sw*.5,1.6+lift*.4,-1.92-lift*.3,.16],[sw*.8,1.2+lift*.55,-1.98-lift*.45,.15],[sw,.8+lift*.7,-1.95-lift*.55,.08],[sw*1.1,.6+lift*.75,-1.9-lift*.6,.02]];
     tube(TT.map(([x,y,z])=>V(x,Y(y),z)),TT.map(a=>[a[3],a[3]*.8]),DK,8)}
   // legs: shoulder and forearm, knee, slim cannon, fetlock, sloping pastern and hoof; behind: thigh, gaskin, the hock's backward angle
-  const legs=[[.3,1,0],[-.3,1,.1],[.3,-1,.52],[-.3,-1,.62]];
+  const legs=[[.3,1,.42],[-.3,1,.52],[.3,-1,0],[-.3,-1,.1]];     // a transverse gallop: hind left, hind right, fore left, fore right, then a moment of suspension
   for(const[x,f,o]of legs){const front=f>0,T2=(ph+o)*Math.PI*2;
     const sw=run?(front?.6:.5)*Math.sin(T2):0,fold=run?Math.max(0,Math.sin(T2+(front?1.5:-1.3))):0;
     const ang=(p,a,l)=>p.clone().add(V(0,-Math.cos(a)*l,Math.sin(a)*l));
@@ -2238,13 +2243,13 @@ function drawUnits(rdt){
     if(atk!=null){moving=false;f=atk<.2?1-atk/.2:atk<.8?-(atk-.2)/.6*.5:lerp(-.5,1,(atk-.8)/.2);
       lunge=type==='piyade'?.38*f:type==='atli'?.7*f:type==='koc'?.12*f:0;
       if(type==='piyade')pitch=.06+.2*Math.max(f,0);else if(type==='atli')pitch=f<0?f*.55:f*.12}
-    const walk=(type==='atli'?.0125:.0075)*now()+i*1.7,inW=type==='atli'&&heightAt(x,z)<.2;
-    const hop=type==='balon'?Math.sin(now()/600+i)*.8:type==='koc'||type==='fuze'||type==='denizalti'||type==='gemi'||type==='ucak'?0:moving?Math.abs(Math.sin(walk))*(inW?.08:.2):0;
+    const walk=(type==='atli'?.0125:.0075)*now()+curId*1.7,inW=type==='atli'&&heightAt(x,z)<.2;
+    const hop=type==='balon'?Math.sin(now()/600+curId*1.3)*.8:type==='koc'||type==='fuze'||type==='denizalti'||type==='gemi'||type==='ucak'?0:moving?Math.abs(Math.sin(walk))*(inW?.08:.2):0;
     vp.set(x+Math.sin(dir)*lunge,(pitchY??unitY(UNITS[type],x,z))+hop,z+Math.cos(dir)*lunge);qt.setFromAxisAngle(UP,dir);
     if(pitch){qr.setFromAxisAngle(XA,pitch);qt.multiply(qr)}
     if(curRoll){qr.setFromAxisAngle(ZA,curRoll);qt.multiply(qr);curRoll=0}
     mx.compose(vp,qt,vs);
-    if(type==='balon'&&chrOn&&CHR.isci){mt.compose(vt.set(0,-3.69,.15),qr.setFromAxisAngle(UP,Math.sin(now()/1400+i)*.6),vs.set(.92,.92,.92));mo.copy(mx).multiply(mt);vs.set(1,1,1);chrPush('isci','idle',now()/3000+i*.3,mo,from)}     // a knight stands in the basket
+    if(type==='balon'&&chrOn&&CHR.isci){mt.compose(vt.set(0,-3.69,.15),qr.setFromAxisAngle(UP,Math.sin(now()/1400+curId)*.6),vs.set(.92,.92,.92));mo.copy(mx).multiply(mt);vs.set(1,1,1);chrPush('isci','idle',now()/3000+curId*.3,mo,from)}     // a knight stands in the basket
     const arm=-1.15-.35*f;
     for(const m of IM[type]){
       const sw=m.userData.swing;
@@ -2286,7 +2291,7 @@ function drawUnits(rdt){
       let hid=false;if(u.type==='denizalti'){hid=!subSeen(u.x,u.z,u.from);u.dy=lerp(u.dy==null?-.45:u.dy,u.under||hid?-2.9:u.moving!==false?-1.25:-.7,Math.min(1,rdt*1.5))}
       // what we draw glides after the simulated spot, so shoves and lane changes don't jerk the figure
       let gx=u.x,gz=u.z;if(!naval(u.type)&&u.type!=='balon'){if(u.gx==null||Math.hypot(u.x-u.gx,u.z-u.gz)>5){u.gx=u.x;u.gz=u.z}else{const k=Math.min(1,rdt*7);u.gx+=(u.x-u.gx)*k;u.gz+=(u.z-u.gz)*k}gx=u.gx;gz=u.gz}
-      curId=u.id;put(u.type,gx,gz,u.from,u.dir||0,u.moving!==false,u.deckY!=null?u.deckY:u.sink!=null?1.1-Math.max(0,u.sink)**1.5*2.2:u.dove!=null?-.45-u.dove*1.5:u.type==='denizalti'&&u.dy<-.5?u.dy:u.emerge>0?unitY(UNITS[u.type],u.x,u.z)-u.emerge*1.3:null,0,u.atk?clamp(1-u.cd/(u.cdM||1.2),0,1):null);
+      curId=u.id;put(u.type,gx,gz,u.from,u.dir||0,u.moving!==false,u.deckY!=null?u.deckY:u.sink!=null?1.1-Math.max(0,u.sink)**1.5*2.2:u.dove!=null?-.45-u.dove*1.5:u.type==='denizalti'&&u.dy<-.5?u.dy:u.emerge>0?unitY(UNITS[u.type],u.x,u.z)-u.emerge*1.3:u.type==='atli'||u.type==='piyade'||u.type==='koc'?hopY(u,gx,gz,rdt):null,0,u.atk?clamp(1-u.cd/(u.cdM||1.2),0,1):null);
       if((u.type==='atli'||u.type==='dalgic'||u.type==='denizalti'&&!hid)&&heightAt(u.x,u.z)<.2&&Math.random()<rdt*7){ripple(u.x,u.z,4.5);if(Math.random()<.5)boom(u.x,.3-heightAt(u.x,u.z),u.z,.45,'#eaf7ff')}}
     for(const o of D.remote.values()){curTA=curTA2=0;if(o.sd==null)o.sd=Math.random()*1e3;curId=o.sd;const ox=o.x,oz=o.z;o.x=lerp(o.x,o.tx,Math.min(1,rdt*3));o.z=lerp(o.z,o.tz,Math.min(1,rdt*3));{const mv=Math.hypot(o.x-ox,o.z-oz);if(mv>(naval(o.type)?.03:.01)){const w=Math.atan2(o.x-ox,o.z-oz);o.dir=o.dir==null?w:angLerp(o.dir,w,Math.min(1,rdt*(naval(o.type)?2.5:12)))}}const of=num(o.from,D.seat),oh=o.type==='denizalti'&&!subSeen(o.x,o.z,of);if(o.fl&2){o.ft+=rdt;if(naval(o.type)){curTA=0;put(o.type,o.x,o.z,of,o.dir||0,false,-.45-Math.max(0,o.ft-.6)**1.6*.9,Math.min(.55,o.ft*.16));if(o.ft<3&&Math.random()<rdt*2)boom(o.x+(Math.random()-.5)*8,2.5,o.z+(Math.random()-.5)*8,3,'#ff7a2a')}else put(o.type,o.x,o.z,of,o.dir||0,false,Math.max(1,20-13*o.ft*o.ft),o.ft*1.1)}else put(o.type,o.x,o.z,of,o.dir||0,!(o.fl&4),o.type==='denizalti'?(oh?-2.9:-1.25):null,0,o.fl&1?(now()/1200+o.sd)%1:null);if((o.type==='atli'||o.type==='dalgic'||o.type==='denizalti'&&!oh)&&heightAt(o.x,o.z)<.2&&Math.random()<rdt*7)ripple(o.x,o.z,4.5)}
   }
@@ -2559,7 +2564,7 @@ function crater(x,z,r,remote){
 const home=castlePos(A.seat),view={x:home.x*.72,z:home.z*.72,d:150,tx:home.x*.72,tz:home.z*.72,td:150,yaw:0,tyaw:0};
 // pan in screen directions, whichever way the map has been turned
 const panBy=(sx,sz)=>{const c=Math.cos(view.yaw),n=Math.sin(view.yaw);view.tx=clamp(view.tx+sx*c+sz*n,-VIEW,VIEW);view.tz=clamp(view.tz-sx*n+sz*c,-VIEW,VIEW)};
-function turnMap(dir){view.tyaw+=dir*Math.PI/2}
+function turnMap(dir){view.tyaw+=dir*Math.PI/4}
 const DMIN=30,DMAX=560;
 function followSun(){
   const ext=clamp(view.d*1.05,45,260),tex=2*ext/sun.shadow.mapSize.x,x=Math.round(view.x/tex)*tex,z=Math.round(view.z/tex)*tex;
@@ -2925,10 +2930,9 @@ function mkHud(){
   {const b=document.createElement('button');b.id='bBirlik';b.title=TL('Birlik alanında bekleyen askerlerin: kaçını göndereceğini seç, sonra yol çiz ya da hedefe dokun.','Troops waiting on your muster field: pick how many to send, then draw a path or tap a target.');b.innerHTML=TL('Birlik<small>gönder</small>','Army<small>send</small>');b.onclick=()=>openRally($('rallyP').hidden);$('gAtk').append(b)}
   {const sec=(g,t)=>{const d=document.createElement('div');d.className='sec';d.textContent=t;return d},G=$('gDef'),A=$('gAtk'),q=sel=>G.querySelector(sel)||A.querySelector(sel);
     G.append(sec(G,TL('KULELER · kuleye dokun: yükselt ya da sil','TOWERS · tap one to upgrade or remove')));for(const k of TKEYS)if(k!=='duvar')G.append(q(`[data-k=${k}]`));
-    for(const e of[q('[data-k=kopru]'),$('bTersane'),$('bPist'),$('bFuzeS')])if(e)$('gYap').append(e);
-    G.append(sec(G,TL('DUVAR · sürükleyerek çiz, Sil ile sürükleyerek kaldır','WALLS · drag to draw, drag with Erase to remove')));for(const e of[q('[data-k=duvar]'),q('[data-k=sil]')])if(e)G.append(e);
+    for(const e of[q('[data-k=duvar]'),q('[data-k=sil]'),q('[data-k=kopru]'),$('bTersane'),$('bPist'),$('bFuzeS')])if(e)$('gYap').append(e);     // walls lead the Build panel
     A.append(sec(A,TL('ASKER YETİŞTİR · birlik alanında bekler','TRAIN · they wait on your muster field')));for(const k of BUY)if(POP[k])A.append(q(`[data-k=${k}]`));
-    A.append(sec(A,TL('ORDUNU GÖNDER','SEND YOUR ARMY')));for(const e of[$('bBirlik'),$('bSec')])if(e)A.append(e);
+    for(const e of[$('bBirlik'),$('bSec')])if(e){e.classList.add('mini');$('tabs').append(e)}     // Army and Select sit beside the menu buttons, always to hand
     A.append(sec(A,TL('ÖZEL SALDIRI','SPECIAL ATTACKS')));for(const k of BUY)if(!POP[k])A.append(q(`[data-k=${k}]`))}
   mkChat();mkSettings();mkRally();$('laneX').onclick=()=>laneAsk(null);$('laneRot').onclick=()=>{if(RUN)RUN.a+=Math.PI/4};$('laneGo').onclick=runSend;
   $('cmdHome').onclick=orderRally;
@@ -3066,7 +3070,7 @@ function tutSteps(){
   const c1=castlePos(1),home0=castlePos(0),foeHere=()=>ME.units.filter(u=>u.from===1&&!u.done&&u.hp>0&&POP[u.type]);
   const look=(x,z,d)=>{view.tx=x;view.tz=z+d*.22;view.td=d};
   const tower=(k,t,x)=>({t,x,tab:'d',go:()=>look(home0.x+25,home0.z,130),
-    hint:()=>{if(build!==k)return{h:TL('Parlayan düğmeye bas.','Press the glowing button.'),g:`#gDef [data-k=${k}]`};const sp=tutFree(k);return{h:TL('Şimdi yeşil halkaya dokun.','Now tap the green ring.'),spot:sp}},
+    hint:()=>{if(build!==k)return{h:TL('Parlayan düğmeye bas.','Press the glowing button.'),g:`#gDef [data-k=${k}],#gYap [data-k=${k}]`};const sp=tutFree(k);return{h:TL('Şimdi yeşil halkaya dokun.','Now tap the green ring.'),spot:sp}},
     done:()=>ME.towers.some(t=>t.type===k)});
   TS.push(
    {t:TL('Hoş geldin, komutan!','Welcome, commander!'),x:TL('Amacın: kaleni korumak ve rakibin kalesini yıkmak. Haritayı bir parmakla kaydır, iki parmakla yakınlaştır. Her adımda sadece PARLAYAN düğmeye bas ve YEŞİL halkaya dokun. Bir adım bitince İleri’ye basarsın. Bu derste her şey bedava.','Your goal: keep your castle and knock the enemy one down. Drag with one finger, pinch to zoom. In each step just press the GLOWING button and tap the GREEN ring. When a step is done, press Next. Everything is free in this lesson.'),info:true},
@@ -3080,7 +3084,7 @@ function tutSteps(){
     go:()=>look(home0.x,home0.z,95),
     hint:()=>{if(castleSel)return{h:TL('Parlayan Okçu koy düğmesine bas.','Press the glowing Add archer button.'),g:'#bArch'};return{h:TL('Yeşil halkadaki kalene dokun.','Tap your castle in the green ring.'),spot:home0}},
     done:()=>nArch(ME)>0},
-   {t:TL('Duvar ve Sil','Walls and Erase'),x:TL('Savunma menüsünde Duvar’a basıp parmağınla sürüklersen duvar örülür; düşman askerleri onu yıkmadan geçemez. Çok duvar koyduysan Sil’e basıp üstlerinde sürükle, hepsi kalkar.','In Defense, press Wall under WALLS and drag your finger to build a wall; enemy soldiers must break it to pass. Too many walls? Press Erase and drag over them to clear them all.'),info:true},
+   {t:TL('Duvar ve Sil','Walls and Erase'),x:TL('Yapı menüsünde Duvar’a basıp parmağınla sürüklersen duvar örülür; düşman askerleri onu yıkmadan geçemez. Çok duvar koyduysan Sil’e basıp üstlerinde sürükle, hepsi kalkar.','In Defense, press Wall under WALLS and drag your finger to build a wall; enemy soldiers must break it to pass. Too many walls? Press Erase and drag over them to clear them all.'),info:true},
    {t:TL('Asker eğit','Train soldiers'),x:TL('Saldırı bölümünde asker eğitirsin. Askerler kalenin önündeki bayraklı birlik alanında toplanır ve orada iyileşir.','In the Attack section you train soldiers. They gather on the flagged muster field in front of your castle and heal there.'),tab:'a',go:()=>look(RALLY[0].x,RALLY[0].z,110),
     hint:()=>{const R=atRally();let n=0;for(const k in R)n+=R[k].length;return{h:EN?`Press the glowing Knight button 3 times (${Math.min(n,3)}/3).`:`Parlayan Şövalye düğmesine 3 kez bas (${Math.min(n,3)}/3).`,g:'#gAtk [data-k=piyade]',spot:RALLY[0]}},
     done:()=>{const R=atRally();let n=0;for(const k in R)n+=R[k].length;return n>=3}},
