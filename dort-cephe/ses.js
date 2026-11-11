@@ -43,11 +43,12 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
     // a two-pole resonator: rings at f, dying away over tau seconds
     const res=(x,out,f,tau,a)=>{const w=2*Math.PI*Math.min(f,R*.45)/R,r=Math.exp(-1/(tau*R)),c=2*r*Math.cos(w),r2=r*r,g=a*Math.sin(w)*.2;let y1=0,y2=0;for(let i=0;i<x.length;i++){const y=c*y1-r2*y2+x[i];y2=y1;y1=y;out[i]+=y*g}};
     for(let v=0;v<4;v++){
-      // bow: a plucked string (Karplus-Strong) thrums low and dies fast, the arrow leaves with a soft fletching hiss
-      add('ok',mk(.5,(d,n)=>{const P=Math.round(R/(98+v*9)),buf=new Float32Array(P);for(let k=0;k<P;k++)buf[k]=nz()*(k<P*.5?1:.4);let ix=0;
-        for(let i=0;i<n;i++){const t=i/R,a=buf[ix],b=buf[(ix+1)%P];buf[ix]=(a+b)*.5*.992;ix=(ix+1)%P;d[i]=a*Math.exp(-t*16)*.9}
-        const w=new Float32Array(n);for(let i=0;i<n;i++)w[i]=nz();let y1=0,y2=0;for(let i=0;i<n;i++){const t=i/R,f=1500*Math.exp(-t*2.2)+500,q=.35,k=2*Math.sin(Math.PI*f/R);y1+=k*(w[i]-y1-q*y2);y2+=k*y1;const a=t<.015?t/.015:Math.exp(-(t-.015)/.12);d[i]+=y2*a*.35}
-        for(let i=0;i<Math.min(n,R*.004);i++)d[i]+=nz()*(1-i/(R*.004))*.6;lp(d,.55)}));
+      // an arrow in flight: a short soft thrum of the string, then the shaft whistling past ("vıııı") — a narrow band of rushing air that slides down in pitch and flutters with the fletching
+      add('ok',mk(.75,(d,n)=>{const P=Math.round(R/(92+v*8)),buf=new Float32Array(P);for(let k=0;k<P;k++)buf[k]=nz();let ix=0;
+        for(let i=0;i<n;i++){const t=i/R,a=buf[ix],b=buf[(ix+1)%P];buf[ix]=(a+b)*.5*.99;ix=(ix+1)%P;d[i]=a*Math.exp(-t*30)*.35}
+        const w=new Float32Array(n);for(let i=0;i<n;i++)w[i]=nz();let lo=0,bd=0;for(let i=0;i<n;i++){const t=i/R,f=(1900+v*150)*Math.exp(-t*1.6)+380,q=.09,k=2*Math.sin(Math.PI*f/R);lo+=k*bd;const hi=w[i]-lo-q*bd;bd+=k*hi;
+          const a=(t<.04?t/.04:1)*Math.exp(-Math.max(0,t-.15)/.22)*(.8+.2*Math.sin(t*2*Math.PI*34));d[i]+=bd*a*.1}
+        lp(d,.5)}));
       // swords meeting: a hard click, then a dense cloud of high steel modes that die quickly (no long pure tone, which is what made it sound like glass), and a short scraping "shing"
       add('kilic',mk(.55,(d,n)=>{const ex=new Float32Array(n);for(let i=0;i<n;i++){const t=i/R;ex[i]=nz()*env(t,.0001,.0012)}
         let sd=17+v*31;const rnd=()=>(sd=(sd*16807)%2147483647)/2147483647;for(let k=0;k<26;k++){const f=1900+rnd()*7600,tau=.035+rnd()*rnd()*.22;res(ex,d,f,tau,.35+rnd()*.65)}
@@ -63,12 +64,13 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
         let ph=0;for(let i=0;i<n;i++){const t=i/R;ph+=2*Math.PI*(85-t*60)/R;d[i]+=Math.sin(ph)*env(t,.0008,.05)*.9+ex[i]*.7}hp(d,.985)}));
       // explosion: a deep thud under a long rumbling roar
       add('patla',mk(1.6,(d,n)=>{let ph=0;for(let i=0;i<n;i++){const t=i/R,f=70*Math.exp(-t*3)+28;ph+=2*Math.PI*f/R;d[i]=Math.sin(ph)*env(t,.004,.25)*1.2+nz()*env(t,.003,.35+v*.08)}lp(d,.08+v*.015)}));
-      // a horse at the gallop: the three-beat drum of hooves on firm ground, over and over, a little uneven
-      add('nal',mk(1.2,(d,n)=>{const hit=(t0,a)=>{let ph=0;const i0=Math.floor(t0*R);for(let i=i0;i<Math.min(n,i0+R*.12);i++){const t=(i-i0)/R;ph+=2*Math.PI*(110+v*12-t*260)/R;d[i]+=(Math.sin(ph)*env(t,.0015,.025)+nz()*env(t,.0004,.006)*1.1+nz()*env(t,.003,.035)*.25)*a}};
-        for(let c=0;c<3;c++){const b=c*.4+(v%2)*.02;hit(b,1);hit(b+.085,.75);hit(b+.165,.95);hit(b+.2,.4)}lp(d,.6)}));
+      // a horse at the gallop on firm earth: each hoof a deep thump with a crunch of dirt, four beats bunched close then a pause — ba-da-da-dum
+      add('nal',mk(1.32,(d,n)=>{const hit=(t0,a)=>{let ph=0;const i0=Math.floor(t0*R);const len=Math.min(n,i0+R*.16);let y=0;for(let i=i0;i<len;i++){const t=(i-i0)/R;ph+=2*Math.PI*(72+v*6-t*90)/R;y+=.25*(nz()-y);
+          d[i]+=(Math.sin(ph)*env(t,.002,.035)*1.1+y*env(t,.001,.02)*1.6+nz()*env(t,.0004,.003)*.35)*a}};
+        for(let c=0;c<3;c++){const b=c*.44+(v%2)*.015;hit(b,.85);hit(b+.06,.7);hit(b+.13,.9);hit(b+.19,1)}lp(d,.35)}));
       // a horse's whinny: a voiced cry that climbs and shakes and falls away, shaped through nose-and-mouth formants
       if(v<2)add('kisne',mk(1.3,(d,n)=>{let ph=0;const src=new Float32Array(n);for(let i=0;i<n;i++){const t=i/R,f=(t<.25?520+t*1600:920*Math.exp(-(t-.25)*1.1))*(1+.06*Math.sin(t*2*Math.PI*(9+v*2)))*(1+v*.08);ph+=f/R;src[i]=((ph%1)*2-1)*Math.min(1,t/.04)*Math.exp(-Math.max(0,t-.6)*3.5)+nz()*.08}
-        for(const[f,tau,a]of[[900,.012,1],[1700,.008,.7],[2900,.005,.35]])res(src,d,f*(1+v*.05),tau,a);hp(d,.95)}))}
+        for(const[f,tau,a]of[[520,.014,1],[1050,.01,.8],[2100,.006,.35]])res(src,d,f*(1+v*.05),tau,a);hp(d,.985);lp(d,.6)}))}
     for(let v=0;v<3;v++){
       // something whistling through the air
       add('vin',mk(1.3,(d,n)=>{for(let i=0;i<n;i++){const t=i/R;d[i]=nz()*Math.sin(Math.PI*t/1.3)}const q=d.slice();lp(d,.05+v*.02);for(let i=0;i<n;i++)d[i]=d[i]*.7+q[i]*.04*Math.sin(Math.PI*i/n)}))}
@@ -86,6 +88,7 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
   okcu(v=1,p=0){if(this.ok('o',.09,'okcu')&&!this.play('ok',.7*v,p))this.hit(this.ctx.currentTime,'bandpass',2400,700,.3*v,.2,1.5)},
   tufek(v=1,p=0){if(this.ok('g',.07,'okcu')&&!this.play('tufek',.32*v,p))this.hit(this.ctx.currentTime,'highpass',3000,800,.4*v,.1)},
   cekic(v=1,p=0){if(this.ok('ck',.09,'okcu'))this.play('cekic',.7*v,p,.9+Math.random()*.25)},
+  iscik(v=1,p=0){if(this.ok('ik',.12,'okcu'))this.play('kilic',.42*v,p,.8+Math.random()*.2)},
   demir(v=1,p=0){if(this.ok('dm',.1,'okcu'))this.play('demir',.62*v,p,.92+Math.random()*.2)},
   kilic(v=1,p=0){if(this.ok('k',.09,'okcu')&&!this.play('kilic',.5*v,p,.88+Math.random()*.25))this.hit(this.ctx.currentTime,'bandpass',3500,2500,.2*v,.12,4)},
   top(v=1,p=0){if(this.ok('t',.16,'bomba')&&!this.play('tufek',.95*v,p,.48,1600))this.hit(this.ctx.currentTime,'lowpass',900,120,1.1*v,.32)},
@@ -124,8 +127,8 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
   gemiVur(v=1,p=0){if(!this.ok('gv',.14,'bomba'))return;const t=this.ctx.currentTime;this.tone(t,110,34,1.05*v,.5);this.hit(t,'highpass',3500,900,.4*v,.08);this.play('patla',.8*v,p,1.05,3200)},
   bomba(v=1,p=0){if(!this.ok('b',.14,'bomba'))return;{const c=this.ctx,t=c.currentTime,o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(90,t);o.frequency.exponentialRampToValueAtTime(30,t+.45);o.connect(g);g.connect(this.sfx);this.env(g,t,.004,.75*v,0,.5);o.start(t);o.stop(t+.6)}if(this.play('patla',.95*v,p))return;const c=this.ctx,t=c.currentTime,o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(130,t);o.frequency.exponentialRampToValueAtTime(34,t+.5);o.connect(g);g.connect(this.sfx);this.env(g,t,.005,1.3*v,0,.6);o.start(t);o.stop(t+.7);this.hit(t,'lowpass',2200,160,1.2*v,.55)},
   dalga(v=1,p=0){if(this.ok('d',.4,'su'))this.play('dalga',.45*v,p)},
-  kisne(v=1,p=0){if(this.ok('ks',6,'atli'))this.play('kisne',.35*v,p,.95+Math.random()*.12)},
-  atli(v=1){if(!this.ok('a',1.12,'atli'))return;if(Math.random()<.07)this.kisne(v);if(!this.play('nal',.6*v)){const t=this.ctx.currentTime;[0,.1,.19,.27].forEach((d,i)=>this.hit(t+d,'bandpass',i%2?520:380,180,.55*v,.06,3))}},
+  kisne(v=1,p=0){if(this.ok('ks',6,'atli'))this.play('kisne',.45*v,p,.95+Math.random()*.1)},
+  atli(v=1){if(!this.ok('a',1.3,'atli'))return;if(Math.random()<.07)this.kisne(v);if(!this.play('nal',.6*v)){const t=this.ctx.currentTime;[0,.1,.19,.27].forEach((d,i)=>this.hit(t+d,'bandpass',i%2?520:380,180,.55*v,.06,3))}},
   su(v=1){if(!this.ok('s',2.6,'su'))return;if(!this.play('su',.1*v,0,1.15,1100)){const t=this.ctx.currentTime,r=Math.random();this.hit(t,'lowpass',520+r*260,150,.22*v,.45,.6)}},
   para(){if(!this.ok('p',.06))return;const c=this.ctx,t=c.currentTime,o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.setValueAtTime(1320,t);o.frequency.setValueAtTime(1760,t+.06);o.connect(g);g.connect(this.sfx);this.env(g,t,.003,.22,.05,.16);o.start(t);o.stop(t+.3)}
 };
