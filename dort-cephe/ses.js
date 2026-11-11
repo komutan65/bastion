@@ -54,7 +54,9 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
         for(const[c,mr,ix,tau,a]of[[2250+v*160,1.41,3.2,.32,1],[3150+v*190,1.73,2.6,.22,.7],[1480+v*90,2.31,1.6,.12,.45]]){let pc=0,pm=0;for(let i=0;i<n;i++){const t=i/R;pm+=2*Math.PI*c*mr/R;pc+=2*Math.PI*c/R+ix*Math.exp(-t*9)*Math.sin(pm)*2*Math.PI*c*mr/R*.06;d[i]+=Math.sin(pc)*Math.exp(-t/tau)*a*(1+.25*Math.sin(t*2*Math.PI*(7+v)))*.5}}
         const ex=new Float32Array(n);for(let i=0;i<n;i++){const t=i/R;ex[i]=nz()*env(t,.0001,.0015)}for(let k=0;k<14;k++)res(ex,d,2600+rnd()*4200,.02+rnd()*.07,.35);for(let i=0;i<n;i++)d[i]+=ex[i]*.45;
         let lo=0,bd=0;for(let i=0;i<n;i++){const t=i/R,f=Math.max(1800,6500-t*16000),k=2*Math.sin(Math.PI*f/R);lo+=k*bd;const hi=nz()-lo-.3*bd;bd+=k*hi;d[i]+=bd*(t<.01?0:Math.exp(-(t-.01)/.06))*.12}
-        hp(d,.93)}));
+        // the weight behind the blow: a short heavy thump of arm and steel meeting
+        {let ph=0;for(let i=0;i<Math.min(n,R*.12);i++){const t=i/R;ph+=2*Math.PI*(150-t*500)/R;d[i]+=Math.sin(ph)*env(t,.0006,.025)*.4}const ex=new Float32Array(n);for(let i=0;i<n;i++)ex[i]=nz()*env(i/R,.0003,.004);res(ex,d,240,.035,1.6);res(ex,d,520,.025,1.2)}
+        hp(d,.995)}));
       // a mallet on timber: a solid knock, the wood thumping and clattering briefly
       add('cekic',mk(.3,(d,n)=>{const ex=new Float32Array(n);for(let i=0;i<n;i++){const t=i/R;ex[i]=nz()*env(t,.0003,.0025)}for(const[f,tau,a]of[[180+v*15,.06,3],[330+v*25,.05,4],[610+v*40,.035,4],[1250+v*80,.02,3],[2400,.01,2]])res(ex,d,f,tau,a);
         let ph=0;for(let i=0;i<n;i++){const t=i/R;ph+=2*Math.PI*(95-t*120)/R;d[i]+=Math.sin(ph)*env(t,.001,.03)*.12+ex[i]*.25}lp(d,.7)}));
@@ -75,10 +77,10 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
       // a horse's call: a snort (air blown hard through the nostrils, flapping them) or a whinny — a cry that climbs, shakes and falls, breathy, then a low nicker
       if(v<2)add('kisne',mk(.7,(d,n)=>{let y=0;for(let i=0;i<n;i++){const t=i/R,am=Math.sin(Math.PI*Math.min(1,t/.55))**.6*(.55+.45*Math.sign(Math.sin(t*2*Math.PI*(26+v*5))));y+=.22*(nz()-y);d[i]=y*am}
         const o=new Float32Array(n);res(d,o,320+v*40,.03,2);res(d,o,750,.02,1.2);for(let i=0;i<n;i++)d[i]=d[i]*.6+o[i];lp(d,.4)}));
-      if(v===2)add('kisne',mk(1.6,(d,n)=>{let ph=0;const src=new Float32Array(n);for(let i=0;i<n;i++){const t=i/R;let f;if(t<.12)f=420+t*3500;else if(t<1.05)f=840*Math.exp(-(t-.12)*.75);else f=170+30*Math.sin(t*40);
+      if(v===2)add('kisne',mk(1.6,(d,n)=>{let ph=0;const src=new Float32Array(n);for(let i=0;i<n;i++){const t=i/R;let f;if(t<.14)f=300+t*2600;else if(t<1.05)f=660*Math.exp(-(t-.14)*.8);else f=130+25*Math.sin(t*40);
           const vib=t<1.05?1+.1*Math.sin(t*2*Math.PI*(11-t*3)):1;ph+=f*vib/R;const sawv=((ph%1)*2-1),nb=t<1.05?1:.0;const amp=t<1.05?Math.min(1,t/.05)*Math.exp(-Math.max(0,t-.75)*4)*(.75+.25*Math.sin(t*2*Math.PI*9)):(.5+.5*Math.sign(Math.sin((t-1.05)*2*Math.PI*7)))*Math.exp(-(t-1.05)*5)*.6;
           src[i]=(sawv*.7+nz()*.35)*amp*(nb||1)}
-        for(const[f,tau,a]of[[700,.012,1],[1250,.009,.8],[2600,.005,.4],[3600,.004,.2]])res(src,d,f,tau,a);for(let i=0;i<n;i++)d[i]+=src[i]*.05;hp(d,.96);lp(d,.75)}));
+        for(const[f,tau,a]of[[560,.014,1],[1050,.01,.85],[2150,.006,.4],[3100,.004,.15]])res(src,d,f,tau,a);for(let i=0;i<n;i++)d[i]+=src[i]*.04;hp(d,.98);lp(d,.65)}));
     }
     for(let v=0;v<3;v++){
       // something whistling through the air
