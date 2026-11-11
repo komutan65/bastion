@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261111f';
+import {SES} from './ses.js?v=20261111g';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -10,7 +10,7 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=200,MS_COST=100,MS_T=10,MS_HP=120,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=4,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='32';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='33';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
@@ -93,15 +93,18 @@ const VIEW=240,SEA=345,COAST_N=vnoise(41),BOX=(x,z)=>{const a=Math.abs(x),b=Math
 const wob=(x,z,k)=>fbm(COAST_N,(x+500)*k,(z+500)*k)*2-1;
 const coastD=(x,z)=>Math.min(160,Math.max(132,146+wob(Math.abs(x),Math.abs(z),.017)*30))-BOX(x,z);     // mirrored into every quarter: each base gets the same coast to defend     // >0 on the map's land
 const outerD=(x,z)=>BOX(x,z)-(236+wob(x+90,z+70,.011)*30);          // >0 on the far shore
+const duelBend=t=>{let k=1;for(const b of[-30,56])k=Math.min(k,clamp((Math.abs(t-b)-7)/16,0,1));return k*(Math.sin(t*.055+1)*3.6+Math.sin(t*.13+.4)*1.5)};
 function duelIsles(x,z){
   const w=wob(Math.abs(x),x<0?z:-z,.02)*9,ax=Math.abs(x),side=x<0?-1:1;      // the two halves turn into each other: same coast for both bases
-  const base=Math.min(ax-DIN,(150+w)-ax,(100+w)-Math.abs(z));       // the inner edges stay straight for the bridges
-  const mid=Math.min(DMID-ax,(72+w*.7)-Math.abs(z));
+  const t=x<0?z:-z,cw=duelBend(t);     // the channels wind like rivers, straightening only where the stone bridges cross
+  const base=Math.min(ax-DIN-cw,(150+w)-ax,(100+w)-Math.abs(z));
+  const mid=Math.min(DMID+cw-ax,(72+w*.7)-Math.abs(z));
   return Math.max(base,mid);
 }
 // the river cross winds a little and changes width, like a real river; it runs straight only where it meets the central plaza
-const rvK=t=>{const a=Math.abs(t);return a<30?0:a>58?1:(a-30)/28},rvW=t=>{const k=rvK(t);return k*(Math.sin(t*.047+.7)*4.2+Math.sin(t*.13+2.1)*1.4)},rvH=t=>RIVER*(1+rvK(t)*.13*Math.sin(t*.083+.3));
-const shoreOf=DUEL?(x,z)=>Math.max(duelIsles(x,z),outerD(x,z)):(x,z)=>Math.max(Math.min(Math.abs(x-rvW(z))-rvH(z),Math.abs(z-rvW(-x*1.07+9))-rvH(x),coastD(x,z)),outerD(x,z));     // the river cross stops at the open sea: the far shore runs unbroken
+const rvK=t=>{const a=Math.abs(t);return a<30?0:a>58?1:(a-30)/28},rvW=t=>{const k=rvK(t);return k*(Math.sin(t*.047)*4.6+Math.sin(t*.13)*1.5)},rvH=t=>RIVER*(1+rvK(t)*.13*Math.cos(t*.083));     // odd bend, even width: turned a quarter round, every base sees the same river
+const padD=(x,z)=>{const ax=Math.abs(x),az=Math.abs(z),t=(ax+az)*.7071,q=Math.abs(ax-az)*.7071;return Math.min(7.5-q,t-22.5,46-t)*1.2};     // a firm landing where each plaza bridge meets its island
+const shoreOf=DUEL?(x,z)=>Math.max(duelIsles(x,z),outerD(x,z)):(x,z)=>Math.max(Math.min(Math.abs(x-rvW(z))-rvH(z),Math.abs(z-rvW(-x))-rvH(x),coastD(x,z)),padD(x,z),outerD(x,z));     // the river cross stops at the open sea: the far shore runs unbroken
 // craters are kept in a grid so units and buildings feel them
 const CRD=new Float32Array(GN*GN);let anyCrater=false;
 function sunk(x,z){
@@ -395,7 +398,13 @@ function workerTick(D,u,dt,home){
   if(u.site!=null&&(!t||!(t.bt>0))){u.site=null;hire(D);if(u.site==null){u.home=true;const gq=gateNear(D.seat,u.x,u.z);u.path=polyPath(nav({x:u.x,z:u.z},gq)||[{x:u.x,z:u.z},gq]);u.s=0;u.end=u.path.len}}     // back in through the nearest gate
   if(u.s<u.end){const step=UNITS.isci.sp*dt*drag(u,dt);u.s=Math.min(u.end,u.s+step);const p=pointOn(u.path,u.s);u.x=p.x;u.z=p.z;u.atk=false;u.moving=true;u.face=null;return}
   if(u.home||u.site==null){u.done=true;return}
-  const fx=t.job&&u.jx!=null?u.jx:t.x,fz=t.job&&u.jz!=null?u.jz:t.z;u.moving=false;u.atk=true;u.cdM=.8;u.face=Math.atan2(fx-u.x,fz-u.z);if(u.cd<=0){u.cd=.8;if(Math.random()<.35)sparks(u.x+(fx-u.x)*.3,u.z+(fz-u.z)*.3);if(D===ME||Math.random()<.4)fxAt(D,u.x,u.z,'cekic')}
+  // bridge builders walk out along the deck they have laid, always working at its far end
+  u.deckY=null;if(u.site==='pw'&&D.pw&&(D.pw.k==='nb'||D.pw.k==='br')){const w=D.pw,b=w.k==='br'?DBR[w.i]:w.b;if(b&&b.g&&b.e&&b.o){const k=clamp(1-w.t/(w.T||9),0,1),l=Math.hypot(b.o.x-b.e.x,b.o.z-b.e.z)||1,ux=(b.o.x-b.e.x)/l,uz=(b.o.z-b.e.z)/l,sl=(u.slot||0)%3-1,
+      at=Math.max(-1,l*k-2.2-((u.slot||0)%3===1?1.2:0)),tx=b.e.x+ux*at-uz*sl*2.2,tz=b.e.z+uz*at+ux*sl*2.2,dx=tx-u.x,dz=tz-u.z,dd=Math.hypot(dx,dz);
+    if(at>1)u.deckY=1.08;
+    if(dd>.5){const st=Math.min(dd,UNITS.isci.sp*.6*dt);u.x+=dx/dd*st;u.z+=dz/dd*st;u.moving=true;u.atk=false;u.face=Math.atan2(dx,dz);return}
+    u.jx=b.e.x+ux*(at+3);u.jz=b.e.z+uz*(at+3)}}
+  const fx=t.job&&u.jx!=null?u.jx:t.x,fz=t.job&&u.jz!=null?u.jz:t.z;u.moving=false;u.atk=true;u.cdM=.8;u.face=Math.atan2(fx-u.x,fz-u.z);if(u.cd<=0){u.cd=.8;if(Math.random()<.35)sparks(u.x+(fx-u.x)*.3,u.z+(fz-u.z)*.3);if(D===ME||Math.random()<.4){const j=u.site,snd=j==='pw'||j==='rw'?'cekic':j==='yd'||j==='ys'||j==='ms'?'demir':typeof j==='number'?(u.id+(u.hits=(u.hits||0)+1))%2?'demir':'cekic':'cekic';fxAt(D,u.x,u.z,snd)}}
 }
 function siteTick(D,dt){
   D.hireT=(D.hireT||0)-dt;let need=false;
@@ -699,8 +708,8 @@ function scanFoes(D){
     let best=bump||(u.type==='isci'?6:u.from===D.seat?(u.rs!=null?28:22):7),f=null;for(const e of all){if(allied(e.from,u.from)||(e.nav&&u.type!=='dalgic')||(u.ign===e.id&&tnow<u.ignT))continue;const d=Math.hypot(e.x-u.x,e.z-u.z);if(d<best){best=d;f=e}}
     u.foe=f}
   const n=D.units.length;
-  for(let i=0;i<n;i++){const a=D.units[i];if(!fighter(a.type)||a.ret)continue;const ra=a.type==='koc'?2.3:a.type==='atli'?1.5:.85;
-    for(let j=i+1;j<n;j++){const b=D.units[j];if(!fighter(b.type)||b.ret)continue;const m=ra+(b.type==='koc'?2.3:b.type==='atli'?1.5:.85),dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz)||.01;
+  for(let i=0;i<n;i++){const a=D.units[i];if(!fighter(a.type)||a.ret)continue;const ra=a.type==='koc'?2.3:a.type==='atli'?1.8:.95;
+    for(let j=i+1;j<n;j++){const b=D.units[j];if(!fighter(b.type)||b.ret)continue;const m=ra+(b.type==='koc'?2.3:b.type==='atli'?1.8:.95),dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz)||.01;
       if(d<m){const k=(m-d)/d*5;a.vx-=dx*k;a.vz-=dz*k;b.vx+=dx*k;b.vz+=dz*k}}}
   // foes don't melt into each other either: a knight striking a ram stands at its nose, not inside it
   const BR=t=>t==='koc'?2.9:t==='atli'?1.6:1;
@@ -749,6 +758,7 @@ function simDefender(D,dt){
   for(const u of D.units){
     const U=UNITS[u.type],air=U.yol==='hava';u.cd-=dt;u.bomb-=dt;u.atk=false;
     if(u.sink!=null){u.sink+=dt;u.moving=false;if(u.sink>.32&&!u.spl){u.spl=1;splash(u.x,u.z,1.8);ripple(u.x,u.z,3.5);fxAt(D,u.x,u.z,'dalga')}if(u.sink>2){u.hp=0;u.fk=true}continue}
+    if(u.kb>0){u.kb-=dt;const nx=u.x+u.kx*dt,nz=u.z+u.kz*dt;if(canStand(u,nx,nz)){u.x=nx;u.z=nz}u.kx*=.9;u.kz*=.9}
     if(u.type==='isci'){workerTick(D,u,dt,home);continue}
     if(u.fall!=null){               // a shot-down balloon drops and bursts where it lands
       u.fall+=dt;
@@ -833,14 +843,15 @@ function simDefender(D,dt){
         continue}}
     if(u.foe&&u.foe.ref&&(u.foe.ref.hp<=0||u.foe.ref.done||u.foe.ref.ret)){const L=u.lock!=null;u.foe=null;u.lock=null;if(L&&!relock(u,D))standHere(u)}
     if(u.foe){
-      const e=u.foe,ex=e.ref?e.ref.x:e.x,ez=e.ref?e.ref.z:e.z,d=Math.hypot(ex-u.x,ez-u.z),gun=u.type==='dalgic',gap=(u.type==='koc'?4:gun?11:2.4)+(e.nav?3.8:0)+(gun?0:e.type==='koc'?(u.type==='koc'?1:2):e.type==='atli'&&u.type==='piyade'?.5:0);u.face=Math.atan2(ex-u.x,ez-u.z);
+      const e=u.foe,ex=e.ref?e.ref.x:e.x,ez=e.ref?e.ref.z:e.z,d=Math.hypot(ex-u.x,ez-u.z),gun=u.type==='dalgic',gap=(u.type==='koc'?(e.nav?4:5.5):gun?11:2.4)+(e.nav?3.8:0)+(gun?0:e.type==='koc'?(u.type==='koc'?1:2):e.type==='atli'&&u.type==='piyade'?.5:0);u.face=Math.atan2(ex-u.x,ez-u.z);
       if(d>gap){const k=Math.min(d-gap+.2,step*1.2),nx=u.x+(ex-u.x)/d*k,nz=u.z+(ez-u.z)/d*k;u.atk=false;
         if(canStand(u,nx,nz)){u.x=nx;u.z=nz;u.off=true;u.reS=false;u.stuck=0}
         else if((u.stuck=(u.stuck||0)+dt)>(u.lock!=null?12:3)){u.ign=e.id;u.ignT=now()+8000;if(u.lock!=null){standHere(u);if(D===ME&&u.from===ME.seat&&now()-(lockTipT||0)>4000){lockTipT=now();tip(TL('Askerlerin oraya yetişemiyor (su). Balon, gemi ya da füze gönder.','Your troops cannot reach it (water). Send balloons, a ship or a missile.'))}}u.foe=null;u.lock=null;u.stuck=0}
         u.moving=!!u.foe;continue}
       else{u.atk=true;u.cdM=gun?.45:1.2;if(u.cd<=0){u.cd=u.cdM;
         // the blow lands on the enemy; a fighter simulated on another screen is hurt there, so here we only trade blows as before
-        const hit=U.dmg*(UV[u.type]||5);if(e.ref){const r=e.ref;r.hp-=hit;if(u.from===D.seat)r.byHome=true;else r.fk=true;if(!r.foe&&fighter(r.type)&&r.type!=='isci')r.foe={id:u.id,ref:u,x:u.x,z:u.z,from:u.from,type:u.type}}   // whoever is struck turns and fights back
+        const hit=U.dmg*(UV[u.type]||5);if(e.ref){const r=e.ref;r.hp-=hit;if(u.type==='koc'&&r.type!=='koc'&&!naval(r.type)&&!flies(UNITS[r.type])){r.kb=.32;r.kx=(ex-u.x)/(d||1)*(r.type==='atli'?6:9);r.kz=(ez-u.z)/(d||1)*(r.type==='atli'?6:9);boom(ex,1.4,ez,.7,'#d8c8a8')}     // the ram's blow throws a man back a few steps
+        if(u.from===D.seat)r.byHome=true;else r.fk=true;if(!r.foe&&fighter(r.type)&&r.type!=='isci')r.foe={id:u.id,ref:u,x:u.x,z:u.z,from:u.from,type:u.type}}   // whoever is struck turns and fights back
         else u.hp-=UNITS[e.type].dmg*(UV[e.type]||5)*.5;
         if(gun)gunFx(D,u,ex,unitY(UNITS[e.type],ex,ez)+1.8,ez);else{sparks(u.x,u.z);fxAt(D,u.x,u.z,'vur')}}}
       u.moving=!u.atk;continue}
@@ -1287,15 +1298,17 @@ let TERRM=null;
 function terrainMat(){
   if(TERRM)return TERRM;
   const gt=grassTex(),m=new THREE.MeshStandardMaterial({map:gt,bumpMap:gt,bumpScale:.8,roughness:1});
-  m.onBeforeCompile=sh=>{sh.uniforms.fd={value:FDENS};
+  m.onBeforeCompile=sh=>{sh.uniforms.fd={value:FDENS};sh.uniforms.uT=WIND;
     sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aSand,aSea;varying vec3 vW,vWN;varying float vSand,vSea;')
       .replace('#include <begin_vertex>','#include <begin_vertex>\nvW=(modelMatrix*vec4(transformed,1.)).xyz;vWN=normalize(mat3(modelMatrix)*objectNormal);vSand=aSand;vSea=aSea;');
     sh.fragmentShader=sh.fragmentShader.replace('#include <common>',`#include <common>
-uniform sampler2D fd;varying vec3 vW,vWN;varying float vSand,vSea;
+uniform sampler2D fd;uniform float uT;varying vec3 vW,vWN;varying float vSand,vSea;
 float th(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float tn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(th(i),th(i+vec2(1,0)),f.x),mix(th(i+vec2(0,1)),th(i+vec2(1,1)),f.x),f.y);}
 float tf(vec2 p){return tn(p)*.55+tn(p*2.07+3.1)*.28+tn(p*4.3+7.7)*.17;}`)
-      .replace('#include <map_fragment>',`#include <map_fragment>
+      .replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+{float cl=smoothstep(.5,.72,tf((vW.xz+uT*vec2(5.,2.4))*.0055));diffuseColor.rgb*=1.-cl*.24;}     // clouds drifting over, their shadows sliding across the land
+`).replace('#include <map_fragment>',`#include <map_fragment>
 {vec2 q=vW.xz;float n1=tf(q*.011),n2=tf(q*.07),n3=tn(q*.9),slope=1.-clamp(normalize(vWN).y,0.,1.),H=vW.y;
  vec3 gr=diffuseColor.rgb;float pa=texture2D(map,vMapUv*.073).g*.6+texture2D(map,vMapUv*.0171+.3).g*.8;gr*=.86+pa*.17;
  gr*=mix(vec3(.7,.84,.58),vec3(1.05,.95,.66),smoothstep(.3,.7,n1))*mix(1.,.82,smoothstep(.45,.8,n2));                        // lush and sun-dried meadows
@@ -1580,6 +1593,9 @@ function buildBridges(rise){
     const m=new THREE.Mesh(new THREE.BoxGeometry(6.6,.5,len),[side,side,deck,side,side,side]);m.position.set(0,Y-.25,a0+len/2-a1);m.castShadow=m.receiveShadow=true;pv.add(m);
     for(const sx of[-1,1]){const r=new THREE.Mesh(new THREE.BoxGeometry(.42,.62,len),side);r.position.set(sx*3.2,Y+.3,a0+len/2-a1);r.castShadow=true;pv.add(r);
       for(let k=0;k<3;k++){const q=new THREE.Mesh(new THREE.CylinderGeometry(.55,.75,3.4,10),side);q.position.set(sx*2.5,Y-2,a0+2.5+k*(len-5)/2-a1);q.castShadow=true;pv.add(q)}}
+    {const ab=new THREE.Mesh(new THREE.BoxGeometry(8.2,3.4,2.4),side);ab.position.set(0,Y-1.5,-.6);ab.castShadow=ab.receiveShadow=true;pv.add(ab);     // the stone bridgehead, with two lamp posts
+      for(const sx of[-1,1]){const p0=new THREE.Mesh(new THREE.BoxGeometry(.8,1.6,.8),side);p0.position.set(sx*3.7,Y+.8,-.6);p0.castShadow=true;pv.add(p0);const l=new THREE.Mesh(new THREE.CylinderGeometry(.08,.1,2.2,6),new THREE.MeshStandardMaterial({color:'#2c2c2c',roughness:.5,metalness:.5}));l.position.set(sx*3.7,Y+2.7,-.6);pv.add(l);
+        const lm=new THREE.Mesh(new THREE.SphereGeometry(.28,10,8),new THREE.MeshStandardMaterial({color:'#ffe9a8',emissive:'#ffcf60',emissiveIntensity:.7}));lm.position.set(sx*3.7,Y+3.9,-.6);pv.add(lm)}}
     spans.push(pv)}
   plaza={G,pieces,spans,fountain,col};
   if(rise){G.position.y=-9;FALL.push({kind:'rise',o:G,t:0})}
@@ -1698,6 +1714,7 @@ function drawTowers(){
 const dropModel=h=>{if(!h)return;if(h.tpl){const T=h.tpl,i=T.list.indexOf(h);if(i>=0)T.list.splice(i,1);T.dirty=T.mem=true;return}scene.remove(h);h.traverse(o=>{if(o.geometry)o.geometry.dispose()})};
 const add=(g,geo,mat,x,y,z)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;g.add(m);return m};
 // the castle: a walled square with a gate on every side, corner towers, and the tall keep in the middle with its archers
+const PLASTER=new THREE.MeshStandardMaterial({color:'#e8dcc0',roughness:.9}),ROOFM=new THREE.MeshStandardMaterial({color:'#a8452c',roughness:.75}),WINM=new THREE.MeshStandardMaterial({color:'#3a2a10',emissive:'#ffb347',emissiveIntensity:.55,roughness:.6}),WATM=new THREE.MeshStandardMaterial({color:'#3d8fb0',roughness:.1,metalness:.2});
 const CH=7.2,KH=12.5,GATEM=new THREE.MeshStandardMaterial({color:'#2a1d12',roughness:.9}),BOWM=new THREE.MeshStandardMaterial({color:'#6b4426',roughness:.8});     // half the width of the castle wall
 function castleAng(s){const c=castlePos(s),r=ROAD[s];if(r)for(const p of r)if(Math.hypot(p.x-c.x,p.z-c.z)>14)return Math.atan2(p.z-c.z,p.x-c.x);return 0}
 const CANG=[0,1,2,3].map(castleAng);
@@ -1721,6 +1738,13 @@ function buildCastle(s){
     const y=gy(H,0);
     add(sg,new THREE.BoxGeometry(TH+.6,1.4,gap*2+.2),STONE,H,y+WH+.4,0);     // the arch over the gate
     add(sg,new THREE.BoxGeometry(.06,1.1,.8),t,H+.95,y+WH-.2,0)}
+  // life inside the walls: a timber-framed house with a tiled roof along each wall, barrels, and a well in one corner of the yard
+  for(let k=0;k<4;k++){const q=new THREE.Group();q.rotation.y=k*Math.PI/2;SG[9].add(q);const hx=H-1.95,hz=k%2?-4.7:4.7;
+    add(q,new THREE.BoxGeometry(1.5,3.2,2.1),PLASTER,hx,1.85,hz);for(const dz of[-1,0,1])add(q,new THREE.BoxGeometry(1.52,3.22,.12),WOOD,hx,1.85,hz+dz*.98);for(const y of[1.3,2.6])add(q,new THREE.BoxGeometry(1.53,.12,2.12),WOOD,hx,y,hz);add(q,new THREE.BoxGeometry(.06,.5,.4),WINM,hx-.77,3,hz+.45);
+    add(q,new THREE.CylinderGeometry(1.1,1.1,2.4,3,1).rotateX(Math.PI/2).rotateZ(Math.PI/2*3).scale(.95,.9,1),ROOFM,hx,3.95,hz);
+    add(q,new THREE.BoxGeometry(.06,.55,.4),WINM,hx-.77,1.25,hz+.45);add(q,new THREE.BoxGeometry(.06,.9,.5),GATEM,hx-.77,.75,hz-.45);
+    for(const[bx2,bz]of[[-.2,-1.4],[.25,-1.55]])add(q,new THREE.CylinderGeometry(.24,.24,.6,10),BOWM,hx-.9+bx2,.6,hz+bz)}
+  {const wx=-(H-2.1),wz=-(H-2.1)+1.6;add(SG[9],new THREE.CylinderGeometry(.75,.8,.7,12),STONE,wx,.6,wz);add(SG[9],new THREE.CylinderGeometry(.58,.58,.08,12),WATM,wx,.92,wz);for(const sx of[-1,1])add(SG[9],new THREE.BoxGeometry(.1,1.3,.1),WOOD,wx+sx*.65,1.4,wz);add(SG[9],new THREE.BoxGeometry(1.5,.12,.12),WOOD,wx,2.05,wz)}
   // corner towers
   const CT=[];
   [[H,H],[-H,H],[H,-H],[-H,-H]].forEach(([x,z],ci)=>{const g=SG[ci];const y=gy(x,z);add(g,new THREE.CylinderGeometry(1.55,1.8,WH+3.6,18),STONE,x,y+(WH+3.6)/2,z);add(g,new THREE.CylinderGeometry(1.85,2.3,1.4,18),STONE,x,y+.6,z);
@@ -1737,6 +1761,7 @@ function buildCastle(s){
   for(let k=0;k<4;k++){const sg=new THREE.Group();sg.rotation.y=k*Math.PI/2;SG[8].add(sg);
     for(let m=-K+.2;m<=K-.2;m+=1.15)add(sg,new THREE.BoxGeometry(.5,.9,.62),STONE,K+.18,KH+.75,m);
     for(const y of[6.2,10.2])for(const m of[-1.6,1.6])add(sg,new THREE.BoxGeometry(.13,1.05,.38),DARK,K+.02,y,m);      // arrow slits
+    for(const m of[-1.6,1.6]){add(sg,new THREE.BoxGeometry(.1,1.1,.7),WINM,K+.03,8.2,m);add(sg,new THREE.CylinderGeometry(.35,.35,.1,10,1,false,0,Math.PI).rotateZ(Math.PI/2).rotateX(Math.PI/2),WINM,K+.03,8.75,m);add(sg,new THREE.BoxGeometry(.25,.12,.95),STONE,K+.12,7.6,m)}     // lit windows
     add(sg,new THREE.BoxGeometry(.06,4.2,1.5),t,K+.05,KH-2.8,0);add(sg,new THREE.BoxGeometry(.08,.3,1.7),WOOD,K+.08,KH-.6,0);    // banner
   }
   for(const[x,z]of[[K,K],[-K,K],[K,-K],[-K,-K]])add(SG[8],new THREE.CylinderGeometry(.85,.55,2.8,10),STONE,x,KH-.6,z);
@@ -1835,6 +1860,7 @@ function archerFig(p,col,x,y,z,s=1){
   const q=add(a,new THREE.CylinderGeometry(.09,.075,.55,10),WOOD,-.24,1.28,.06);q.rotation.x=.35;
   for(const dz of[-.04,.04])add(a,new THREE.ConeGeometry(.045,.12,4),col,-.24,1.6,.17+dz);
   return a}
+const GUNM=new THREE.MeshStandardMaterial({color:'#2a2e33',roughness:.45,metalness:.6});
 function buildTower(g,t,col,hg){
   const H=hg||g;
   if(t.type==='ok'){
@@ -1873,15 +1899,15 @@ function buildTower(g,t,col,hg){
     // turntable, a yoke on either side, and a pod of six launch tubes held in a team-coloured frame
     add(hh,new THREE.CylinderGeometry(1.15,1.3,.42,16),STEEL,0,1.05,0);add(hh,new THREE.CylinderGeometry(.95,1.05,.2,16),col,0,1.33,0);add(hh,new THREE.SphereGeometry(.7,14,8,0,6.283,0,1.4),IRONM,0,1.38,0);
     for(const x of[-1.35,1.35]){add(hh,new THREE.BoxGeometry(.22,1.5,.7),STEEL,x,1.9,0);add(hh,new THREE.CylinderGeometry(.3,.3,.3,12).rotateZ(Math.PI/2),IRONM,x,2.55,0)}
-    for(const x of[-.62,0,.62])for(const y of[-.32,.32]){add(rack,new THREE.CylinderGeometry(.27,.27,3,12).rotateX(Math.PI/2),STEEL,x,y,.1);add(rack,new THREE.CylinderGeometry(.2,.2,.05,10).rotateX(Math.PI/2),DARK,x,y,1.62);add(rack,new THREE.ConeGeometry(.18,.45,10).rotateX(Math.PI/2),'#d8d2c4',x,y,1.45)}
+    for(const x of[-.62,0,.62])for(const y of[-.32,.32]){add(rack,new THREE.CylinderGeometry(.27,.27,3,12).rotateX(Math.PI/2),STEEL,x,y,.1);add(rack,new THREE.CylinderGeometry(.2,.2,.05,10).rotateX(Math.PI/2),DARK,x,y,1.62);add(rack,new THREE.CylinderGeometry(.2,.2,.5,12).rotateX(Math.PI/2),'#e8e4dc',x,y,1.62);add(rack,new THREE.ConeGeometry(.2,.75,12).rotateX(Math.PI/2),'#c0392b',x,y,2.24)}
     add(rack,new THREE.BoxGeometry(2.1,1.4,.2),col,0,0,-1.35);for(const z of[-.6,.6]){add(rack,new THREE.BoxGeometry(2.15,.12,.18),col,0,.66,z);add(rack,new THREE.BoxGeometry(2.15,.12,.18),col,0,-.66,z);for(const x of[-1.04,1.04])add(rack,new THREE.BoxGeometry(.12,1.44,.18),col,x,0,z)}
     add(g,new THREE.BoxGeometry(.2,1.6,.2),STEEL,1.6,1.8,-1);add(g,new THREE.TorusGeometry(.5,.06,6,16).rotateY(.6),STEEL,1.6,2.8,-1);t.top=3.4}
   else if(t.type==='duvar'){const h=2.6+t.lvl*.5;add(g,new THREE.BoxGeometry(WALL,h,WALL),STONE,0,h/2,0);for(const[x,z]of[[-1,-1],[1,-1],[-1,1],[1,1]])add(g,new THREE.BoxGeometry(.7,.7,.7),STONE,x,h+.35,z)}
   else{add(g,new THREE.BoxGeometry(3,1.2,3),DARK,0,.6,0);add(g,new THREE.CylinderGeometry(1.3,1.45,.3,12),STEEL,0,1.32,0);
     // a round gun turret: armoured dome in team colour, a curved shield, twin long barrels with flash hiders, ammunition drums at the sides
     const e=t.lvl*.2;add(H,new THREE.CylinderGeometry(1.2,1.3,.35,18),STEEL,0,1.35,0);add(H,new THREE.SphereGeometry(1.05,18,10,0,6.283,0,1.45),col,0,1.5,0);add(H,new THREE.CylinderGeometry(1.08,1.08,.12,18),DARK,0,1.55,0);
-    {const sh=new THREE.CylinderGeometry(1.3,1.3,1.1,16,1,true,-.9,1.8);const m=add(H,sh,STEEL,0,2.1+e,0);m.rotation.y=Math.PI/2}
-    for(const dz of[-.42,.42]){const g2=new THREE.Group();g2.position.set(.15,2.35+e,dz);g2.rotation.z=-.65;H.add(g2);add(g2,new THREE.CylinderGeometry(.24,.28,.9,10),IRONM,0,.3,0);add(g2,new THREE.CylinderGeometry(.11,.13,3.6,10),STEEL,0,2.3,0);for(let k=0;k<3;k++)add(g2,new THREE.CylinderGeometry(.16,.16,.14,10),DARK,0,4.05-k*.16,0);
+    {const sh=new THREE.CylinderGeometry(1.3,1.3,1.1,16,1,true,-.9,1.8);const m=add(H,sh,col,0,2.1+e,0);m.rotation.y=Math.PI/2}
+    for(const dz of[-.42,.42]){const g2=new THREE.Group();g2.position.set(.15,2.35+e,dz);g2.rotation.z=-.65;H.add(g2);add(g2,new THREE.CylinderGeometry(.24,.28,.9,10),IRONM,0,.3,0);add(g2,new THREE.CylinderGeometry(.11,.13,3.6,10),GUNM,0,2.3,0);for(let k=0;k<3;k++)add(g2,new THREE.CylinderGeometry(.16,.16,.14,10),GUNM,0,4.05-k*.16,0);add(g2,new THREE.CylinderGeometry(.12,.16,.35,10),col,0,1.1,0);
       add(H,new THREE.CylinderGeometry(.42,.42,.3,14).rotateX(Math.PI/2),DARK,-.55,2.1+e,dz*2.55)}
     t.top=3.6+t.lvl*.3}
 }
@@ -1981,12 +2007,15 @@ const PARTS={
   denizalti:[[new THREE.CapsuleGeometry(1.5,10,6,16).rotateX(1.57).scale(1,.8,1),'#2f3a44'],[bx(1.4,1.7,3,0,1.7,.6),'#2f3a44'],[bx(1.5,.3,3.1,0,2.2,.6),null],[cy(.09,.09,1.6,.2,3,1.1,6),'#59626c'],[bx(4.2,.14,1,0,0,-5.4),'#59626c'],[bx(.14,2.8,1,0,0,-5.4),'#59626c']],
   // a destroyer: sharp raked bow, red boot-topping, a bridge with windows, raked funnel, mast, boats, rails, and two gun turrets that turn on their own
   gemi:(()=>{const G='#4a535c',Gd='#3a4249',Gl='#8e979f',W='#c9ced2',T1={p:[0,1.25,4.6],k:'tur'},T2={p:[0,1.25,-6.6],k:'tur2'};
-    const tur=(z,sw,f)=>[[cy(1.05,1.15,.5,0,1.25,z,14),Gd,sw],[new THREE.CylinderGeometry(.95,1.1,.9,8,1).scale(1,1,1.25).translate(0,1.85,z+f*.15),null,sw],[bx(1.5,.25,1.4,0,2.35,z+f*.1),Gl,sw],
+    const tur=(z,sw,f)=>[[cy(1.05,1.15,.5,0,1.25,z,14),Gd,sw],[new THREE.SphereGeometry(1.05,16,8,0,6.283,0,1.5).scale(1,.75,1.25).translate(0,1.5,z+f*.15),Gl,sw],[new THREE.CylinderGeometry(1.07,1.07,.18,16).scale(1,1,1.25).translate(0,1.6,z+f*.15),null,sw],[new THREE.BoxGeometry(.9,.3,.5).translate(0,2.2,z-f*.5),Gd,sw],
       ...[-.32,.32].flatMap(x=>[[new THREE.CylinderGeometry(.11,.15,3.1,8).rotateX(f*Math.PI/2).translate(x,1.85,z+f*2.6),'#262b30',sw],[new THREE.CylinderGeometry(.17,.17,.35,8).rotateX(Math.PI/2).translate(x,1.85,z+f*4.05),'#1a1d20',sw]])];
     const H=hullGeos(),rail=sd=>{const pts=[];for(let i=0;i<=26;i++){const z=-9.4+19.6*i/26;pts.push([sd*(H.W(z)-.05),H.DY(z)+.32,z])}const a=[];for(let i=0;i<26;i++){const[p,q]=[pts[i],pts[i+1]];a.push(p[0],p[1]-.04,p[2],q[0],q[1]-.04,q[2],p[0],p[1]+.04,p[2], p[0],p[1]+.04,p[2],q[0],q[1]-.04,q[2],q[0],q[1]+.04,q[2], p[0],p[1]-.04,p[2],p[0],p[1]+.04,p[2],q[0],q[1]-.04,q[2], p[0],p[1]+.04,p[2],q[0],q[1]+.04,q[2],q[0],q[1]-.04,q[2])}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));g.computeVertexNormals();return g};
     return[
       [H.top,G],[H.boot,'#7a2a22'],[H.deck,'#646a70'],[rail(-1),Gl],[rail(1),Gl],
-      [bx(3,1.9,4.6,0,1.95,-1.6),Gl],[bx(2.6,1.2,2.8,0,3.5,-.9),W],[bx(2.62,.32,2.82,0,3.55,-.9),'#1c2328'],[bx(3.1,.14,1.2,0,4.18,-.2),Gl],[bx(2.9,.12,3.1,0,4.15,-.9),Gd],
+      [new THREE.CylinderGeometry(1.9,2.25,1.9,4,1).rotateY(Math.PI/4).scale(.8,1,1.24).translate(0,1.95,-1.6),Gl],[new THREE.CylinderGeometry(1.55,1.85,1.2,4,1).rotateY(Math.PI/4).scale(.8,1,.85).translate(0,3.5,-.9),W],
+      ...[-1,1].flatMap(sd=>[...Array(9)].map((_,i)=>{const z=-7+i*1.6;return[new THREE.CylinderGeometry(.11,.11,.05,8).rotateZ(Math.PI/2).translate(sd*(H.W(z)+.01),H.DY(z)-.35,z),'#1a1f24']})),     // portholes
+      [cy(.04,.04,2.4,0,9.2,-1.6,4),'#59626c'],[new THREE.CylinderGeometry(.55,.55,.08,14).rotateX(1.2).translate(0,8.2,-2.35),W],[bx(.16,.5,.16,0,7.9,-2.2),'#59626c'],     // radar dish
+[bx(2.62,.32,2.82,0,3.55,-.9),'#1c2328'],[bx(3.1,.14,1.2,0,4.18,-.2),Gl],[bx(2.9,.12,3.1,0,4.15,-.9),Gd],
       [cy(.07,.09,5,0,6.4,-1.6,6),'#59626c'],[bx(2.4,.09,.09,0,7.6,-1.6),'#59626c'],[bx(1.1,.09,.09,0,8.4,-1.6),'#59626c'],[bx(.04,.7,1.2,0,8.6,-2.2),null],
       [new THREE.CylinderGeometry(.7,.85,2.6,12).rotateX(-.12).translate(0,3.6,-4.4),Gl],[new THREE.CylinderGeometry(.72,.72,.38,12).rotateX(-.12).translate(0,4.85,-4.55),'#16191c'],[bx(1.6,.08,.25,0,4.1,-4.3),null],
       ...[-1,1].map(sd=>[new THREE.CapsuleGeometry(.35,1.6,3,8).rotateX(Math.PI/2).translate(sd*1.85,1.55,-3.9),'#e8e4da']),
@@ -2075,42 +2104,64 @@ function loadChars(){for(const k of Object.keys(CHR_DEF))if(k!=='at')loadChr(k);
 // A gallop cycle and a resting pose are baked into frames like the soldiers.
 function horseGeo(ph,run){
   let keep=0;const parts=[],col=new THREE.Color(),V=(x,y,z)=>new THREE.Vector3(x,y,z);
-  const put=(g,c,kp)=>{g=g.index?g.toNonIndexed():g;g.computeVertexNormals();col.set(c);kp=kp??keep;const n=g.attributes.position.count,C=new Float32Array(n*4);for(let i=0;i<n;i++){C[i*4]=col.r;C[i*4+1]=col.g;C[i*4+2]=col.b;C[i*4+3]=kp}g.setAttribute('color',new THREE.BufferAttribute(C,4));g.deleteAttribute('uv');parts.push(g)};
+  const put=(g,c,kp)=>{if(!g.attributes.normal)g.computeVertexNormals();g=g.index?g.toNonIndexed():g;col.set(c);kp=kp??keep;const n=g.attributes.position.count,C=new Float32Array(n*4);for(let i=0;i<n;i++){C[i*4]=col.r;C[i*4+1]=col.g;C[i*4+2]=col.b;C[i*4+3]=kp}g.setAttribute('color',new THREE.BufferAttribute(C,4));g.deleteAttribute('uv');parts.push(g)};
   const limb=(a,b,r0,r1,c,sg=8)=>{const d=b.clone().sub(a),L=d.length(),g=new THREE.CylinderGeometry(r1,r0,L,sg,1);g.translate(0,L/2,0);g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(V(0,1,0),d.normalize()));g.translate(a.x,a.y,a.z);put(g,c);const j=new THREE.SphereGeometry(r1*1.02,sg,5);j.translate(b.x,b.y,b.z);put(j,c)};
   const blob=(x,y,z,sx,sy,sz,c,rx=0)=>{const g=new THREE.SphereGeometry(1,16,12);g.scale(sx,sy,sz);if(rx)g.rotateX(rx);g.translate(x,y,z);put(g,c)};
   const COAT='#ffffff',DK='#2a1c12',HOOF='#1b1714',LIGHT='#f2ece2';     // the coat colour comes from each horse's own tint
-  const T=ph*Math.PI*2,bob=run?Math.sin(T*2)*.07:0,pit=run?Math.sin(T)*.05:0;
+  const T=ph*Math.PI*2,bob=run?Math.sin(T*2)*.06:0,pit=run?Math.sin(T*2+.6)*.035:0;
   const Y=y=>y+bob;
-  // body: barrel, chest and hindquarters
-  blob(0,Y(1.72),.05,.56,.62,1.25,COAT,pit);blob(0,Y(1.78),.95,.55,.64,.62,COAT);blob(0,Y(1.86),-.92,.6,.66,.7,COAT);
-  // neck: thick at the withers, tapering up and forward to the poll; the head hangs off it at a natural angle, wide at the cheeks, narrowing to a soft muzzle
-  const nk=run?.1*Math.sin(T+1):0,n0=V(0,Y(1.98),1.1),n1=V(0,Y(2.72+nk*.5),1.95+nk*.25),h0=n1.clone().add(V(0,.02,.1)),h1=V(0,Y(2.12+nk*.8),2.62+nk*.3);
-  limb(n0,n1,.46,.25,COAT,12);blob(0,Y(2.0),1.2,.42,.5,.5,COAT);
-  {const hd=h1.clone().sub(h0),ax=Math.atan2(hd.y,hd.z);const sk=new THREE.SphereGeometry(1,14,10);sk.scale(.21,.24,.28);sk.rotateX(-ax);sk.translate(h0.x,h0.y-.02,h0.z+.06);put(sk,COAT);
-   const ch=new THREE.SphereGeometry(1,12,8);ch.scale(.19,.2,.22);ch.translate(h0.x,h0.y-.17,h0.z-.02);put(ch,COAT);
-   limb(h0.clone().add(V(0,-.02,.08)),h1,.19,.13,COAT,10);
-   const mz=new THREE.SphereGeometry(1,12,8);mz.scale(.15,.14,.17);mz.rotateX(-ax);mz.translate(h1.x,h1.y,h1.z);put(mz,'#d9cfc5');
-   for(const sd of[-1,1]){const ns=new THREE.SphereGeometry(.035,6,4);ns.translate(sd*.07,h1.y+.02,h1.z+.13);put(ns,DK)}}
-  for(const sd of[-1,1]){const e=h0.clone().add(V(sd*.1,.27,-.08)),c=new THREE.ConeGeometry(.055,.22,6);c.rotateX(-.25);c.translate(e.x,e.y,e.z);put(c,COAT);const ey=new THREE.SphereGeometry(.042,6,4);ey.translate(sd*.17,h0.y+.02,h0.z+.12);put(ey,'#111')}
-  // mane along the top of the neck and the tail
-  for(let k=0;k<7;k++){const t=k/6,p=n0.clone().lerp(n1,t).add(V(0,.32-.05*t,-.05)),g=new THREE.BoxGeometry(.08,.3,.32);g.rotateX(-.6);g.translate(p.x,p.y,p.z);put(g,DK)}
-  {const sw=run?Math.sin(T*2)*.25:Math.sin(ph*6.28)*.08,a=V(0,Y(2.12),-1.48),b=V(sw*.4,Y(1.35),-1.9+(run?-.35:0)),c2=b.clone().add(V(sw*.6,-.45,-.05-(run?.3:0)));limb(a,b,.13,.1,DK,6);limb(b,c2,.1,.05,DK,6)}
-  // legs: thigh, cannon and hoof; front knees fold back, hind hocks fold forward
-  const legs=[[.3,1,0],[-.3,1,.12],[.3,-1,.5],[-.3,-1,.62]];
-  for(const[x,f,o]of legs){const front=f>0,hip=V(x,Y(front?1.58:1.7),front?.98:-.98),T2=(ph+o)*Math.PI*2;
-    const swing=run?(front?.62:.55)*Math.sin(T2):0,fold=run?Math.max(0,Math.sin(T2+(front?1.4:-1.2)))*(front?1.25:.9):0;
-    const L1=front?.72:.78,L2=front?.72:.66;
-    const knee=hip.clone().add(V(0,-Math.cos(swing)*L1,Math.sin(swing)*L1*(front?1:1)+(front?0:-.08)));
-    const a2=swing+(front?-fold:fold);const fet=knee.clone().add(V(0,-Math.cos(a2)*L2,Math.sin(a2)*L2));
-    limb(hip,knee,front?.2:.24,.12,COAT,8);limb(knee,fet,.1,.085,COAT,7);
-    const hf=new THREE.CylinderGeometry(.1,.12,.15,8);hf.translate(fet.x,fet.y-.07,fet.z);put(hf,HOOF);const so=new THREE.CylinderGeometry(.095,.1,.12,8);so.translate(fet.x,fet.y+.05,fet.z);put(so,LIGHT)}
+  // a smooth tube along a path, with an elliptical section at every point (side half-width rx, other half-depth ry): one continuous skin, no lumps
+  const tube=(pts,rad,c,seg=14,side=V(1,0,0))=>{const n=pts.length,P=[],I=[];for(let i=0;i<n;i++){const t=pts[Math.min(n-1,i+1)].clone().sub(pts[Math.max(0,i-1)]).normalize(),sd=side.clone().sub(t.clone().multiplyScalar(side.dot(t))).normalize(),nm=V(0,0,0).crossVectors(sd,t).normalize();
+      for(let k=0;k<=seg;k++){const a=k/seg*Math.PI*2,[rx,ry,ry2]=rad[i],q=pts[i].clone().addScaledVector(sd,Math.cos(a)*rx).addScaledVector(nm,Math.sin(a)*(Math.sin(a)>0?ry:(ry2??ry)));P.push(q.x,q.y,q.z)}}
+    for(let i=0;i<n-1;i++)for(let k=0;k<seg;k++){const a=i*(seg+1)+k,b=a+seg+1;I.push(a,b,a+1,a+1,b,b+1)}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setIndex(I);g.computeVertexNormals();put(g,c)};
+  // body: one loft from the dock of the tail to the breast. Sections: z, centre height, half width, half height above, half height below
+  {const S=[[-1.66,1.99,.04,.04,.04],[-1.6,1.99,.24,.22,.3],[-1.46,1.98,.4,.34,.48],[-1.2,1.99,.5,.41,.58],[-.9,1.97,.52,.41,.6],[-.5,1.93,.49,.38,.6],[0,1.92,.52,.4,.64],[.45,1.95,.53,.42,.64],[.85,1.99,.49,.45,.62],[1.12,2.0,.43,.44,.62],[1.32,1.96,.34,.38,.52],[1.46,1.9,.16,.18,.26],[1.5,1.9,.03,.03,.03]];
+    const pts=S.map(([z,y])=>{const k=Math.cos(z*1.2)*pit*0;return V(0,Y(y+z*pit*-1),z)}),rad=S.map(([,,rx,ru,rd])=>[rx,ru,rd]);
+    // a loft along z: section 'up' is +y, so the path frame is built with side = x
+    tube(pts,rad,COAT,18)}
+  // the neck sweeps up from the withers and arches forward; the head hangs from the poll, deep at the cheek, long to a soft muzzle
+  const nk=run?.09*Math.sin(T*2+1.2):0,poll=V(0,Y(2.88+nk),1.98+nk*.4);
+  {const N=[[V(0,Y(2.0),.98),.36,.56],[V(0,Y(2.3),1.35),.3,.46],[V(0,Y(2.58+nk*.5),1.66+nk*.2),.22,.34],[V(0,Y(2.8+nk),1.88+nk*.35),.17,.25],[poll,.15,.2]];tube(N.map(a=>a[0]),N.map(a=>[a[1],a[2]*.8,a[2]*1.1]),COAT,16)}
+  {const hd=V(0,-.62,.62).normalize(),H=[[0,.15,.2],[.12,.17,.25],[.3,.15,.24],[.5,.12,.18],[.68,.1,.14],[.82,.1,.13],[.9,.07,.08],[.94,.02,.02]].map(([t,rx,ry])=>[poll.clone().add(V(0,.04,.02)).addScaledVector(hd,t),rx,ry]);
+    tube(H.map(a=>a[0]),H.map(a=>[a[1],a[2]*.85,a[2]*1.05]),COAT,14);
+    const jaw=new THREE.SphereGeometry(1,14,10);jaw.scale(.15,.16,.19);jaw.translate(0,poll.y-.2,poll.z+.02);put(jaw,COAT);
+    const mz=poll.clone().addScaledVector(hd,.86),mzG=new THREE.SphereGeometry(1,12,8);mzG.scale(.11,.1,.12);mzG.translate(mz.x,mz.y-.01,mz.z+.02);put(mzG,'#c9bdb0');
+    for(const sd of[-1,1]){const ns=new THREE.SphereGeometry(.03,6,4);ns.translate(sd*.06,mz.y+.02,mz.z+.1);put(ns,DK);const ey=new THREE.SphereGeometry(.04,8,6);ey.translate(sd*.15,poll.y-.08,poll.z+.18);put(ey,'#0d0b0a');
+      const ear=new THREE.ConeGeometry(.05,.22,6);ear.rotateX(-.2);ear.rotateZ(-sd*.18);ear.translate(sd*.08,poll.y+.2,poll.z-.02);put(ear,COAT)}
+    // mane: a crest of hair along the top of the neck, falling to one side, and a forelock
+    const M=[];for(let k=0;k<=6;k++){const t=k/6,p=V(0,Y(2.32+t*.52+nk*t),1.12+t*.8+nk*.3*t);M.push([p.clone().add(V(.04,.06,-.05)),.05,.09])}tube(M.map(a=>a[0]),M.map(a=>[a[1],a[2]]),DK,6);
+    const fl=new THREE.BoxGeometry(.12,.22,.05);fl.rotateX(.5);fl.translate(0,poll.y+.02,poll.z+.18);put(fl,DK)}
+  // tail: a full switch of hair from the dock, swinging as the horse moves
+  {const sw=run?Math.sin(T*2)*.18:Math.sin(ph*6.28)*.05,lift=run?.35:0,TT=[[0,1.98,-1.6,.1],[sw*.2,1.92+lift*.2,-1.78-lift*.15,.13],[sw*.5,1.6+lift*.4,-1.92-lift*.3,.16],[sw*.8,1.2+lift*.55,-1.98-lift*.45,.15],[sw,.8+lift*.7,-1.95-lift*.55,.08],[sw*1.1,.6+lift*.75,-1.9-lift*.6,.02]];
+    tube(TT.map(([x,y,z])=>V(x,Y(y),z)),TT.map(a=>[a[3],a[3]*.8]),DK,8)}
+  // legs: shoulder and forearm, knee, slim cannon, fetlock, sloping pastern and hoof; behind: thigh, gaskin, the hock's backward angle
+  const legs=[[.3,1,0],[-.3,1,.1],[.3,-1,.52],[-.3,-1,.62]];
+  for(const[x,f,o]of legs){const front=f>0,T2=(ph+o)*Math.PI*2;
+    const sw=run?(front?.6:.5)*Math.sin(T2):0,fold=run?Math.max(0,Math.sin(T2+(front?1.5:-1.3))):0;
+    const ang=(p,a,l)=>p.clone().add(V(0,-Math.cos(a)*l,Math.sin(a)*l));
+    if(front){const top=V(x,Y(1.95),1.0),el=ang(top,-.3+sw*.6,.52),kn=ang(el,sw-fold*.15,.62),fe=ang(kn,sw-fold*1.6,.5),hf=ang(fe,sw-fold*1.9+.55,.2);
+      tube([top,el,el.clone().lerp(kn,.45),kn,fe,hf],[[.2,.3],[.17,.19],[.13,.15],[.1,.1],[.075,.08],[.085,.085]],COAT,10,V(0,0,1));
+      const k=new THREE.SphereGeometry(.1,8,6);k.translate(kn.x,kn.y,kn.z);put(k,COAT);const fk=new THREE.SphereGeometry(.09,8,6);fk.translate(fe.x,fe.y,fe.z-.02);put(fk,COAT);
+      const h=new THREE.CylinderGeometry(.085,.12,.16,10);h.translate(hf.x,hf.y-.06,hf.z+.02);put(h,HOOF);const so=new THREE.CylinderGeometry(.09,.092,.08,10);so.translate(hf.x,hf.y+.04,hf.z+.01);put(so,LIGHT)}
+    else{const top=V(x,Y(1.98),-1.12),st=ang(top,.55+sw*.7,.58),hk=ang(st,-.5+sw*.9-fold*.4,.66),fe=ang(hk,.08+sw*.6+fold*1.2,.58),hf=ang(fe,.5+sw*.4+fold*1.4,.2);
+      tube([top.clone().add(V(0,.05,.1)),top.clone().lerp(st,.5),st,hk,fe,hf],[[.26,.42],[.24,.34],[.17,.22],[.09,.12],[.075,.08],[.085,.085]],COAT,10,V(0,0,1));
+      const hb=new THREE.SphereGeometry(.1,8,6);hb.translate(hk.x,hk.y,hk.z-.02);put(hb,COAT);const fk=new THREE.SphereGeometry(.09,8,6);fk.translate(fe.x,fe.y,fe.z-.02);put(fk,COAT);
+      const h=new THREE.CylinderGeometry(.085,.12,.16,10);h.translate(hf.x,hf.y-.06,hf.z+.02);put(h,HOOF);const so=new THREE.CylinderGeometry(.09,.092,.08,10);so.translate(hf.x,hf.y+.04,hf.z+.01);put(so,LIGHT)}}
+  // bridle: headstall, noseband and reins to the rider's hands
+  {const hd=V(0,-.62,.62).normalize(),nb=poll.clone().addScaledVector(hd,.62),R1=new THREE.TorusGeometry(.13,.018,4,14);R1.scale(1,1,1.1);R1.rotateX(Math.PI/2-.8);R1.translate(nb.x,nb.y,nb.z);put(R1,'#3a2416',1);
+    const hs=new THREE.TorusGeometry(.17,.018,4,14);hs.rotateY(Math.PI/2);hs.translate(poll.x,poll.y-.02,poll.z+.03);put(hs,'#3a2416',1);
+    limb(nb.clone().add(V(.12,0,0)),V(.22,Y(2.55),.75),.015,.015,'#3a2416',4);limb(nb.clone().add(V(-.12,0,0)),V(-.22,Y(2.55),.75),.015,.015,'#3a2416',4)}
   // the rider's legs hang down both flanks into the stirrups (painted in their own colours, not the coat's)
-  keep=1;for(const sd of[-1,1]){const hp=V(sd*.4,Y(2.12),.28),kn=V(sd*.66,Y(1.78),.62),an=V(sd*.62,Y(1.22),.42);
+  keep=1;for(const sd of[-1,1]){const hp=V(sd*.36,Y(2.34),.22),kn=V(sd*.62,Y(1.98),.5),an=V(sd*.6,Y(1.46),.36);
     limb(hp,kn,.17,.15,'#6d727a',8);limb(kn,an,.14,.12,'#5b6068',8);blob(kn.x,kn.y,kn.z+.04,.15,.15,.15,'#8a8f97');
     const bt=new THREE.BoxGeometry(.2,.2,.38);bt.translate(an.x,an.y-.06,an.z+.08);put(bt,'#3b2f28',1);
     const st=new THREE.TorusGeometry(.12,.025,4,8);st.translate(an.x,an.y-.16,an.z+.06);put(st,'#9a9aa2',1)}keep=0;
   // saddle and blanket under the rider
-  {const g=new THREE.CylinderGeometry(.62,.62,.12,14,1,false,-1.2,2.4);g.scale(1,1,1.05);g.rotateZ(Math.PI/2);g.rotateY(Math.PI/2);g.translate(0,Y(2.1),.15);put(g,'#5a2f1a')}
+  {keep=1;const bl=new THREE.CylinderGeometry(.57,.57,1.05,20,1,true,-1.15,2.3);bl.rotateX(Math.PI/2);bl.rotateZ(Math.PI/2);bl.scale(1,1.1,1);bl.translate(0,Y(1.93),.18);put(bl,'#7a2a20');
+    const tr=new THREE.CylinderGeometry(.575,.575,.06,20,1,true,-1.15,2.3);tr.rotateX(Math.PI/2);tr.rotateZ(Math.PI/2);tr.scale(1,1.1,1);for(const z of[-.33,.69]){const t2=tr.clone();t2.translate(0,Y(1.93),z);put(t2,'#c9a443')}
+    const se=new THREE.SphereGeometry(1,16,8,0,6.283,0,1.4);se.scale(.36,.12,.5);se.translate(0,Y(2.35),.15);put(se,'#4a2814');
+    const pm=new THREE.SphereGeometry(.12,10,6);pm.scale(1.2,1,.8);pm.translate(0,Y(2.43),.6);put(pm,'#4a2814');const ca=new THREE.CylinderGeometry(.24,.24,.1,12,1,false,0,Math.PI);ca.rotateZ(Math.PI/2);ca.rotateY(Math.PI/2);ca.translate(0,Y(2.37),-.3);put(ca,'#4a2814');keep=0}
   // merge
   let n=0;for(const g of parts)n+=g.attributes.position.count;const P3=new Float32Array(n*3),N3=new Float32Array(n*3),C3=new Float32Array(n*3),K1=new Float32Array(n);let o=0;
   for(const g of parts){P3.set(g.attributes.position.array,o*3);N3.set(g.attributes.normal.array,o*3);const ca=g.attributes.color.array;for(let i=0;i<g.attributes.position.count;i++){C3[(o+i)*3]=ca[i*4];C3[(o+i)*3+1]=ca[i*4+1];C3[(o+i)*3+2]=ca[i*4+2];K1[o+i]=ca[i*4+3]}o+=g.attributes.position.count;g.dispose()}
@@ -2120,11 +2171,12 @@ function horseClips(){const mat=new THREE.MeshStandardMaterial({vertexColors:tru
   const mk=g=>{const m=new THREE.InstancedMesh(g,mat,CHR_CAP);m.castShadow=true;m.frustumCulled=false;m.count=0;m.visible=false;m.setColorAt(0,new THREE.Color('#fff'));m.userData.n=0;scene.add(m);return m};
   const walk=[];for(let f=0;f<12;f++)walk.push(mk(horseGeo(f/12,true)));return{walk,idle:[mk(horseGeo(0,false))]}}
 const COATS=['#7a4524','#5a3018','#8f5a2e','#2b2420','#b9a48a','#6b4a33','#a06a3a','#ece6dc'].map(c=>new THREE.Color(c));
-const HRS={s:1.12,rot:0,ry:1.95,rz:.15,rs:.82};window.HRS=HRS;
+const CHS={piyade:1.2,isci:1.32,dalgic:1.38};     // everyone in proportion: the baked models come in different heights
+const HRS={s:1.3,rot:0,ry:2.27,rz:.14,rs:1.05};window.HRS=HRS;
 const chrReady=t=>t==='atli'?!!(CHR.at&&CHR.binici):!!CHR[t];
 // put one character into the frame mesh for its pose: walking, idle or striking, each soldier a little out of step with the next
 function chrPush(key,clip,ph,m4,from,tint){const C=CHR[key];const cl=C.clips[clip]||C.clips.idle||C.clips.walk;const f=Math.min(cl.length-1,Math.floor(((ph%1)+1)%1*cl.length)),m=cl[f];const i=m.userData.n;if(i>=CHR_CAP)return;m.userData.n++;m.setMatrixAt(i,m4);m.setColorAt(i,tint||(from<0?WHITE_C:tc[from]))}
-const WHITE_C=new THREE.Color('#ffffff');
+const WHITE_C=new THREE.Color('#ffffff'),SUITC=TEAM.map(c=>new THREE.Color('#1c2024').lerp(new THREE.Color(c),.18));     // frogmen wear plain black wetsuits with just a hint of their side's colour
 let BLOB=null,blobN=0;
 function blobAt(x,z,r){if(!BLOB){const t=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,2,32,32,31);gr.addColorStop(0,'rgba(0,0,0,.55)');gr.addColorStop(.6,'rgba(0,0,0,.25)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c)})();
     BLOB=new THREE.InstancedMesh(new THREE.PlaneGeometry(2,2).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}),120);BLOB.frustumCulled=false;BLOB.count=0;BLOB.renderOrder=2;scene.add(BLOB)}
@@ -2140,12 +2192,12 @@ function drawUnits(rdt){
   // atk: 0..1 through one blow. f: pulled back (-.5) to fully struck (1)
   const put=(type,x,z,from,dir,moving=true,pitchY=null,pitch=0,atk=null)=>{
     if(chrOn&&chrReady(type)&&(type==='atli'||camera.position.distanceToSquared(vp.set(x,0,z))<CHR_FAR*CHR_FAR)){     // the real model, close enough to be seen
-      const T=now()/1000,sd=(curId*.6180339)%1,y=(pitchY??unitY(UNITS[type],x,z));vp.set(x,y,z);qt.setFromAxisAngle(UP,dir);if(pitch){qr.setFromAxisAngle(XA,pitch);qt.multiply(qr)}mx.compose(vp,qt,type==='piyade'?vs.setScalar(1.2):vs);vs.set(1,1,1);
+      const T=now()/1000,sd=(curId*.6180339)%1,y=(pitchY??unitY(UNITS[type],x,z));vp.set(x,y,z);qt.setFromAxisAngle(UP,dir);if(pitch){qr.setFromAxisAngle(XA,pitch);qt.multiply(qr)}mx.compose(vp,qt,vs.setScalar(CHS[type]||1));vs.set(1,1,1);
       if(type==='atli'){if(HRS.fi)moving=false;const H=HRS,br=moving?0:Math.sin(T*2.2+sd*6.28),bob=moving?Math.sin((((T*1.25+sd)%1+1)%1)*Math.PI*4)*.07*H.s+.03:0;     // standing still the horse breathes and shifts a little, galloping it rocks the rider
         mt.compose(vp.set(0,0,0),qr.setFromAxisAngle(UP,H.rot+(moving?0:Math.sin(T*.7+sd*9)*.04)),vs.set(H.s,H.s*(1+br*.012),H.s*(1-br*.004)));mo.copy(mx).multiply(mt);vs.set(1,1,1);
         const coat=COATS[Math.floor(sd*97)%COATS.length];if(moving)chrPush('at','walk',T*1.25+sd,mo,-1,coat);else chrPush('at','idle',0,mo,-1,coat);
         mt.compose(vp.set(0,H.ry+bob+br*.02,H.rz),qr.setFromAxisAngle(XA,moving?.12:0),vs.set(H.rs,H.rs,H.rs));mo.copy(mx).multiply(mt);vs.set(1,1,1);chrPush('binici',atk!=null?'atk':'idle',atk!=null?atk:T*.3+sd,mo,from);return}
-      chrPush(type,atk!=null?'atk':moving?'walk':'idle',atk!=null?atk:moving?T*(type==='dalgic'?1.6:1.05)+sd:T*.35+sd,mx,from);return}
+      chrPush(type,atk!=null?'atk':moving?'walk':'idle',atk!=null?atk:moving?T*(type==='dalgic'?1.6:1.05)+sd:T*.35+sd,mx,from,type==='dalgic'?SUITC[from]:undefined);return}
     if(type==='balon'||type==='ucak'){const sx=x,sz=z;blobAt(sx,sz,type==='balon'?3.4:3)}
     const i=n[type];if(i>=CAP)return;n[type]++;
     let f=0,lunge=0;
@@ -2158,7 +2210,7 @@ function drawUnits(rdt){
     if(pitch){qr.setFromAxisAngle(XA,pitch);qt.multiply(qr)}
     if(curRoll){qr.setFromAxisAngle(ZA,curRoll);qt.multiply(qr);curRoll=0}
     mx.compose(vp,qt,vs);
-    if(type==='balon'&&chrOn&&CHR.piyade){mt.compose(vt.set(0,-3.74,0),qr.setFromAxisAngle(UP,Math.sin(now()/1400+i)*.6),vs.set(.66,.66,.66));mo.copy(mx).multiply(mt);vs.set(1,1,1);chrPush('piyade','idle',now()/3000+i*.3,mo,from)}     // a knight stands in the basket
+    if(type==='balon'&&chrOn&&CHR.isci){mt.compose(vt.set(0,-3.74,0),qr.setFromAxisAngle(UP,Math.sin(now()/1400+i)*.6),vs.set(.85,.85,.85));mo.copy(mx).multiply(mt);vs.set(1,1,1);chrPush('isci','idle',now()/3000+i*.3,mo,from)}     // a knight stands in the basket
     const arm=-1.15-.35*f;
     for(const m of IM[type]){
       const sw=m.userData.swing;
@@ -2198,7 +2250,7 @@ function drawUnits(rdt){
         if(u.moving&&Math.random()<rdt*3)ripple(u.x-Math.sin(u.dir)*7,u.z-Math.cos(u.dir)*7,7);continue}
       if(u.fall!=null){put('balon',u.x,u.z,u.from,u.dir||0,false,u.y,u.fall*1.1);continue}
       let hid=false;if(u.type==='denizalti'){hid=!subSeen(u.x,u.z,u.from);u.dy=lerp(u.dy==null?-.45:u.dy,u.under||hid?-2.9:u.moving!==false?-1.25:-.7,Math.min(1,rdt*1.5))}
-      curId=u.id;put(u.type,u.x,u.z,u.from,u.dir||0,u.moving!==false,u.sink!=null?1.1-Math.max(0,u.sink)**1.5*2.2:u.dove!=null?-.45-u.dove*1.5:u.type==='denizalti'&&u.dy<-.5?u.dy:u.emerge>0?unitY(UNITS[u.type],u.x,u.z)-u.emerge*1.3:null,0,u.atk?clamp(1-u.cd/(u.cdM||1.2),0,1):null);
+      curId=u.id;put(u.type,u.x,u.z,u.from,u.dir||0,u.moving!==false,u.deckY!=null?u.deckY:u.sink!=null?1.1-Math.max(0,u.sink)**1.5*2.2:u.dove!=null?-.45-u.dove*1.5:u.type==='denizalti'&&u.dy<-.5?u.dy:u.emerge>0?unitY(UNITS[u.type],u.x,u.z)-u.emerge*1.3:null,0,u.atk?clamp(1-u.cd/(u.cdM||1.2),0,1):null);
       if((u.type==='atli'||u.type==='dalgic'||u.type==='denizalti'&&!hid)&&heightAt(u.x,u.z)<.2&&Math.random()<rdt*7){ripple(u.x,u.z,4.5);if(Math.random()<.5)boom(u.x,.3-heightAt(u.x,u.z),u.z,.45,'#eaf7ff')}}
     for(const o of D.remote.values()){curTA=curTA2=0;if(o.sd==null)o.sd=Math.random()*1e3;curId=o.sd;const ox=o.x,oz=o.z;o.x=lerp(o.x,o.tx,Math.min(1,rdt*3));o.z=lerp(o.z,o.tz,Math.min(1,rdt*3));{const mv=Math.hypot(o.x-ox,o.z-oz);if(mv>(naval(o.type)?.03:.01)){const w=Math.atan2(o.x-ox,o.z-oz);o.dir=o.dir==null?w:angLerp(o.dir,w,Math.min(1,rdt*(naval(o.type)?2.5:12)))}}const of=num(o.from,D.seat),oh=o.type==='denizalti'&&!subSeen(o.x,o.z,of);if(o.fl&2){o.ft+=rdt;if(naval(o.type)){curTA=0;put(o.type,o.x,o.z,of,o.dir||0,false,-.45-Math.max(0,o.ft-.6)**1.6*.9,Math.min(.55,o.ft*.16));if(o.ft<3&&Math.random()<rdt*2)boom(o.x+(Math.random()-.5)*8,2.5,o.z+(Math.random()-.5)*8,3,'#ff7a2a')}else put(o.type,o.x,o.z,of,o.dir||0,false,Math.max(1,20-13*o.ft*o.ft),o.ft*1.1)}else put(o.type,o.x,o.z,of,o.dir||0,!(o.fl&4),o.type==='denizalti'?(oh?-2.9:-1.25):null,0,o.fl&1?(now()/1200+o.sd)%1:null);if((o.type==='atli'||o.type==='dalgic'||o.type==='denizalti'&&!oh)&&heightAt(o.x,o.z)<.2&&Math.random()<rdt*7)ripple(o.x,o.z,4.5)}
   }
@@ -2321,7 +2373,7 @@ function drawFx(dt){
   drawArchers(dt);
   for(let i=0;i<KARCH.length;i++){const k=KARCH[i];if(!k)continue;const D=P[i];k.m.visible=!!(D&&D.on&&!D.dead&&D.msState&&csOf(D)[8]<=.5);if(k.m.visible){const sy=D.msState===1?.15+.85*clamp(1-(local(D)?D.msT/MS_T:.5),0,1):1;if(k.m.scale.y!==sy)k.m.scale.y=sy}if(!k.m.visible)continue;if(k.yaw!==k.want){k.yaw=angLerp(k.yaw,k.want,Math.min(1,dt*9));k.m.rotation.y=k.yaw}}
   drawTowers();
-  drawSprites(dt);animPlaza(dt);animProps(dt);WIND.value=now()/1000;
+  drawSprites(dt);animPlaza(dt);animProps(dt);WIND.value=now()/1000;drawBirds();
 }
 const wreck=[];
 // towers of a base simulated on another screen: turn them toward the nearest attacker we can see, so they look alive too
@@ -2342,8 +2394,8 @@ function aimRemote(dt){
 function bridgeSpot(p){
   if(DUEL){const c=p.x<0?-48:48;if(Math.abs(p.x-c)>18||Math.abs(p.z)>64)return null;const a={x:c-24,z:Math.round(p.z)},b={x:c+24,z:a.z};
     if(shoreOf(a.x,a.z)<WL+3||shoreOf(b.x,b.z)<WL+3||DBR.some(o=>Math.abs(o.a.z-a.z)<14&&Math.sign(o.a.x)===Math.sign(c))||bridges.some(o=>Math.min(segD(a.x,a.z,o),segD(b.x,b.z,o))<16))return null;return{a,b}}
-  const hor=Math.abs(p.x-rvW(p.z))<RIVER+WL+4&&Math.abs(p.z)>30,ver=Math.abs(p.z-rvW(-p.x*1.07+9))<RIVER+WL+4&&Math.abs(p.x)>30;if(!hor&&!ver)return null;
-  const z0=Math.round(p.z),x0=Math.round(p.x),wh=hor?rvW(z0):rvW(-x0*1.07+9);const a=hor?{x:Math.round(wh-23),z:z0}:{x:x0,z:Math.round(wh-23)},b=hor?{x:Math.round(wh+23),z:z0}:{x:x0,z:Math.round(wh+23)};
+  const hor=Math.abs(p.x-rvW(p.z))<RIVER+WL+4&&Math.abs(p.z)>30,ver=Math.abs(p.z-rvW(-p.x))<RIVER+WL+4&&Math.abs(p.x)>30;if(!hor&&!ver)return null;
+  const z0=Math.round(p.z),x0=Math.round(p.x),wh=hor?rvW(z0):rvW(-x0);const a=hor?{x:Math.round(wh-23),z:z0}:{x:x0,z:Math.round(wh-23)},b=hor?{x:Math.round(wh+23),z:z0}:{x:x0,z:Math.round(wh+23)};
   if(shoreOf(a.x,a.z)<WL+3||shoreOf(b.x,b.z)<WL+3)return null;
   if(bridges.some(o=>Math.min(segD(a.x,a.z,o),segD(b.x,b.z,o))<16))return null;
   return{a,b};
@@ -2432,10 +2484,24 @@ function sinkGround(x,z,r){
   const r0=clamp(iz-R-1,0,N),r1=clamp(iz+R+1,0,N),st0=r0*(N+1),cnt=(r1-r0+1)*(N+1);
   for(const[a,k]of[[p,3],[n,3],[dk,1]]){if(a.addUpdateRange)a.addUpdateRange(st0*k,cnt*k);a.needsUpdate=true}
 }
+// clods of earth and broken stone thrown out round a fresh crater; they stay (the oldest are reused)
+let DEB=null,debI=0;const DEB_N=700;
+function debris(x,z,r){if(!DEB){DEB=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(.5,0),new THREE.MeshStandardMaterial({roughness:.95,flatShading:true}),DEB_N);DEB.castShadow=DEB.receiveShadow=true;DEB.count=0;DEB.frustumCulled=false;scene.add(DEB);DEB.setColorAt(0,new THREE.Color('#fff'))}
+  const n=Math.round(7+r*3),c=new THREE.Color();for(let k=0;k<n;k++){const a=Math.random()*6.283,d=r*(.85+Math.random()*.8),X=x+Math.cos(a)*d,Z=z+Math.sin(a)*d;if(shoreOf(X,Z)<WL)continue;const sc=.18+Math.random()*.38*(1.3-d/r/2);
+    mt.compose(vp.set(X,heightAt(X,Z)+sc*.25,Z),qr.setFromEuler(new THREE.Euler(Math.random()*3,Math.random()*3,Math.random()*3)),vs.set(sc,sc*(.6+Math.random()*.4),sc));DEB.setMatrixAt(debI,mt);vs.set(1,1,1);
+    c.set(Math.random()<.6?'#5b4a38':Math.random()<.5?'#3a332c':'#8a8478').multiplyScalar(.85+Math.random()*.3);DEB.setColorAt(debI,c);debI=(debI+1)%DEB_N;DEB.count=Math.max(DEB.count,debI)}
+  DEB.instanceMatrix.needsUpdate=true;DEB.instanceColor.needsUpdate=true}
+// gulls wheeling over the water in loose flocks: two wing poses, flapping out of step
+let BIRDS=null;
+function drawBirds(){if(!BIRDS){const mk=up=>{const g=new THREE.BufferGeometry(),w=up?.55:-.35;g.setAttribute('position',new THREE.Float32BufferAttribute([0,0,.35, 0,0,-.3, -1.3,w,-.1, 0,0,.35, 1.3,w,-.1, 0,0,-.3, 0,.05,.5, 0,.05,-.5, 0,-.12,0],3));g.computeVertexNormals();const m=new THREE.InstancedMesh(g,new THREE.MeshLambertMaterial({color:'#f4f4f0',side:THREE.DoubleSide}),40);m.count=0;m.frustumCulled=false;scene.add(m);return m};
+    BIRDS={a:mk(1),b:mk(0),f:[...Array(4)].map((_,i)=>({cx:(i%2?1:-1)*(DUEL?120:150)*(i<2?1:.4),cz:(i<2?-1:1)*(DUEL?130:150)*(i<2?.4:1),r:30+i*9,h:28+i*4,sp:.09+i*.02,n:6+i*2}))}}
+  const T=now()/1000;let na=0,nb=0;for(const F of BIRDS.f)for(let k=0;k<F.n;k++){const a=T*F.sp+k*.35,r=F.r+Math.sin(k*2.3)*6,x=F.cx+Math.cos(a)*r,z=F.cz+Math.sin(a)*r,y=F.h+Math.sin(k*1.7+T*.5)*2;
+    mt.compose(vp.set(x,y,z),qr.setFromEuler(new THREE.Euler(0,-a,Math.sin(T+k)*.25)),vs.set(1.2,1.2,1.2));vs.set(1,1,1);const up=Math.sin(T*7+k*1.3)>0;const M=up?BIRDS.a:BIRDS.b;if(up){M.setMatrixAt(na++,mt)}else M.setMatrixAt(nb++,mt)}
+  BIRDS.a.count=na;BIRDS.b.count=nb;BIRDS.a.instanceMatrix.needsUpdate=BIRDS.b.instanceMatrix.needsUpdate=true}
 function crater(x,z,r,remote){
   if(shoreOf(x,z)<WL-1.2||onDeck(x,z))return;
   for(let k=0;k<4;k++){const w=RWY[k],D=P[k];if(!w||!D||!D.rwState)continue;const dx=x-w.c.x,dz=z-w.c.z;if(Math.abs(dx*w.ux+dz*w.uz)<w.len/2+r&&Math.abs(-dx*w.uz+dz*w.ux)<6+r)return}     // a runway cracks (its own decals) instead of the ground under it caving in     // on a beach the hole goes below the waterline and the sea runs into it
-  sinkGround(x,z,r);anyCrater=true;clearProps(x,z,r+1.6);
+  sinkGround(x,z,r);anyCrater=true;clearProps(x,z,r+1.6);debris(x,z,r);
   const R=Math.ceil(r),cx=Math.round(x),cz=Math.round(z),D=craterDepth(r);
   for(let j=cz-R;j<=cz+R;j++)for(let i=cx-R;i<=cx+R;i++){const X=i+L,Z=j+L;if(X<0||Z<0||X>=GN||Z>=GN)continue;const d=Math.hypot(i-x,j-z)/r;if(d<1)CRD[X+Z*GN]=Math.min(CRMAX,CRD[X+Z*GN]+D*(1-d*d)*(1-.7*Math.min(1,CRD[X+Z*GN]/CRMAX)))}
   if(!remote&&!P.every(p=>!p.on||p===ME||p.bot))say('krater',[x|0,z|0,r]);

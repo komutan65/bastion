@@ -40,15 +40,20 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
     const lp=(d,a)=>{let y=0;for(let i=0;i<d.length;i++){y+=a*(d[i]-y);d[i]=y}},hp=(d,a)=>{let x0=0,y=0;for(let i=0;i<d.length;i++){const x=d[i];y=a*(y+x-x0);x0=x;d[i]=y}};
     const nz=()=>Math.random()*2-1,env=(t,a,dcy)=>t<a?t/a:Math.exp(-(t-a)/dcy);
     const add=(k,b)=>(B[k]=B[k]||[]).push(b);
+    // a two-pole resonator: rings at f, dying away over tau seconds
+    const res=(x,out,f,tau,a)=>{const r=Math.exp(-1/(tau*R)),c=2*r*Math.cos(2*Math.PI*f/R),r2=r*r,g=a*(1-r);let y1=0,y2=0;for(let i=0;i<x.length;i++){const y=c*y1-r2*y2+x[i];y2=y1;y1=y;out[i]+=y*g}};
     for(let v=0;v<4;v++){
       // bow release: the string's dull thwack, then the arrow's feathered whoosh shooting away (doppler drop)
       add('ok',mk(.42,(d,n)=>{let ph=0;const w=new Float32Array(n);for(let i=0;i<n;i++){const t=i/R;ph+=2*Math.PI*(150+v*18)*(1-t*1.4)/R;d[i]=Math.sin(ph)*env(t,.001,.022)*.9+nz()*env(t,.0004,.004)*.5;w[i]=nz()}
         let y1=0,y2=0;for(let i=0;i<n;i++){const t=i/R,f=Math.max(500,(2600+v*300)*Math.exp(-t*5)),q=.12,k=2*Math.sin(Math.PI*f/R);y1+=k*(w[i]-y1-q*y2);y2+=k*y1;const a=t<.03?0:Math.sin(Math.PI*Math.min(1,(t-.03)/.36))**1.5;d[i]+=y2*a*.55}hp(d,.97)}));
-      // blade on blade: a hard metal hit, a ringing clang with beating partials, and a short grinding scrape
-      add('kilic',mk(.55,(d,n)=>{const b=520+v*95,P=[[1,1],[1.007,.8],[2.41,.6],[3.93,.45],[5.6,.3],[7.8,.18]];for(let i=0;i<n;i++){const t=i/R;let x=0;P.forEach(([m,a],j)=>x+=Math.sin(2*Math.PI*b*m*t+j)*a*Math.exp(-t*(9+j*6)));d[i]=x*.55+nz()*env(t,.0003,.006)*1.3+nz()*env(t,.02,.05)*.18*Math.sin(t*900)}
-        lp(d,.55)}));
-      // a hammer knocking a peg into timber, and a saw stroke
-      add('cekic',mk(.22,(d,n)=>{let ph=0;for(let i=0;i<n;i++){const t=i/R;ph+=2*Math.PI*(210+v*30-t*200)/R;d[i]=Math.sin(ph)*env(t,.0008,.035)+Math.sin(ph*2.7)*env(t,.0005,.012)*.4+nz()*env(t,.0003,.004)*.7}lp(d,.45)}));
+      // blade on blade: a noise strike rings a bank of resonators tuned like a steel bar (inharmonic, close pairs that beat), two blades a little apart in pitch, then a short grinding slide
+      add('kilic',mk(.9,(d,n)=>{const ex=new Float32Array(n);for(let i=0;i<n;i++){const t=i/R;ex[i]=nz()*(env(t,.0002,.0016)*1.2+env(t,.004,.03)*.12*(1+Math.sin(t*2600)))}
+        const f0=1250+v*230;for(const[b,g]of[[f0,1],[f0*1.083,.75]])for(const[m,tau,a]of[[1,.42,1],[1.0035,.38,.7],[2.76,.22,.55],[2.79,.2,.4],[5.4,.11,.28],[8.93,.06,.15]])res(ex,d,b*m,tau,a*g);
+        for(let i=0;i<n;i++){const t=i/R;d[i]+=ex[i]*.25}hp(d,.96)}));
+      // a hammer on timber: a dull knock with the wood's hollow body ringing briefly
+      add('cekic',mk(.25,(d,n)=>{const ex=new Float32Array(n);for(let i=0;i<n;i++){const t=i/R;ex[i]=nz()*env(t,.0005,.003)}for(const[f,tau,a]of[[180+v*25,.06,1],[410+v*40,.035,.6],[930+v*60,.018,.35]])res(ex,d,f,tau,a);for(let i=0;i<n;i++)d[i]+=ex[i]*.15;lp(d,.5)}));
+      // a hammer on iron plate: a hard bright "tank" that rings
+      add('demir',mk(.6,(d,n)=>{const ex=new Float32Array(n);for(let i=0;i<n;i++){const t=i/R;ex[i]=nz()*env(t,.0002,.0012)}const f=620+v*90;for(const[m,tau,a]of[[1,.28,1],[1.53,.2,.7],[2.31,.15,.55],[3.48,.09,.4],[4.9,.05,.25]])res(ex,d,f*m,tau,a);for(let i=0;i<n;i++)d[i]+=ex[i]*.2;hp(d,.97)}));
       // explosion: a deep thud under a long rumbling roar
       add('patla',mk(1.6,(d,n)=>{let ph=0;for(let i=0;i<n;i++){const t=i/R,f=70*Math.exp(-t*3)+28;ph+=2*Math.PI*f/R;d[i]=Math.sin(ph)*env(t,.004,.25)*1.2+nz()*env(t,.003,.35+v*.08)}lp(d,.08+v*.015)}));
       // hoof on the ground
@@ -69,8 +74,9 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
   hit(t,type,f0,f1,peak,dur,q=1){const c=this.ctx,s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();s.buffer=this.noise;f.type=type;f.Q.value=q;f.frequency.setValueAtTime(f0,t);f.frequency.exponentialRampToValueAtTime(f1,t+dur);s.connect(f);f.connect(g);g.connect(this.sfx);this.env(g,t,.004,peak,0,dur);s.start(t,Math.random()*.6);s.stop(t+dur+.05)},
   okcu(v=1,p=0){if(this.ok('o',.09,'okcu')&&!this.play('ok',.75*v,p))this.hit(this.ctx.currentTime,'bandpass',2400,700,.3*v,.2,1.5)},
   tufek(v=1,p=0){if(this.ok('g',.07,'okcu')&&!this.play('tufek',.32*v,p))this.hit(this.ctx.currentTime,'highpass',3000,800,.4*v,.1)},
-  cekic(v=1,p=0){if(this.ok('ck',.11,'okcu'))this.play('cekic',.32*v,p,.9+Math.random()*.25)},
-  kilic(v=1,p=0){if(this.ok('k',.1,'okcu')&&!this.play('kilic',.36*v,p,.92+Math.random()*.2))this.hit(this.ctx.currentTime,'bandpass',3500,2500,.2*v,.12,4)},
+  cekic(v=1,p=0){if(this.ok('ck',.11,'okcu'))this.play('cekic',.34*v,p,.9+Math.random()*.25)},
+  demir(v=1,p=0){if(this.ok('dm',.13,'okcu'))this.play('demir',.26*v,p,.92+Math.random()*.2)},
+  kilic(v=1,p=0){if(this.ok('k',.1,'okcu')&&!this.play('kilic',.4*v,p,.9+Math.random()*.22))this.hit(this.ctx.currentTime,'bandpass',3500,2500,.2*v,.12,4)},
   top(v=1,p=0){if(this.ok('t',.16,'bomba')&&!this.play('tufek',.95*v,p,.48,1600))this.hit(this.ctx.currentTime,'lowpass',900,120,1.1*v,.32)},
   flak(v=1,p=0){if(this.ok('f',.12,'bomba')&&!this.play('tufek',.4*v,p,.75,3000))this.hit(this.ctx.currentTime,'lowpass',1500,200,.6*v,.15)},
   // each weapon has its own voice. A tone that sweeps from f0 to f1, and a noise band that does the same
