@@ -1,0 +1,8 @@
+3D models used in Dört Cephe (baked into *.bin animation frames):
+
+- knight / rogue / barbarian characters and textures:
+  "KayKit : Adventurers Character Pack (1.0)" by Kay Lousberg (www.kaylousberg.com)
+  License: Creative Commons Zero (CC0) - http://creativecommons.org/publicdomain/zero/1.0/
+
+- at.bin (horse): Horse.glb from the three.js examples (https://github.com/mrdoob/three.js),
+  distributed with three.js under the MIT License.

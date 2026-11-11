@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261111a';
+import {SES} from './ses.js?v=20261111b';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -10,7 +10,7 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=200,MS_COST=100,MS_T=10,MS_HP=120,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=4,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='28';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='29';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
@@ -651,8 +651,8 @@ function repairRunway(D){if(D.rwState!==2||D.rwFix||rwHpOf(D)>=RW_HP||D.money<rw
 function jobOf(D,id){
   if(id==='rw'){const w=RWY[D.seat];if(!w||!(D.rwState===1||D.rwFix))return null;return{job:'rw',x:w.c.x,z:w.c.z,bt:1,n:3,spot:k=>{const a=(k%3-1)*15,sd=k>2?-1:1;return{x:w.c.x+w.ux*a+w.uz*5.5*sd,z:w.c.z+w.uz*a-w.ux*5.5*sd,fx:w.c.x+w.ux*a,fz:w.c.z+w.uz*a}}}}
   if(id==='cs'){if(!D.cfix)return null;const G=gates(D.seat),c=castlePos(D.seat),C=csOf(D),S=SEGC[D.seat]||[];return{job:'cs',x:c.x,z:c.z,bt:1,n:4,spot:k=>{let w=-1,wv=.01;for(let i=0;i<8;i++)if(C[i]>wv&&(i+k)%2===0){wv=C[i];w=i}const q=G[k%4];if(w>=0&&S[w]){const dx=S[w].x-c.x,dz=S[w].z-c.z,l=Math.hypot(dx,dz)||1;return{x:S[w].x+dx/l*3.5,z:S[w].z+dz/l*3.5,fx:S[w].x,fz:S[w].z}}return{x:q.x+(q.x-c.x)*.25,z:q.z+(q.z-c.z)*.25,fx:c.x,fz:c.z}}}}
-  if(id==='yd'){if(!D.yard||D.ysState!==2||!LAUNCH[D.seat])return null;const L0=LAUNCH[D.seat],dl=DOCK[D.seat].land,ax=lerp(dl.x,L0.st.x,.7),az=lerp(dl.z,L0.st.z,.7),dx=L0.st.x-dl.x,dz=L0.st.z-dl.z,l=Math.hypot(dx,dz)||1;     // the shipwrights work at the slipway the new hull slides down
-    return{job:'yd',x:ax,z:az,bt:1,n:3,spot:k=>{const o=(k-1)*2.6;return{x:ax-dz/l*o,z:az+dx/l*o,fx:L0.st.x,fz:L0.st.z}}}}
+  if(id==='yd'){if(!D.yard||D.ysState!==2||!LAUNCH[D.seat])return null;const L0=LAUNCH[D.seat],st=L0.st,dx=L0.mid.x-st.x,dz=L0.mid.z-st.z,l=Math.hypot(dx,dz)||1,ux=dx/l,uz=dz/l;     // the shipwrights stand round the new hull on the slipway and hammer at it
+    return{job:'yd',x:st.x,z:st.z,bt:1,n:3,spot:k=>{const sd=k%2?1:-1,a=(k-1)*2.2;return{x:st.x-uz*sd*3.4+ux*a,z:st.z+ux*sd*3.4+uz*a,fx:st.x+ux*a,fz:st.z+uz*a}}}}
   if(id==='ms'){if(D.msState!==1)return null;const G=gates(D.seat),c=castlePos(D.seat);return{job:'ms',x:c.x,z:c.z,bt:1,n:2,spot:k=>{const q=G[k%4];return{x:c.x+(q.x-c.x)*.62,z:c.z+(q.z-c.z)*.62,fx:c.x,fz:c.z}}}}
   if(id==='pw'){const w=D.pw;if(!w)return null;let ex,ez,fx,fz;     // public works: the castle's workers walk out and rebuild a bridge or the plaza themselves
     if(w.k==='br'||w.k==='nb'){const b=w.k==='br'?DBR[w.i]:w.b,c=castlePos(D.seat),e=Math.hypot(b.a.x-c.x,b.a.z-c.z)<Math.hypot(b.b.x-c.x,b.b.z-c.z)?b.a:b.b,o=e===b.a?b.b:b.a,l=Math.hypot(o.x-e.x,o.z-e.z)||1;ex=e.x-(o.x-e.x)/l*1.2;ez=e.z-(o.z-e.z)/l*1.2;fx=e.x+(o.x-e.x)/l*4;fz=e.z+(o.z-e.z)/l*4}
@@ -1990,6 +1990,35 @@ function buildUnits(){
       const m=new THREE.InstancedMesh(g,UNIT_M,CAP);m.castShadow=true;m.frustumCulled=false;m.count=0;m.visible=false;m.userData.swing=swing;
       m.setColorAt(0,c.set('#fff'));scene.add(m);return m})}
 }
+// ---- real 3D characters (KayKit, CC0) and an animated horse (three.js, MIT): their animations are baked into frames
+// offline (model/*.bin), so each frame is one instanced mesh and hundreds of soldiers still cost only a few draw calls.
+// Until they load (or if they cannot) the old figures are used; far away the old light figures take over again (LOD).
+const CHR={},CHR_CAP=200,CHR_FAR=175;let curId=0,chrOn=true;
+const CHR_DEF={piyade:{tex:'knight'},dalgic:{tex:'rogue'},isci:{tex:'barbarian'},binici:{tex:'knight'},at:{tex:null}};
+function chrMat(tex){const m=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.72,metalness:.05,vertexColors:!tex});
+  if(tex){const t=new THREE.TextureLoader().load('model/'+tex+'_texture.png?v='+VER);t.colorSpace=THREE.SRGBColorSpace;t.flipY=false;t.magFilter=THREE.NearestFilter;t.minFilter=THREE.LinearMipmapLinearFilter;m.map=t}
+  if(tex)m.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aTeam;varying float vTeam;').replace('#include <begin_vertex>','#include <begin_vertex>\nvTeam=aTeam;');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vTeam;').replace('#include <color_fragment>','#if defined(USE_COLOR)\n diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vColor.rgb*1.5,vTeam);\n#endif')};     // only the cloak takes the team colour
+  return m}
+async function loadChr(key){try{
+  const r=await fetch('model/'+key+'.bin?v='+VER);if(!r.ok)return;const buf=await r.arrayBuffer(),dv=new DataView(buf),jl=dv.getUint32(0,true),pad=a=>a+((4-a%4)%4);
+  const h=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,4,jl)));let o=4+pad(jl);const nv=h.nv;
+  const IA=h.big?new Uint32Array(buf,o,h.ni):new Uint16Array(buf,o,h.ni);o+=pad(IA.byteLength);const UV=new Float32Array(buf,o,nv*2);o+=UV.byteLength;const TM=new Uint8Array(buf,o,nv);o+=pad(nv);
+  let CL=null;if(h.hasCol){CL=new Uint8Array(buf,o,nv*3);o+=pad(nv*3)}
+  const iA=new THREE.BufferAttribute(new (h.big?Uint32Array:Uint16Array)(IA),1),uvA=new THREE.BufferAttribute(new Float32Array(UV),2),tA=new THREE.BufferAttribute(Float32Array.from(TM),1),cA=CL?new THREE.BufferAttribute(Float32Array.from(CL,v=>v/255),3):null;
+  const mat=chrMat(CHR_DEF[key].tex),clips={};
+  for(const k of h.order){const c=h.clips[k],ms=[];for(let f=0;f<c.n;f++){const a=new Int16Array(buf,o,nv*3);o+=pad(nv*6);const P3=new Float32Array(nv*3);for(let i=0;i<P3.length;i++)P3[i]=a[i]*h.q;
+      const g=new THREE.BufferGeometry();g.setIndex(iA);g.setAttribute('position',new THREE.BufferAttribute(P3,3));g.setAttribute('uv',uvA);g.setAttribute('aTeam',tA);if(cA)g.setAttribute('color',cA);g.computeVertexNormals();g.computeBoundingSphere();
+      const m=new THREE.InstancedMesh(g,mat,CHR_CAP);m.castShadow=true;m.receiveShadow=false;m.frustumCulled=false;m.count=0;m.visible=false;m.setColorAt(0,new THREE.Color('#fff'));m.userData.n=0;scene.add(m);ms.push(m)}
+    clips[k]=ms}
+  CHR[key]={clips,ok:true}}catch(e){console.warn('model',key,e)}}
+function loadChars(){for(const k of Object.keys(CHR_DEF))loadChr(k)}
+const HRS={s:1.5,rot:0,ry:1.85,rz:.55,rs:.8};window.HRS=HRS;
+const chrReady=t=>t==='atli'?!!(CHR.at&&CHR.binici):!!CHR[t];
+// put one character into the frame mesh for its pose: walking, idle or striking, each soldier a little out of step with the next
+function chrPush(key,clip,ph,m4,from){const C=CHR[key];const cl=C.clips[clip]||C.clips.idle||C.clips.walk;const f=Math.min(cl.length-1,Math.floor(((ph%1)+1)%1*cl.length)),m=cl[f];const i=m.userData.n;if(i>=CHR_CAP)return;m.userData.n++;m.setMatrixAt(i,m4);m.setColorAt(i,from<0?WHITE_C:tc[from])}
+const WHITE_C=new THREE.Color('#ffffff');
+function chrFlush(){for(const k in CHR)for(const cl of Object.values(CHR[k].clips))for(const m of cl){const n=m.userData.n,was=m.count;m.count=n;m.visible=n>0;if(n||was){m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true}m.userData.n=0}}
 const turnTo=(a,b,m)=>{let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return a+Math.max(-m,Math.min(m,d))};
 let curTA=0,curTA2=0,curRoll=0;
 const angLerp=(a,b,t)=>{let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return a+d*t};
@@ -1999,6 +2028,10 @@ function drawUnits(rdt){
   const turn=(p,a)=>{mt.makeTranslation(p[0],p[1],p[2]);mr.makeRotationX(a);mb.makeTranslation(-p[0],-p[1],-p[2]);return mo.copy(mx).multiply(mt).multiply(mr).multiply(mb)};
   // atk: 0..1 through one blow. f: pulled back (-.5) to fully struck (1)
   const put=(type,x,z,from,dir,moving=true,pitchY=null,pitch=0,atk=null)=>{
+    if(chrOn&&chrReady(type)&&(type==='atli'||camera.position.distanceToSquared(vp.set(x,0,z))<CHR_FAR*CHR_FAR)){     // the real model, close enough to be seen
+      const T=now()/1000,sd=(curId*.6180339)%1,y=(pitchY??unitY(UNITS[type],x,z));vp.set(x,y,z);qt.setFromAxisAngle(UP,dir);if(pitch){qr.setFromAxisAngle(XA,pitch);qt.multiply(qr)}mx.compose(vp,qt,vs);
+      if(type==='atli'){const H=HRS;mt.compose(vp.set(0,0,0),qr.setFromAxisAngle(UP,H.rot),vs.set(H.s,H.s,H.s));mo.copy(mx).multiply(mt);vs.set(1,1,1);chrPush('at','walk',moving?T*1.35+sd:.15,mo,-1);mt.compose(vp.set(0,H.ry,H.rz),qr.identity(),vs.set(H.rs,H.rs,H.rs));mo.copy(mx).multiply(mt);vs.set(1,1,1);chrPush('binici',atk!=null?'atk':'idle',atk!=null?atk:0,mo,from);return}
+      chrPush(type,atk!=null?'atk':moving?'walk':'idle',atk!=null?atk:moving?T*(type==='dalgic'?1.6:1.05)+sd:T*.35+sd,mx,from);return}
     const i=n[type];if(i>=CAP)return;n[type]++;
     let f=0,lunge=0;
     if(atk!=null){moving=false;f=atk<.2?1-atk/.2:atk<.8?-(atk-.2)/.6*.5:lerp(-.5,1,(atk-.8)/.2);
@@ -2028,6 +2061,7 @@ function drawUnits(rdt){
       m.setColorAt(i,tc[from])}};
   for(const D of P){
     if(!D.on||D.dead)continue;
+    if(D.yard&&local(D)&&LAUNCH[D.seat]){const L0=LAUNCH[D.seat],st=L0.st;curTA=curTA2=0;put(D.yard.type,st.x,st.z,D.seat,Math.atan2(L0.mid.x-st.x,L0.mid.z-st.z),false,D.yard.type==='gemi'?-.2:.1)}     // the new hull on the slipway while it is built
     for(const u of D.units){
       if(u.type==='fuze'){const a=u.path.pts[0],e=u.path.pts[u.path.pts.length-1];u.dir=Math.atan2(e.x-a.x,e.z-a.z);const t=u.t||0,H=fuzeH(u),y=fuzeY(u),pt=-Math.atan2(Math.cos(t*Math.PI)*H*Math.PI,Math.max(u.path.len,1));put('fuze',u.x,u.z,u.from,u.dir,false,y,pt);
         {const b=Math.sin(u.dir),c=Math.cos(u.dir),far=camera.position.distanceToSquared(vp.set(u.x,y,u.z))>400;if(far&&Math.random()<.7)puff(u.x-b*3,y,u.z-c*3,1.3,2.2,.88,.3,.25);flame(u.x-b*3.2,y,u.z-c*3.2,1.6,.12)}continue}
@@ -2048,11 +2082,12 @@ function drawUnits(rdt){
         if(u.moving&&Math.random()<rdt*3)ripple(u.x-Math.sin(u.dir)*7,u.z-Math.cos(u.dir)*7,7);continue}
       if(u.fall!=null){put('balon',u.x,u.z,u.from,u.dir||0,false,u.y,u.fall*1.1);continue}
       let hid=false;if(u.type==='denizalti'){hid=!subSeen(u.x,u.z,u.from);u.dy=lerp(u.dy==null?-.45:u.dy,u.under||hid?-2.9:u.moving!==false?-1.25:-.7,Math.min(1,rdt*1.5))}
-      put(u.type,u.x,u.z,u.from,u.dir||0,u.moving!==false,u.sink!=null?1.1-Math.max(0,u.sink)**1.5*2.2:u.dove!=null?-.45-u.dove*1.5:u.type==='denizalti'&&u.dy<-.5?u.dy:u.emerge>0?unitY(UNITS[u.type],u.x,u.z)-u.emerge*1.3:null,0,u.atk?clamp(1-u.cd/(u.cdM||1.2),0,1):null);
+      curId=u.id;put(u.type,u.x,u.z,u.from,u.dir||0,u.moving!==false,u.sink!=null?1.1-Math.max(0,u.sink)**1.5*2.2:u.dove!=null?-.45-u.dove*1.5:u.type==='denizalti'&&u.dy<-.5?u.dy:u.emerge>0?unitY(UNITS[u.type],u.x,u.z)-u.emerge*1.3:null,0,u.atk?clamp(1-u.cd/(u.cdM||1.2),0,1):null);
       if((u.type==='atli'||u.type==='dalgic'||u.type==='denizalti'&&!hid)&&heightAt(u.x,u.z)<.2&&Math.random()<rdt*7){ripple(u.x,u.z,4.5);if(Math.random()<.5)boom(u.x,.3-heightAt(u.x,u.z),u.z,.45,'#eaf7ff')}}
-    for(const o of D.remote.values()){curTA=curTA2=0;const ox=o.x,oz=o.z;o.x=lerp(o.x,o.tx,Math.min(1,rdt*3));o.z=lerp(o.z,o.tz,Math.min(1,rdt*3));{const mv=Math.hypot(o.x-ox,o.z-oz);if(mv>(naval(o.type)?.03:.01)){const w=Math.atan2(o.x-ox,o.z-oz);o.dir=o.dir==null?w:angLerp(o.dir,w,Math.min(1,rdt*(naval(o.type)?2.5:12)))}}const of=num(o.from,D.seat),oh=o.type==='denizalti'&&!subSeen(o.x,o.z,of);if(o.fl&2){o.ft+=rdt;if(naval(o.type)){curTA=0;put(o.type,o.x,o.z,of,o.dir||0,false,-.45-Math.max(0,o.ft-.6)**1.6*.9,Math.min(.55,o.ft*.16));if(o.ft<3&&Math.random()<rdt*2)boom(o.x+(Math.random()-.5)*8,2.5,o.z+(Math.random()-.5)*8,3,'#ff7a2a')}else put(o.type,o.x,o.z,of,o.dir||0,false,Math.max(1,20-13*o.ft*o.ft),o.ft*1.1)}else put(o.type,o.x,o.z,of,o.dir||0,!(o.fl&4),o.type==='denizalti'?(oh?-2.9:-1.25):null,0,o.fl&1?(now()/1200+o.sd)%1:null);if((o.type==='atli'||o.type==='dalgic'||o.type==='denizalti'&&!oh)&&heightAt(o.x,o.z)<.2&&Math.random()<rdt*7)ripple(o.x,o.z,4.5)}
+    for(const o of D.remote.values()){curTA=curTA2=0;if(o.sd==null)o.sd=Math.random()*1e3;curId=o.sd;const ox=o.x,oz=o.z;o.x=lerp(o.x,o.tx,Math.min(1,rdt*3));o.z=lerp(o.z,o.tz,Math.min(1,rdt*3));{const mv=Math.hypot(o.x-ox,o.z-oz);if(mv>(naval(o.type)?.03:.01)){const w=Math.atan2(o.x-ox,o.z-oz);o.dir=o.dir==null?w:angLerp(o.dir,w,Math.min(1,rdt*(naval(o.type)?2.5:12)))}}const of=num(o.from,D.seat),oh=o.type==='denizalti'&&!subSeen(o.x,o.z,of);if(o.fl&2){o.ft+=rdt;if(naval(o.type)){curTA=0;put(o.type,o.x,o.z,of,o.dir||0,false,-.45-Math.max(0,o.ft-.6)**1.6*.9,Math.min(.55,o.ft*.16));if(o.ft<3&&Math.random()<rdt*2)boom(o.x+(Math.random()-.5)*8,2.5,o.z+(Math.random()-.5)*8,3,'#ff7a2a')}else put(o.type,o.x,o.z,of,o.dir||0,false,Math.max(1,20-13*o.ft*o.ft),o.ft*1.1)}else put(o.type,o.x,o.z,of,o.dir||0,!(o.fl&4),o.type==='denizalti'?(oh?-2.9:-1.25):null,0,o.fl&1?(now()/1200+o.sd)%1:null);if((o.type==='atli'||o.type==='dalgic'||o.type==='denizalti'&&!oh)&&heightAt(o.x,o.z)<.2&&Math.random()<rdt*7)ripple(o.x,o.z,4.5)}
   }
   for(const k of UKEYS)for(const m of IM[k]){const was=m.count;m.count=n[k];m.visible=n[k]>0;if(n[k]||was){m.instanceMatrix.needsUpdate=true;m.instanceColor.needsUpdate=true}}
+  chrFlush();
 }
 // effects
 const SHOTS=240,shotPos=new Float32Array(SHOTS*6),shotLife=new Float32Array(SHOTS);let shotI=0;
@@ -2942,7 +2977,7 @@ function frameBody(t){
   if((fno=(fno||0)+1)%15===0)forestLOD();
 }
 let fno=0,lockTipT=0;
-buildGround();buildOuter();buildWater();buildBridges();buildForest();buildDetail();buildUnits();buildSites();P.forEach(D=>{if(D.on)buildCastle(D.seat)});if(TUT)for(const D of P)if(D!==ME)D.msState=2;
+buildGround();buildOuter();buildWater();buildBridges();buildForest();buildDetail();buildUnits();loadChars();buildSites();P.forEach(D=>{if(D.on)buildCastle(D.seat)});if(TUT)for(const D of P)if(D!==ME)D.msState=2;
 size();mkHud();connect();applyCam(1);if(TUT)mkTut();
 sun.shadow.autoUpdate=false;sun.shadow.needsUpdate=true;if(!GFX[gfxMode].sh)sun.castShadow=false;
 // draw every kind of object once, out of sight, so no shader is ever built in the middle of a fight
