@@ -9,3 +9,4 @@
 
 - t_pine / t_broad trees and hexagons_medieval.png:
   "KayKit : Medieval Hexagon Pack (1.0)" by Kay Lousberg (www.kaylousberg.com), CC0.
+- k_tower: building_tower_base from "KayKit : Medieval Hexagon Pack (1.0)", CC0.

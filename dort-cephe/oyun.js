@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261111c';
+import {SES} from './ses.js?v=20261111d';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -10,7 +10,7 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=200,MS_COST=100,MS_T=10,MS_HP=120,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=4,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='29.1';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='30';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
@@ -1377,12 +1377,13 @@ function buildForest(){
   // the forest is cut into tiles so whatever is off screen is not drawn at all
   const TS=6,tileOf=(x,z)=>clamp(Math.floor((x+REACH)/(2*REACH)*TS),0,TS-1)+clamp(Math.floor((z+REACH)/(2*REACH)*TS),0,TS-1)*TS;
   for(const K of KIND){K.mats=K.parts.map(([g,c,leafy,needle])=>leafy?TG.mat(c,needle):new THREE.MeshStandardMaterial({color:c,roughness:.93}));K.cap=Math.ceil(N*K.n);K.k=0;K.tiles=[...Array(TS*TS)].map(()=>({m:[],c:[]}))}
-  let tries=0,done=0;
+  let tries=0,done=0;const HS=new Map(),hk=(i,j)=>i*4099+j;     // spatial hash: no two trees grow into each other
   while(done<N&&tries<N*12){tries++;
     const x=(R()-.5)*REACH*2,z=(R()-.5)*REACH*2;if(outerD(x,z)<10)continue;{const hh=landH(x,z),sl=outerSlope(x,z);if(hh>105+R()*25||sl>.42+R()*.12)continue}
     const g=fbm(grove,x*.007+40,z*.007+40);if(R()>smooth(.22,.5,g)*.9+.1)continue;          // groves and clearings
     const r=R();let K=KIND[KIND.length-1],acc=0;for(const q of KIND){acc+=q.n;if(r<acc){K=q;break}}if(K.k>=K.cap)continue;
-    const sc=.75+R()*.75*(.6+g),fm=R();let ax=1,ay=1,tr=1,tg=1,tb=1;      // slim spruces and squat firs among the pines, broad oaks and tall poplars among the broadleaves
+    const sc=.75+R()*.75*(.6+g),fm=R();let ax=1,ay=1,tr=1,tg=1,tb=1;
+    {const rad=3.1*sc,ci=Math.floor(x/8),cj=Math.floor(z/8);let hit=false;for(let j=-1;j<=1&&!hit;j++)for(let i=-1;i<=1&&!hit;i++){const L=HS.get(hk(ci+i,cj+j));if(L)for(const q of L)if(Math.hypot(q[0]-x,q[1]-z)<rad+q[2]){hit=true;break}}if(hit)continue;const k0=hk(ci,cj);if(!HS.has(k0))HS.set(k0,[]);HS.get(k0).push([x,z,3.1*sc])}      // slim spruces and squat firs among the pines, broad oaks and tall poplars among the broadleaves
     if(K===KIND[0]||K===KIND[1]){if(fm<.3){ax=.66;ay=1.32;tr=.8;tg=.9;tb=.98}else if(fm<.55){ax=1.25;ay=.78;tr=1.1;tg=1.06;tb=.82}}
     else if(K===KIND[2]){if(fm<.3){ax=1.3;ay=.86;tr=.92;tg=1;tb=.82}else if(fm<.45){ax=.62;ay=1.38;tr=1.08;tg=1.08;tb=.88}}
     vp.set(x,outerY(x,z)-.15,z);TEUL.set((R()-.5)*.08,R()*6.28,(R()-.5)*.08);qt.setFromEuler(TEUL);vs.set(sc*ax*(.9+R()*.2),sc*ay*(.85+R()*.35),sc*ax*(.9+R()*.2));mx.compose(vp,qt,vs);
@@ -1650,10 +1651,25 @@ function bakeIms(g){
   g.traverse(o=>{if(o.geometry)o.geometry.dispose()});return ims}
 // every tower but the wall has a head (archer, gun, launcher) that swings round to face what it shoots at
 const HEAD={ok:{rate:7,mz:1.2},top:{rate:2.6,mz:2.6},hava:{rate:5,mz:2.2},roket:{rate:2.4,mz:1.4}};
+// modelled tower bodies (KayKit medieval pack, CC0): a crenellated stone tower whose banners take the owner's colour; the old turning heads stand on top
+let KKT=null,KKM=null;
+function kkMat(){const t=new THREE.TextureLoader().load('model/hexagons_medieval.png?v='+VER);t.colorSpace=THREE.SRGBColorSpace;t.flipY=false;const m=new THREE.MeshStandardMaterial({map:t,roughness:.8});
+  m.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aTeam;varying float vTeam;').replace('#include <begin_vertex>','#include <begin_vertex>\nvTeam=aTeam;');
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vTeam;').replace('#include <color_fragment>','#if defined(USE_COLOR)||defined(USE_INSTANCING_COLOR)\n diffuseColor.rgb=mix(diffuseColor.rgb,vec3(dot(diffuseColor.rgb,vec3(.4,.4,.2)))*vColor.rgb*2.4,vTeam);\n#endif')};
+  m.customProgramCacheKey=()=>'kkteam';return m}
+async function loadKK(){try{const g=await loadGeo('k_tower');const r=await fetch('model/k_tower.bin?v='+VER),buf=await r.arrayBuffer(),dv=new DataView(buf),jl=dv.getUint32(0,true),pad=a=>a+((4-a%4)%4),h=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,4,jl)));
+    const o=4+pad(jl)+pad(h.ni*(h.big?4:2))+h.nv*8;g.setAttribute('aTeam',new THREE.BufferAttribute(Float32Array.from(new Uint8Array(buf,o,h.nv)),1));g.computeBoundingBox();KKT=g;KKM=kkMat();
+    for(const[key,T]of TPL){const[type,lvl]=[key.replace(/\d+$/,''),+key.match(/\d+$/)[0]];if(type==='duvar'||!HEAD[type])continue;for(const m of[...T.ims,...T.hims]){scene.remove(m);m.geometry.dispose();m.dispose&&m.dispose()}const N=mkTpl(type,lvl);T.top=N.top;T.ims=N.ims;T.hims=N.hims;T.dirty=T.mem=true;T.hdirty=true}for(const D of P)for(const t of D.towers){const T=TPL.get(t.type+t.lvl);if(T&&T.top!=null)t.top=T.top}}catch(e){console.warn('kk',e)}}
+function mkTpl(type,lvl){const t={type,lvl,owner:-1};const g=new THREE.Group(),hg=new THREE.Group();buildTower(g,t,TEAM_W,HEAD[type]?hg:null);
+  if(KKT&&HEAD[type]){g.traverse(o=>{if(o.geometry)o.geometry.dispose()});const sy=.82+lvl*.18,base=new THREE.Group(),m=new THREE.Mesh(KKT,KKM);m.scale.set(1,sy,1);base.add(m);
+    hg.updateMatrixWorld(true);{const b0=new THREE.Box3().setFromObject(hg),w=Math.max(b0.max.x-b0.min.x,b0.max.z-b0.min.z),f=Math.min(1,3.6/w);hg.scale.setScalar(f);hg.updateMatrixWorld(true);t.top*=1}     // the head fits on the tower top
+    const bb=new THREE.Box3().setFromObject(hg),dy=KKT.boundingBox.max.y*sy-(type==='ok'?bb.min.y+.1:bb.min.y)-(type==='ok'?.35:.15);hg.position.y+=dy;t.top+=dy;
+    const ims=[new THREE.InstancedMesh(KKT,KKM,TCAP)];ims[0].castShadow=ims[0].receiveShadow=true;ims[0].count=0;ims[0].visible=false;ims[0].setColorAt(0,tc[0]);ims[0].userData.sy=sy;scene.add(ims[0]);
+    return{top:t.top,ims,hims:bakeIms(hg)}}
+  return{top:t.top,ims:bakeIms(g),hims:HEAD[type]?bakeIms(hg):[]}}
 function towerTpl(type,lvl){
   const key=type+lvl;let T=TPL.get(key);if(T)return T;
-  const t={type,lvl,owner:-1};const g=new THREE.Group(),hg=new THREE.Group();buildTower(g,t,TEAM_W,HEAD[type]?hg:null);
-  T={top:t.top,ims:bakeIms(g),hims:HEAD[type]?bakeIms(hg):[],list:[],dirty:true};TPL.set(key,T);return T;
+  T={...mkTpl(type,lvl),list:[],dirty:true};TPL.set(key,T);return T;
 }
 function drawTowers(){
   for(const T of TPL.values()){
@@ -1662,7 +1678,7 @@ function drawTowers(){
     let k=0;for(const h of T.list){if(!h.visible||k>=TCAP)continue;
       if(h.shake>0){const a=h.shake*1.3;vp.set(h.x+Math.sin(now()*.07)*a,h.y,h.z+Math.cos(now()*.09)*a);qt.setFromAxisAngle(ZF,Math.sin(now()*.05)*a*.12)}else{vp.set(h.x,h.y,h.z);qt.identity()}
       vs.set(1,h.sy||1,1);
-      if(T.dirty||shaking){mx.compose(vp,qt,vs);for(const m of T.ims){m.setMatrixAt(k,mx);if(m.instanceColor)m.setColorAt(k,tc[h.owner])}}
+      if(T.dirty||shaking){mx.compose(vp,qt,vs);for(const m of T.ims){if(m.userData.sy){vs.y*=m.userData.sy;mo.compose(vp,qt,vs);vs.y/=m.userData.sy;m.setMatrixAt(k,mo)}else m.setMatrixAt(k,mx);if(m.instanceColor)m.setColorAt(k,tc[h.owner])}}
       if(T.hims.length){qr.setFromAxisAngle(UP,h.yaw||0);qt.multiply(qr);if(h.kick>0){const r=h.kick*.5;vp.x-=Math.cos(h.yaw||0)*r;vp.z+=Math.sin(h.yaw||0)*r}mx.compose(vp,qt,vs);for(const m of T.hims){m.setMatrixAt(k,mx);if(m.instanceColor)m.setColorAt(k,tc[h.owner])}}
       k++}
     vs.set(1,1,1);
@@ -1823,8 +1839,8 @@ function buildTower(g,t,col,hg){
       add(gs,new THREE.BoxGeometry(3.7,.42,.16),PLANK,0,top+.52,1.77);
       for(const x of[-1.45,-.48,.48,1.45])add(gs,new THREE.BoxGeometry(.5,.55,.18),PLANK,x,top+1,1.77)}
     for(const[x,z]of[[-1.6,-1.6],[1.6,-1.6],[-1.6,1.6],[1.6,1.6]])add(g,new THREE.CylinderGeometry(.11,.11,2.6,6),WOOD,x,top+1.45,z);
-    const roof=add(g,new THREE.ConeGeometry(2.75,2.1,4,1),col,0,top+3.75,0);roof.rotation.y=Math.PI/4;
-    add(g,new THREE.ConeGeometry(2.95,.22,4,1,true),WOOD,0,top+2.76,0).rotation.y=Math.PI/4;
+    const roof=add(g,new THREE.ConeGeometry(2.6,2.3,10,1),col,0,top+3.85,0);
+    add(g,new THREE.CylinderGeometry(2.62,2.75,.22,10,1,true),WOOD,0,top+2.76,0);
     add(g,new THREE.CylinderGeometry(.05,.05,1.8,6),WOOD,0,top+5.5,0);const fl=add(g,new THREE.BoxGeometry(.9,.55,.04),col,.47,top+6.05,0);fl.castShadow=false;
     // the archer on the platform turns to face what he shoots
     archerFig(H,col,.25,top+.32,0,1.05);
@@ -1987,7 +2003,8 @@ function buildUnits(){
       for(const[q,col]of ng){const cnt=q.attributes.position.count;P3.set(q.attributes.position.array,o*3);N3.set(q.attributes.normal.array,o*3);c.set(col||'#ffffff');
         for(let i=0;i<cnt;i++){C3[(o+i)*3]=c.r;C3[(o+i)*3+1]=c.g;C3[(o+i)*3+2]=c.b;T1[o+i]=col?0:1}o+=cnt}
       const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(P3,3));g.setAttribute('normal',new THREE.BufferAttribute(N3,3));g.setAttribute('color',new THREE.BufferAttribute(C3,3));g.setAttribute('aTeam',new THREE.BufferAttribute(T1,1));
-      const m=new THREE.InstancedMesh(g,UNIT_M,CAP);m.castShadow=true;m.frustumCulled=false;m.count=0;m.visible=false;m.userData.swing=swing;
+      const m=new THREE.InstancedMesh(g,UNIT_M,CAP);m.castShadow=k!=='balon'&&k!=='ucak';     // fliers get a soft shadow right under them instead of a long one far off across the ground
+      m.frustumCulled=false;m.count=0;m.visible=false;m.userData.swing=swing;
       m.setColorAt(0,c.set('#fff'));scene.add(m);return m})}
 }
 // ---- real 3D characters (KayKit, CC0) and an animated horse (three.js, MIT): their animations are baked into frames
@@ -2022,12 +2039,16 @@ async function loadChr(key){try{
     clips[k]=ms}
   CHR[key]={clips,ok:true}}catch(e){console.warn('model',key,e)}}
 function loadChars(){for(const k of Object.keys(CHR_DEF))loadChr(k)}
-const HRS={s:1.5,rot:0,ry:1.85,rz:.55,rs:.8};window.HRS=HRS;
+const HRS={s:1.5,rot:0,ry:2.3,rz:.35,rs:.8};window.HRS=HRS;
 const chrReady=t=>t==='atli'?!!(CHR.at&&CHR.binici):!!CHR[t];
 // put one character into the frame mesh for its pose: walking, idle or striking, each soldier a little out of step with the next
 function chrPush(key,clip,ph,m4,from){const C=CHR[key];const cl=C.clips[clip]||C.clips.idle||C.clips.walk;const f=Math.min(cl.length-1,Math.floor(((ph%1)+1)%1*cl.length)),m=cl[f];const i=m.userData.n;if(i>=CHR_CAP)return;m.userData.n++;m.setMatrixAt(i,m4);m.setColorAt(i,from<0?WHITE_C:tc[from])}
 const WHITE_C=new THREE.Color('#ffffff');
-function chrFlush(){for(const k in CHR)for(const cl of Object.values(CHR[k].clips))for(const m of cl){const n=m.userData.n,was=m.count;m.count=n;m.visible=n>0;if(n||was){m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true}m.userData.n=0}}
+let BLOB=null,blobN=0;
+function blobAt(x,z,r){if(!BLOB){const t=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,2,32,32,31);gr.addColorStop(0,'rgba(0,0,0,.55)');gr.addColorStop(.6,'rgba(0,0,0,.25)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c)})();
+    BLOB=new THREE.InstancedMesh(new THREE.PlaneGeometry(2,2).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}),120);BLOB.frustumCulled=false;BLOB.count=0;BLOB.renderOrder=2;scene.add(BLOB)}
+  if(blobN>=120)return;mt.compose(vp.set(x,Math.max(heightAt(x,z),WL)+.12,z),qr.identity(),vs.set(r,1,r));BLOB.setMatrixAt(blobN++,mt);vs.set(1,1,1)}
+function chrFlush(){if(BLOB){BLOB.count=blobN;BLOB.instanceMatrix.needsUpdate=true;blobN=0}for(const k in CHR)for(const cl of Object.values(CHR[k].clips))for(const m of cl){const n=m.userData.n,was=m.count;m.count=n;m.visible=n>0;if(n||was){m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true}m.userData.n=0}}
 const turnTo=(a,b,m)=>{let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return a+Math.max(-m,Math.min(m,d))};
 let curTA=0,curTA2=0,curRoll=0;
 const angLerp=(a,b,t)=>{let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return a+d*t};
@@ -2039,8 +2060,12 @@ function drawUnits(rdt){
   const put=(type,x,z,from,dir,moving=true,pitchY=null,pitch=0,atk=null)=>{
     if(chrOn&&chrReady(type)&&(type==='atli'||camera.position.distanceToSquared(vp.set(x,0,z))<CHR_FAR*CHR_FAR)){     // the real model, close enough to be seen
       const T=now()/1000,sd=(curId*.6180339)%1,y=(pitchY??unitY(UNITS[type],x,z));vp.set(x,y,z);qt.setFromAxisAngle(UP,dir);if(pitch){qr.setFromAxisAngle(XA,pitch);qt.multiply(qr)}mx.compose(vp,qt,vs);
-      if(type==='atli'){const H=HRS;mt.compose(vp.set(0,0,0),qr.setFromAxisAngle(UP,H.rot),vs.set(H.s,H.s,H.s));mo.copy(mx).multiply(mt);vs.set(1,1,1);chrPush('at','walk',moving?T*1.35+sd:.15,mo,-1);mt.compose(vp.set(0,H.ry,H.rz),qr.identity(),vs.set(H.rs,H.rs,H.rs));mo.copy(mx).multiply(mt);vs.set(1,1,1);chrPush('binici',atk!=null?'atk':'idle',atk!=null?atk:0,mo,from);return}
+      if(type==='atli'){if(HRS.fi)moving=false;const H=HRS,br=moving?0:Math.sin(T*2.2+sd*6.28),bob=moving?Math.abs(Math.sin((T*1.35+sd)*Math.PI*2))*.12:0;     // standing still the horse breathes and shifts a little, galloping it rocks the rider
+        mt.compose(vp.set(0,0,0),qr.setFromAxisAngle(UP,H.rot+(moving?0:Math.sin(T*.7+sd*9)*.04)),vs.set(H.s,H.s*(1+br*.012),H.s*(1-br*.004)));mo.copy(mx).multiply(mt);vs.set(1,1,1);
+        const hf=CHR.at.clips.walk;if(moving)chrPush('at','walk',(T*1.35+sd)*(hf.length-1)/hf.length,mo,-1);else chrPush('at','walk',(hf.length-.5)/hf.length,mo,-1);
+        mt.compose(vp.set(0,H.ry+bob+br*.02,H.rz),qr.setFromAxisAngle(XA,moving?.12:0),vs.set(H.rs,H.rs,H.rs));mo.copy(mx).multiply(mt);vs.set(1,1,1);chrPush('binici',atk!=null?'atk':'idle',atk!=null?atk:T*.3+sd,mo,from);return}
       chrPush(type,atk!=null?'atk':moving?'walk':'idle',atk!=null?atk:moving?T*(type==='dalgic'?1.6:1.05)+sd:T*.35+sd,mx,from);return}
+    if(type==='balon'||type==='ucak'){const sx=x,sz=z;blobAt(sx,sz,type==='balon'?3.4:3)}
     const i=n[type];if(i>=CAP)return;n[type]++;
     let f=0,lunge=0;
     if(atk!=null){moving=false;f=atk<.2?1-atk/.2:atk<.8?-(atk-.2)/.6*.5:lerp(-.5,1,(atk-.8)/.2);
@@ -2986,7 +3011,7 @@ function frameBody(t){
   if((fno=(fno||0)+1)%15===0)forestLOD();
 }
 let fno=0,lockTipT=0;
-buildGround();buildOuter();buildWater();buildBridges();buildForest();buildDetail();buildUnits();loadChars();nicerProps();buildSites();P.forEach(D=>{if(D.on)buildCastle(D.seat)});if(TUT)for(const D of P)if(D!==ME)D.msState=2;
+buildGround();buildOuter();buildWater();buildBridges();buildForest();buildDetail();buildUnits();loadChars();loadKK();buildSites();P.forEach(D=>{if(D.on)buildCastle(D.seat)});if(TUT)for(const D of P)if(D!==ME)D.msState=2;
 size();mkHud();connect();applyCam(1);if(TUT)mkTut();
 sun.shadow.autoUpdate=false;sun.shadow.needsUpdate=true;if(!GFX[gfxMode].sh)sun.castShadow=false;
 // draw every kind of object once, out of sight, so no shader is ever built in the middle of a fight
