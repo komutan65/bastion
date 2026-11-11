@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261111d';
+import {SES} from './ses.js?v=20261111e';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -10,12 +10,12 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=200,MS_COST=100,MS_T=10,MS_HP=120,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=4,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='30';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='31';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
 const UNITS={
-  piyade:{ad:TL('Mızraklı Piyade','Spearman'),kisa:TL('Mızraklı','Spearman'),cost:3,odul:2,hp:90,sp:7,dmg:2,yol:'kara'},
+  piyade:{ad:TL('Şövalye','Knight'),kisa:TL('Şövalye','Knight'),cost:3,odul:2,hp:90,sp:7,dmg:2,yol:'kara'},
   atli:{ad:TL('Deniz Süvarisi','Sea Cavalry'),kisa:TL('Süvari','Cavalry'),cost:6,odul:3,hp:80,sp:13,dmg:3,yol:'su'},
   koc:{ad:TL('Koçbaşı','Battering Ram'),kisa:TL('Koçbaşı','Ram'),cost:12,odul:8,hp:320,sp:4.5,dmg:12,yol:'kara'},
   balon:{ad:TL('Bomba Balonu','Bomb Balloon'),kisa:TL('Balon','Balloon'),cost:15,odul:10,hp:160,sp:6,dmg:8,yol:'hava'},
@@ -99,7 +99,9 @@ function duelIsles(x,z){
   const mid=Math.min(DMID-ax,(72+w*.7)-Math.abs(z));
   return Math.max(base,mid);
 }
-const shoreOf=DUEL?(x,z)=>Math.max(duelIsles(x,z),outerD(x,z)):(x,z)=>Math.max(Math.min(Math.abs(x)-RIVER,Math.abs(z)-RIVER,coastD(x,z)),outerD(x,z));     // the river cross stops at the open sea: the far shore runs unbroken
+// the river cross winds a little and changes width, like a real river; it runs straight only where it meets the central plaza
+const rvK=t=>{const a=Math.abs(t);return a<30?0:a>58?1:(a-30)/28},rvW=t=>{const k=rvK(t);return k*(Math.sin(t*.047+.7)*4.2+Math.sin(t*.13+2.1)*1.4)},rvH=t=>RIVER*(1+rvK(t)*.13*Math.sin(t*.083+.3));
+const shoreOf=DUEL?(x,z)=>Math.max(duelIsles(x,z),outerD(x,z)):(x,z)=>Math.max(Math.min(Math.abs(x-rvW(z))-rvH(z),Math.abs(z-rvW(-x*1.07+9))-rvH(x),coastD(x,z)),outerD(x,z));     // the river cross stops at the open sea: the far shore runs unbroken
 // craters are kept in a grid so units and buildings feel them
 const CRD=new Float32Array(GN*GN);let anyCrater=false;
 function sunk(x,z){
@@ -1772,8 +1774,9 @@ const CRUMBLE=`int si=int(aSeg+.5);float cd=0.;
   else if(si<9){cd=uSeg[si];if(cd>0.){float top=uTop[si];float cut=top-(top-.5)*cd*.86+(sin(position.x*2.1+position.z*1.3)*.9+sin(position.x*4.7-position.z*3.9)*.6+sin(position.x*9.3+position.z*7.1)*.35)*cd*1.4;if(transformed.y>cut)transformed.y=cut;}}`;
 function crumbleMat(m,U,depth){const q=depth?new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking}):m.clone();
   q.onBeforeCompile=sh=>{sh.uniforms.uSeg=U.uSeg;sh.uniforms.uTop=U.uTop;
-    sh.vertexShader='attribute float aSeg;\nuniform float uSeg[10];\nuniform float uTop[10];\nvarying float vCD;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n{'+CRUMBLE+'vCD=cd;}');
-    if(!depth)sh.fragmentShader='varying float vCD;\n'+sh.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb*=1.-.55*vCD;')};
+    sh.vertexShader='attribute float aSeg;\nuniform float uSeg[10];\nuniform float uTop[10];\nvarying float vCD;varying vec3 vLP;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n{'+CRUMBLE+'vCD=cd;}vLP=transformed;');
+    // weathering: stone darkens and greens toward the ground where rain and moss collect, and every block gets a slightly different shade
+    if(!depth)sh.fragmentShader='varying float vCD;varying vec3 vLP;\nfloat hh(vec3 p){return fract(sin(dot(floor(p),vec3(12.9898,78.233,37.719)))*43758.5453);}\n'+sh.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb*=1.-.55*vCD;{float g=smoothstep(0.,3.2,vLP.y);diffuseColor.rgb*=mix(vec3(.62,.66,.55),vec3(1.),g);diffuseColor.rgb*=.9+.2*hh(vLP*vec3(1.6,2.4,1.6));float st=smoothstep(.55,1.,hh(vLP*.35+3.));diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vec3(.8,.78,.74),st*.5);}')};
   q.customProgramCacheKey=()=>'crumble'+(depth?'d':'');return q}
 function mergeCastle(g,s){
   const U=CSU[s]={uSeg:{value:new Array(10).fill(0)},uTop:{value:new Array(10).fill(20)}};
@@ -1929,11 +1932,6 @@ const PARTS={
       ...[[-1,-1],[1,-1],[-1,1],[1,1]].flatMap(([x,z])=>[seg([x*.36,-.68,z*.36],[x*.74,-2.82,z*.74],.025,'#2a1d10'),seg([x*.36,-.68,z*.36],[x*1.72,1.1,z*1.72],.02,'#2a1d10')]),
       [cy(.17,.2,.3,0,-1.2,0,8),'#59626c'],[new THREE.ConeGeometry(.11,.42,8).translate(0,-.85,0),'#ff9a3a'],[new THREE.ConeGeometry(.05,.26,6).translate(0,-.8,0),'#fff2b0'],[bx(1.3,.05,.05,0,-1.36,0),'#59626c'],[bx(.05,.05,1.3,0,-1.36,0),'#59626c'],
       [bx(1.5,.9,1.5,0,-3.3,0),WK],[bx(1.62,.12,1.62,0,-2.84,0),WD],[bx(1.56,.1,1.56,0,-3.74,0),WD],...[-.5,0,.5].flatMap(o=>[[bx(.05,.86,1.53,o*1.4,-3.3,0).translate(0,0,0),WD],[bx(1.53,.86,.05,0,-3.3,o*1.4),WD]]).filter((_,i)=>i%2===0),
-      [new THREE.CapsuleGeometry(.22,.38,3,8).translate(0,-2.45,.1),COAT],[bx(.5,.07,.3,0,-2.62,.12),'#4a3626'],[new THREE.CylinderGeometry(.13,.16,.14,8).translate(0,-2.05,.1),'#4a3f38'],
-      [new THREE.SphereGeometry(.17,12,10).scale(1,1.1,1).translate(0,-1.84,.12),SKIN],[new THREE.SphereGeometry(.185,12,8,0,6.3,0,1.75).translate(0,-1.8,.1),CAP],[bx(.1,.16,.05,-.17,-1.9,.1),CAP],[bx(.1,.16,.05,.17,-1.9,.1),CAP],
-      [new THREE.CylinderGeometry(.055,.055,.06,8).rotateX(Math.PI/2).translate(-.07,-1.8,.28),'#b08a3a'],[new THREE.CylinderGeometry(.055,.055,.06,8).rotateX(Math.PI/2).translate(.07,-1.8,.28),'#b08a3a'],[bx(.34,.04,.04,0,-1.8,.27),'#1c1c1e'],
-      seg([-.2,-2.22,.1],[-.45,-2.62,.55],.07,COAT),seg([-.45,-2.62,.55],[-.5,-2.82,.78],.06,COAT),[new THREE.SphereGeometry(.07,6,5).translate(-.5,-2.84,.8),'#3a2a1c'],
-      seg([.2,-2.22,.1],[.42,-2.55,.5],.07,COAT),seg([.42,-2.55,.5],[.3,-2.5,.78],.06,COAT),[new THREE.CapsuleGeometry(.12,.22,3,8).rotateX(1.57).translate(.28,-2.55,.9),'#1c1c1e'],[new THREE.ConeGeometry(.12,.18,6).rotateX(-1.57).translate(.28,-2.55,.62),'#59626c'],
       [new THREE.CapsuleGeometry(.26,.5,3,8).translate(0,-4.35,0),'#1c1c1e'],[bx(.5,.05,.5,0,-4.85,0),'#3a3f45'],[cy(.03,.03,.5,0,-3.95,0,4),'#2a1d10'],
       ...[[-.85,.45],[.85,.45],[-.85,-.45],[.85,-.45],[0,-.85]].map(([x,z])=>[new THREE.SphereGeometry(.19,8,6).scale(1,1.35,1).translate(x,-3.35,z),'#b8956a'])]})(),
   dalgic:[...figure({pants:'#16191d',shirt:'#16191d',boot:'#16191d',hips:'#16191d',belt:'#3a3f45',armsFixed:true,face:false}),
@@ -2011,7 +2009,7 @@ function buildUnits(){
 // offline (model/*.bin), so each frame is one instanced mesh and hundreds of soldiers still cost only a few draw calls.
 // Until they load (or if they cannot) the old figures are used; far away the old light figures take over again (LOD).
 const CHR={},CHR_CAP=200,CHR_FAR=175;let curId=0,chrOn=true;
-const CHR_DEF={piyade:{tex:'knight'},dalgic:{tex:'rogue'},isci:{tex:'barbarian'},binici:{tex:'knight'},at:{tex:null}};
+const CHR_DEF={piyade:{tex:'knight'},dalgic:{tex:'rogue'},isci:{tex:'barbarian'},binici:{tex:'knight'}};
 function chrMat(tex){const m=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.72,metalness:.05,vertexColors:!tex});
   if(tex){const t=new THREE.TextureLoader().load('model/'+tex+'_texture.png?v='+VER);t.colorSpace=THREE.SRGBColorSpace;t.flipY=false;t.magFilter=THREE.NearestFilter;t.minFilter=THREE.LinearMipmapLinearFilter;m.map=t}
   if(tex)m.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aTeam;varying float vTeam;').replace('#include <begin_vertex>','#include <begin_vertex>\nvTeam=aTeam;');
@@ -2038,11 +2036,55 @@ async function loadChr(key){try{
       const m=new THREE.InstancedMesh(g,mat,CHR_CAP);m.castShadow=true;m.receiveShadow=false;m.frustumCulled=false;m.count=0;m.visible=false;m.setColorAt(0,new THREE.Color('#fff'));m.userData.n=0;scene.add(m);ms.push(m)}
     clips[k]=ms}
   CHR[key]={clips,ok:true}}catch(e){console.warn('model',key,e)}}
-function loadChars(){for(const k of Object.keys(CHR_DEF))loadChr(k)}
-const HRS={s:1.5,rot:0,ry:2.3,rz:.35,rs:.8};window.HRS=HRS;
+function loadChars(){for(const k of Object.keys(CHR_DEF))if(k!=='at')loadChr(k);try{CHR.at={clips:horseClips(),ok:true}}catch(e){console.warn('horse',e)}}
+// ---- our own horse, modelled here in code (no outside files): a smooth body, arched neck, long head, mane and tail, and four jointed legs.
+// A gallop cycle and a resting pose are baked into frames like the soldiers.
+function horseGeo(ph,run){
+  let keep=0;const parts=[],col=new THREE.Color(),V=(x,y,z)=>new THREE.Vector3(x,y,z);
+  const put=(g,c,kp)=>{g=g.index?g.toNonIndexed():g;g.computeVertexNormals();col.set(c);kp=kp??keep;const n=g.attributes.position.count,C=new Float32Array(n*4);for(let i=0;i<n;i++){C[i*4]=col.r;C[i*4+1]=col.g;C[i*4+2]=col.b;C[i*4+3]=kp}g.setAttribute('color',new THREE.BufferAttribute(C,4));g.deleteAttribute('uv');parts.push(g)};
+  const limb=(a,b,r0,r1,c,sg=8)=>{const d=b.clone().sub(a),L=d.length(),g=new THREE.CylinderGeometry(r1,r0,L,sg,1);g.translate(0,L/2,0);g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(V(0,1,0),d.normalize()));g.translate(a.x,a.y,a.z);put(g,c);const j=new THREE.SphereGeometry(r1*1.02,sg,5);j.translate(b.x,b.y,b.z);put(j,c)};
+  const blob=(x,y,z,sx,sy,sz,c,rx=0)=>{const g=new THREE.SphereGeometry(1,16,12);g.scale(sx,sy,sz);if(rx)g.rotateX(rx);g.translate(x,y,z);put(g,c)};
+  const COAT='#ffffff',DK='#2a1c12',HOOF='#1b1714',LIGHT='#f2ece2';     // the coat colour comes from each horse's own tint
+  const T=ph*Math.PI*2,bob=run?Math.sin(T*2)*.07:0,pit=run?Math.sin(T)*.05:0;
+  const Y=y=>y+bob;
+  // body: barrel, chest and hindquarters
+  blob(0,Y(1.72),.05,.56,.62,1.25,COAT,pit);blob(0,Y(1.78),.95,.55,.64,.62,COAT);blob(0,Y(1.86),-.92,.6,.66,.7,COAT);
+  // neck arching up into the head
+  const nk=run?.12*Math.sin(T+1):0,n0=V(0,Y(2.05),1.25),n1=V(0,Y(2.78+nk*.5),1.85+nk*.3),h0=n1.clone().add(V(0,.08,.12)),h1=V(0,Y(2.32+nk),2.55+nk*.2);
+  limb(n0,n1,.42,.27,COAT,10);blob(h0.x,h0.y,h0.z,.24,.27,.3,COAT);limb(h0,h1,.22,.15,COAT,8);blob(h1.x,h1.y,h1.z,.16,.15,.18,DK);
+  for(const sd of[-1,1]){const e=h0.clone().add(V(sd*.12,.28,-.06)),c=new THREE.ConeGeometry(.06,.24,6);c.translate(e.x,e.y,e.z);put(c,COAT);const ey=new THREE.SphereGeometry(.045,6,4);ey.translate(sd*.19,h0.y-.02,h0.z+.15);put(ey,'#111')}
+  // mane along the top of the neck and the tail
+  for(let k=0;k<7;k++){const t=k/6,p=n0.clone().lerp(n1,t).add(V(0,.32-.05*t,-.05)),g=new THREE.BoxGeometry(.08,.3,.32);g.rotateX(-.6);g.translate(p.x,p.y,p.z);put(g,DK)}
+  {const sw=run?Math.sin(T*2)*.25:Math.sin(ph*6.28)*.08,a=V(0,Y(2.12),-1.48),b=V(sw*.4,Y(1.35),-1.9+(run?-.35:0)),c2=b.clone().add(V(sw*.6,-.45,-.05-(run?.3:0)));limb(a,b,.13,.1,DK,6);limb(b,c2,.1,.05,DK,6)}
+  // legs: thigh, cannon and hoof; front knees fold back, hind hocks fold forward
+  const legs=[[.3,1,0],[-.3,1,.12],[.3,-1,.5],[-.3,-1,.62]];
+  for(const[x,f,o]of legs){const front=f>0,hip=V(x,Y(front?1.58:1.7),front?.98:-.98),T2=(ph+o)*Math.PI*2;
+    const swing=run?(front?.62:.55)*Math.sin(T2):0,fold=run?Math.max(0,Math.sin(T2+(front?1.4:-1.2)))*(front?1.25:.9):0;
+    const L1=front?.72:.78,L2=front?.72:.66;
+    const knee=hip.clone().add(V(0,-Math.cos(swing)*L1,Math.sin(swing)*L1*(front?1:1)+(front?0:-.08)));
+    const a2=swing+(front?-fold:fold);const fet=knee.clone().add(V(0,-Math.cos(a2)*L2,Math.sin(a2)*L2));
+    limb(hip,knee,front?.2:.24,.12,COAT,8);limb(knee,fet,.1,.085,COAT,7);
+    const hf=new THREE.CylinderGeometry(.1,.12,.15,8);hf.translate(fet.x,fet.y-.07,fet.z);put(hf,HOOF);const so=new THREE.CylinderGeometry(.095,.1,.12,8);so.translate(fet.x,fet.y+.05,fet.z);put(so,LIGHT)}
+  // the rider's legs hang down both flanks into the stirrups (painted in their own colours, not the coat's)
+  keep=1;for(const sd of[-1,1]){const hp=V(sd*.4,Y(2.12),.28),kn=V(sd*.66,Y(1.78),.62),an=V(sd*.62,Y(1.22),.42);
+    limb(hp,kn,.17,.15,'#6d727a',8);limb(kn,an,.14,.12,'#5b6068',8);blob(kn.x,kn.y,kn.z+.04,.15,.15,.15,'#8a8f97');
+    const bt=new THREE.BoxGeometry(.2,.2,.38);bt.translate(an.x,an.y-.06,an.z+.08);put(bt,'#3b2f28',1);
+    const st=new THREE.TorusGeometry(.12,.025,4,8);st.translate(an.x,an.y-.16,an.z+.06);put(st,'#9a9aa2',1)}keep=0;
+  // saddle and blanket under the rider
+  {const g=new THREE.CylinderGeometry(.62,.62,.12,14,1,false,-1.2,2.4);g.scale(1,1,1.05);g.rotateZ(Math.PI/2);g.rotateY(Math.PI/2);g.translate(0,Y(2.1),.15);put(g,'#5a2f1a')}
+  // merge
+  let n=0;for(const g of parts)n+=g.attributes.position.count;const P3=new Float32Array(n*3),N3=new Float32Array(n*3),C3=new Float32Array(n*3),K1=new Float32Array(n);let o=0;
+  for(const g of parts){P3.set(g.attributes.position.array,o*3);N3.set(g.attributes.normal.array,o*3);const ca=g.attributes.color.array;for(let i=0;i<g.attributes.position.count;i++){C3[(o+i)*3]=ca[i*4];C3[(o+i)*3+1]=ca[i*4+1];C3[(o+i)*3+2]=ca[i*4+2];K1[o+i]=ca[i*4+3]}o+=g.attributes.position.count;g.dispose()}
+  let mn=1e9;for(let i=1;i<P3.length;i+=3)mn=Math.min(mn,P3[i]);if(!run)for(let i=1;i<P3.length;i+=3)P3[i]-=mn;     // standing: hooves on the ground
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(P3,3));g.setAttribute('normal',new THREE.BufferAttribute(N3,3));g.setAttribute('color',new THREE.BufferAttribute(C3,3));g.setAttribute('aKeep',new THREE.BufferAttribute(K1,1));g.computeBoundingSphere();return g}
+function horseClips(){const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.6,metalness:0});mat.onBeforeCompile=sh=>{sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute float aKeep;').replace('#include <color_vertex>','#include <color_vertex>\nvColor.rgb=mix(vColor.rgb,color.rgb,aKeep);')};
+  const mk=g=>{const m=new THREE.InstancedMesh(g,mat,CHR_CAP);m.castShadow=true;m.frustumCulled=false;m.count=0;m.visible=false;m.setColorAt(0,new THREE.Color('#fff'));m.userData.n=0;scene.add(m);return m};
+  const walk=[];for(let f=0;f<12;f++)walk.push(mk(horseGeo(f/12,true)));return{walk,idle:[mk(horseGeo(0,false))]}}
+const COATS=['#7a4524','#5a3018','#8f5a2e','#2b2420','#b9a48a','#6b4a33','#a06a3a','#ece6dc'].map(c=>new THREE.Color(c));
+const HRS={s:1.12,rot:0,ry:1.95,rz:.15,rs:.82};window.HRS=HRS;
 const chrReady=t=>t==='atli'?!!(CHR.at&&CHR.binici):!!CHR[t];
 // put one character into the frame mesh for its pose: walking, idle or striking, each soldier a little out of step with the next
-function chrPush(key,clip,ph,m4,from){const C=CHR[key];const cl=C.clips[clip]||C.clips.idle||C.clips.walk;const f=Math.min(cl.length-1,Math.floor(((ph%1)+1)%1*cl.length)),m=cl[f];const i=m.userData.n;if(i>=CHR_CAP)return;m.userData.n++;m.setMatrixAt(i,m4);m.setColorAt(i,from<0?WHITE_C:tc[from])}
+function chrPush(key,clip,ph,m4,from,tint){const C=CHR[key];const cl=C.clips[clip]||C.clips.idle||C.clips.walk;const f=Math.min(cl.length-1,Math.floor(((ph%1)+1)%1*cl.length)),m=cl[f];const i=m.userData.n;if(i>=CHR_CAP)return;m.userData.n++;m.setMatrixAt(i,m4);m.setColorAt(i,tint||(from<0?WHITE_C:tc[from]))}
 const WHITE_C=new THREE.Color('#ffffff');
 let BLOB=null,blobN=0;
 function blobAt(x,z,r){if(!BLOB){const t=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,2,32,32,31);gr.addColorStop(0,'rgba(0,0,0,.55)');gr.addColorStop(.6,'rgba(0,0,0,.25)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c)})();
@@ -2052,7 +2094,7 @@ function chrFlush(){if(BLOB){BLOB.count=blobN;BLOB.instanceMatrix.needsUpdate=tr
 const turnTo=(a,b,m)=>{let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return a+Math.max(-m,Math.min(m,d))};
 let curTA=0,curTA2=0,curRoll=0;
 const angLerp=(a,b,t)=>{let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return a+d*t};
-const mt=new THREE.Matrix4(),mr=new THREE.Matrix4(),mb=new THREE.Matrix4(),mo=new THREE.Matrix4(),qr=new THREE.Quaternion(),XA=new THREE.Vector3(1,0,0),ZA=new THREE.Vector3(0,0,1),mx=new THREE.Matrix4(),qt=new THREE.Quaternion(),UP=new THREE.Vector3(0,1,0),vp=new THREE.Vector3(),vs=new THREE.Vector3(1,1,1),tc=TEAM.map(c=>new THREE.Color(c));
+const vt=new THREE.Vector3(),mt=new THREE.Matrix4(),mr=new THREE.Matrix4(),mb=new THREE.Matrix4(),mo=new THREE.Matrix4(),qr=new THREE.Quaternion(),XA=new THREE.Vector3(1,0,0),ZA=new THREE.Vector3(0,0,1),mx=new THREE.Matrix4(),qt=new THREE.Quaternion(),UP=new THREE.Vector3(0,1,0),vp=new THREE.Vector3(),vs=new THREE.Vector3(1,1,1),tc=TEAM.map(c=>new THREE.Color(c));
 function drawUnits(rdt){
   const n={};for(const k of UKEYS)n[k]=0;
   const turn=(p,a)=>{mt.makeTranslation(p[0],p[1],p[2]);mr.makeRotationX(a);mb.makeTranslation(-p[0],-p[1],-p[2]);return mo.copy(mx).multiply(mt).multiply(mr).multiply(mb)};
@@ -2062,7 +2104,7 @@ function drawUnits(rdt){
       const T=now()/1000,sd=(curId*.6180339)%1,y=(pitchY??unitY(UNITS[type],x,z));vp.set(x,y,z);qt.setFromAxisAngle(UP,dir);if(pitch){qr.setFromAxisAngle(XA,pitch);qt.multiply(qr)}mx.compose(vp,qt,vs);
       if(type==='atli'){if(HRS.fi)moving=false;const H=HRS,br=moving?0:Math.sin(T*2.2+sd*6.28),bob=moving?Math.abs(Math.sin((T*1.35+sd)*Math.PI*2))*.12:0;     // standing still the horse breathes and shifts a little, galloping it rocks the rider
         mt.compose(vp.set(0,0,0),qr.setFromAxisAngle(UP,H.rot+(moving?0:Math.sin(T*.7+sd*9)*.04)),vs.set(H.s,H.s*(1+br*.012),H.s*(1-br*.004)));mo.copy(mx).multiply(mt);vs.set(1,1,1);
-        const hf=CHR.at.clips.walk;if(moving)chrPush('at','walk',(T*1.35+sd)*(hf.length-1)/hf.length,mo,-1);else chrPush('at','walk',(hf.length-.5)/hf.length,mo,-1);
+        const coat=COATS[Math.floor(sd*97)%COATS.length];if(moving)chrPush('at','walk',T*1.25+sd,mo,-1,coat);else chrPush('at','idle',0,mo,-1,coat);
         mt.compose(vp.set(0,H.ry+bob+br*.02,H.rz),qr.setFromAxisAngle(XA,moving?.12:0),vs.set(H.rs,H.rs,H.rs));mo.copy(mx).multiply(mt);vs.set(1,1,1);chrPush('binici',atk!=null?'atk':'idle',atk!=null?atk:T*.3+sd,mo,from);return}
       chrPush(type,atk!=null?'atk':moving?'walk':'idle',atk!=null?atk:moving?T*(type==='dalgic'?1.6:1.05)+sd:T*.35+sd,mx,from);return}
     if(type==='balon'||type==='ucak'){const sx=x,sz=z;blobAt(sx,sz,type==='balon'?3.4:3)}
@@ -2077,6 +2119,7 @@ function drawUnits(rdt){
     if(pitch){qr.setFromAxisAngle(XA,pitch);qt.multiply(qr)}
     if(curRoll){qr.setFromAxisAngle(ZA,curRoll);qt.multiply(qr);curRoll=0}
     mx.compose(vp,qt,vs);
+    if(type==='balon'&&chrOn&&CHR.piyade){mt.compose(vt.set(0,-3.74,0),qr.setFromAxisAngle(UP,Math.sin(now()/1400+i)*.6),vs.set(.66,.66,.66));mo.copy(mx).multiply(mt);vs.set(1,1,1);chrPush('piyade','idle',now()/3000+i*.3,mo,from)}     // a knight stands in the basket
     const arm=-1.15-.35*f;
     for(const m of IM[type]){
       const sw=m.userData.swing;
@@ -2260,8 +2303,8 @@ function aimRemote(dt){
 function bridgeSpot(p){
   if(DUEL){const c=p.x<0?-48:48;if(Math.abs(p.x-c)>18||Math.abs(p.z)>64)return null;const a={x:c-24,z:Math.round(p.z)},b={x:c+24,z:a.z};
     if(shoreOf(a.x,a.z)<WL+3||shoreOf(b.x,b.z)<WL+3||DBR.some(o=>Math.abs(o.a.z-a.z)<14&&Math.sign(o.a.x)===Math.sign(c))||bridges.some(o=>Math.min(segD(a.x,a.z,o),segD(b.x,b.z,o))<16))return null;return{a,b}}
-  const hor=Math.abs(p.x)<RIVER+WL+2&&Math.abs(p.z)>30,ver=Math.abs(p.z)<RIVER+WL+2&&Math.abs(p.x)>30;if(!hor&&!ver)return null;
-  const a=hor?{x:-23,z:Math.round(p.z)}:{x:Math.round(p.x),z:-23},b=hor?{x:23,z:a.z}:{x:a.x,z:23};
+  const hor=Math.abs(p.x-rvW(p.z))<RIVER+WL+4&&Math.abs(p.z)>30,ver=Math.abs(p.z-rvW(-p.x*1.07+9))<RIVER+WL+4&&Math.abs(p.x)>30;if(!hor&&!ver)return null;
+  const z0=Math.round(p.z),x0=Math.round(p.x),wh=hor?rvW(z0):rvW(-x0*1.07+9);const a=hor?{x:Math.round(wh-23),z:z0}:{x:x0,z:Math.round(wh-23)},b=hor?{x:Math.round(wh+23),z:z0}:{x:x0,z:Math.round(wh+23)};
   if(shoreOf(a.x,a.z)<WL+3||shoreOf(b.x,b.z)<WL+3)return null;
   if(bridges.some(o=>Math.min(segD(a.x,a.z,o),segD(b.x,b.z,o))<16))return null;
   return{a,b};
@@ -2879,9 +2922,9 @@ function tutSteps(){
     done:()=>nArch(ME)>0},
    {t:TL('Duvar ve Sil','Walls and Erase'),x:TL('Savunma bölümündeki DUVAR kısmından Duvar’a basıp parmağınla sürüklersen duvar örülür; düşman askerleri onu yıkmadan geçemez. Çok duvar koyduysan Sil’e basıp üstlerinde sürükle, hepsi kalkar.','In Defense, press Wall under WALLS and drag your finger to build a wall; enemy soldiers must break it to pass. Too many walls? Press Erase and drag over them to clear them all.'),info:true},
    {t:TL('Asker eğit','Train soldiers'),x:TL('Saldırı bölümünde asker eğitirsin. Askerler kalenin önündeki bayraklı birlik alanında toplanır ve orada iyileşir.','In the Attack section you train soldiers. They gather on the flagged muster field in front of your castle and heal there.'),tab:'a',go:()=>look(RALLY[0].x,RALLY[0].z,110),
-    hint:()=>{const R=atRally();let n=0;for(const k in R)n+=R[k].length;return{h:EN?`Press the glowing Spearman button 3 times (${Math.min(n,3)}/3).`:`Parlayan Mızraklı düğmesine 3 kez bas (${Math.min(n,3)}/3).`,g:'#gAtk [data-k=piyade]',spot:RALLY[0]}},
+    hint:()=>{const R=atRally();let n=0;for(const k in R)n+=R[k].length;return{h:EN?`Press the glowing Knight button 3 times (${Math.min(n,3)}/3).`:`Parlayan Şövalye düğmesine 3 kez bas (${Math.min(n,3)}/3).`,g:'#gAtk [data-k=piyade]',spot:RALLY[0]}},
     done:()=>{const R=atRally();let n=0;for(const k in R)n+=R[k].length;return n>=3}},
-   {t:TL('Hangi asker ne işe yarar?','What is each unit for?'),x:TL('Mızraklı: ucuz ve sağlam, askerlere karşı iyi. Süvari: çok hızlı, kıyıdan biraz denize açılabilir. Koçbaşı: kuleleri çabucak yıkar ama askerlere karşı zayıf. Balon: uçar, üstten bomba bırakır. Denizaltı: arkadan 10 balık adam çıkarır, onlar sis atıp sisin içinde saklanır. Savaş Gemisi denizden döver, Bombardıman uçağı havadan bombalar.','Infantry: cheap and sturdy, good against soldiers. Riders: very fast, can swim a little way out to sea. Rams: knock towers down fast but are weak against soldiers. Balloons fly and drop bombs from above. Submarine: lands 10 frogmen behind the base, who throw smoke and hide in it. The warship shells from the sea, the bomber from the air.'),info:true},
+   {t:TL('Hangi asker ne işe yarar?','What is each unit for?'),x:TL('Şövalye: ucuz ve sağlam, askerlere karşı iyi. Süvari: çok hızlı, kıyıdan biraz denize açılabilir. Koçbaşı: kuleleri çabucak yıkar ama askerlere karşı zayıf. Balon: uçar, üstten bomba bırakır. Denizaltı: arkadan 10 balık adam çıkarır, onlar sis atıp sisin içinde saklanır. Savaş Gemisi denizden döver, Bombardıman uçağı havadan bombalar.','Infantry: cheap and sturdy, good against soldiers. Riders: very fast, can swim a little way out to sea. Rams: knock towers down fast but are weak against soldiers. Balloons fly and drop bombs from above. Submarine: lands 10 frogmen behind the base, who throw smoke and hide in it. The warship shells from the sea, the bomber from the air.'),info:true},
    {t:TL('Kaleni savun','Defend your castle'),x:TL('Düşman askerleri kalene yaklaşıyor! Eğittiğin askerleri senin için seçtik (yeşil çerçeveli). Kırmızı bir düşmana dokun: hepsi ona saldırır.','Enemy soldiers are closing on your castle! We picked the soldiers you trained (green frames). Tap a red enemy: they all go for it.'),tab:'a',
     go:()=>{const mine=()=>ME.units.filter(u=>u.from===0&&POP[u.type]&&!u.done&&u.hp>0);for(let i=mine().length;i<4;i++)muster(ME,'piyade');
       for(let i=0;i<3;i++)spawn(ME,'piyade',1);for(const u of ME.units)if(u.from===1&&!u.done){u.hp=45;u.s=Math.max(0,u.end-34-(u.id%3)*3);const q=pointOn(u.path,u.s);u.x=q.x;u.z=q.z}     // they turn up on your own ground, not on the bridge
@@ -2891,7 +2934,7 @@ function tutSteps(){
     done:()=>!foeHere().length},
    {t:TL('Saldır','Attack'),x:TL('Birlik alanındaki askerlerini düşman kalesine gönder. Askerler kalenin kapılarından saldırır. Çizdiğin yolu beğenmezsen parmağını kaldırmadan ekranın üstünde çıkan kırmızı ✕ alanına götür, çizgi bozulur.','Send the soldiers on your muster field at the enemy castle. They attack through its gates. Don’t like the line you drew? Keep your finger down and drag it to the CANCEL box at the top of the screen.'),tab:'a',
     hint:()=>{if(SEL.length)return{h:TL('Şimdi yeşil halkadaki düşman kalesine dokun.','Now tap the enemy castle in the green ring.'),spot:c1,look:[c1.x-30,c1.z,170]};
-      {const R=atRally();let n=0;for(const k in R)n+=R[k].length;if(!n&&!SEL.length)return{h:TL('Birlik alanında askerin kalmadı. Parlayan Mızraklı düğmesine bas.','No soldiers left on the muster field. Press the glowing Spearman button.'),g:'#gAtk [data-k=piyade]',spot:RALLY[0]}}
+      {const R=atRally();let n=0;for(const k in R)n+=R[k].length;if(!n&&!SEL.length)return{h:TL('Birlik alanında askerin kalmadı. Parlayan Şövalye düğmesine bas.','No soldiers left on the muster field. Press the glowing Knight button.'),g:'#gAtk [data-k=piyade]',spot:RALLY[0]}}
       if(!$('rallyP').hidden)return{h:TL('Seç ve gönder’e bas.','Press Pick and send.'),g:'#rallyP .go'};return{h:TL('Parlayan Ordu düğmesine bas.','Press the glowing Army button.'),g:'#bBirlik'}},
     done:()=>P[1].units.some(u=>u.from===0&&POP[u.type])},
    {t:TL('Füze sistemi ve füze','Missile system and missile'),x:TL('Önce kalenin tepesine Füze Sistemi kur, sonra füze at. Füze haritanın her yerine gider; bir düşman birliğine dokunursan peşinden gider. Sadece uçaksavar düşürebilir.','First build a Missile System on your castle, then fire. A missile reaches anywhere; tap an enemy unit and it chases it. Only anti-air stops it.'),tab:'a',

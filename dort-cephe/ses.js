@@ -34,10 +34,31 @@ export const SES={ctx:null,int:.2,last:{},ayar:{muzik:saved.muzik!==false,okcu:s
     if(I>0.28&&q){const o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(46,t+0.3);o.connect(g);g.connect(this.mus);this.env(g,t,0.005,(I-0.28)*0.7*(i%8===0?1.3:1),0,0.45);o.start(t);o.stop(t+0.6)}
     if(this.boss&&i%8===0){const o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(75,t);o.frequency.exponentialRampToValueAtTime(34,t+0.9);o.connect(g);g.connect(this.mus);this.env(g,t,0.005,0.55,0,1.3);o.start(t);o.stop(t+1.5)}},
   ok(k,gap,opt){const c=this.ctx;if(!c||c.state!=='running'||(opt&&!this.ayar[opt]))return false;const n=c.currentTime;if(n-(this.last[k]||0)<gap)return false;this.last[k]=n;return true},
-  // real recordings (0 A.D. by Wildfire Games, CC BY-SA 3.0, see ses/LISANS-0AD.txt), fetched once after the first click
-  bake(){const c=this.ctx,B=this.B={},F={ok:['ok1','ok2','ok3','ok4'],vin:['vin1','vin2','vin3'],kilic:['kilic0','kilic1','kilic2','kilic3'],tufek:['tufek1','tufek2'],patla:['patla1','patla2','patla3','patla4'],nal:['nal0','nal1','nal2','nal3'],dalga:['dalga1','dalga2'],su:['su1','su2']};
-    const base=new URL('./ses/',import.meta.url);
-    for(const k in F)for(const n of F[k])fetch(new URL(n+'.mp3',base)).then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(a=>new Promise((ok,no)=>c.decodeAudioData(a,ok,no))).then(b=>{(B[k]=B[k]||[]).push(b)}).catch(()=>{})},
+  // every sound is made here in code, sample by sample: no recordings from anyone else, so nothing to license
+  bake(){const c=this.ctx,R=c.sampleRate,B=this.B={};
+    const mk=(sec,fn)=>{const n=Math.floor(sec*R),b=c.createBuffer(1,n,R),d=b.getChannelData(0);fn(d,n);let m=0;for(let i=0;i<n;i++)m=Math.max(m,Math.abs(d[i]));if(m>0)for(let i=0;i<n;i++)d[i]/=m*1.05;return b};
+    const lp=(d,a)=>{let y=0;for(let i=0;i<d.length;i++){y+=a*(d[i]-y);d[i]=y}},hp=(d,a)=>{let x0=0,y=0;for(let i=0;i<d.length;i++){const x=d[i];y=a*(y+x-x0);x0=x;d[i]=y}};
+    const nz=()=>Math.random()*2-1,env=(t,a,dcy)=>t<a?t/a:Math.exp(-(t-a)/dcy);
+    const add=(k,b)=>(B[k]=B[k]||[]).push(b);
+    for(let v=0;v<4;v++){
+      // bow release: a short string twang and the hiss of the arrow
+      add('ok',mk(.35,(d,n)=>{const f=180+v*25;for(let i=0;i<n;i++){const t=i/R;d[i]=Math.sin(2*Math.PI*f*t*(1+t*.6))*env(t,.002,.03)*.8+nz()*env(t,.01,.12)*.35*Math.min(1,t*30)}hp(d,.92)}));
+      // sword on sword: a few bright inharmonic partials ringing out
+      add('kilic',mk(.5,(d,n)=>{const P=[1,2.76,5.4,8.93].map(m=>m*(1100+v*170));for(let i=0;i<n;i++){const t=i/R;let x=0;P.forEach((f,j)=>x+=Math.sin(2*Math.PI*f*t)*Math.exp(-t*(6+j*5))/(j+1));d[i]=x+nz()*env(t,.001,.008)}}));
+      // explosion: a deep thud under a long rumbling roar
+      add('patla',mk(1.6,(d,n)=>{let ph=0;for(let i=0;i<n;i++){const t=i/R,f=70*Math.exp(-t*3)+28;ph+=2*Math.PI*f/R;d[i]=Math.sin(ph)*env(t,.004,.25)*1.2+nz()*env(t,.003,.35+v*.08)}lp(d,.08+v*.015)}));
+      // hoof on the ground
+      add('nal',mk(.18,(d,n)=>{let ph=0;for(let i=0;i<n;i++){const t=i/R;ph+=2*Math.PI*(160-t*300+v*15)/R;d[i]=Math.sin(ph)*env(t,.001,.03)+nz()*env(t,.0005,.006)*.6}lp(d,.35)}))}
+    for(let v=0;v<3;v++){
+      // something whistling through the air
+      add('vin',mk(1.3,(d,n)=>{for(let i=0;i<n;i++){const t=i/R;d[i]=nz()*Math.sin(Math.PI*t/1.3)}const q=d.slice();lp(d,.05+v*.02);for(let i=0;i<n;i++)d[i]=d[i]*.7+q[i]*.04*Math.sin(Math.PI*i/n)}))}
+    for(let v=0;v<2;v++){
+      // a gun's crack
+      add('tufek',mk(.6,(d,n)=>{for(let i=0;i<n;i++){const t=i/R;d[i]=nz()*env(t,.0008,.04+v*.02)+nz()*env(t,.01,.2)*.25}lp(d,.4)}));
+      // a wave rolling in and drawing back
+      add('dalga',mk(3.2,(d,n)=>{for(let i=0;i<n;i++){const t=i/R;d[i]=nz()*Math.pow(Math.sin(Math.PI*t/3.2),2)*(.6+.4*Math.sin(t*7+v))}lp(d,.06)}));
+      // a splash
+      add('su',mk(.7,(d,n)=>{for(let i=0;i<n;i++){const t=i/R;d[i]=nz()*env(t,.005,.12)+Math.sin(2*Math.PI*(500+900*Math.exp(-t*12))*t)*env(t,.01,.08)*.3*Math.random()}hp(d,.6);lp(d,.5)}))}},
   play(k,vol=1,pan=0,rate=1,lp=0){const c=this.ctx,L=this.B&&this.B[k];if(!L||!L.length)return false;const s=c.createBufferSource(),g=c.createGain();s.buffer=L[(Math.random()*L.length)|0];s.playbackRate.value=rate*(.93+Math.random()*.14);g.gain.value=vol;
     let o=s;if(lp){const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=lp;s.connect(f);o=f}o.connect(g);o=g;
     if(c.createStereoPanner&&pan){const p=c.createStereoPanner();p.pan.value=Math.max(-1,Math.min(1,pan));g.connect(p);o=p}o.connect(this.sfx);s.start();return true},
