@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {SES} from './ses.js?v=20261112a';
+import {SES} from './ses.js?v=20261112b';
 /* Dört Cephe. Each client simulates its own square (and any computer rivals);
    units sent to a player are simulated by that player. Others see 2 snapshots a second. */
 const A=window.ARENA,EN=window.LANG==='en',TL=(t,e)=>EN?e:t;
@@ -10,7 +10,7 @@ const num=(v,d=0)=>typeof v==='number'&&isFinite(v)?v:d;
 // ---------- rules ----------
 let BUILD_T={denizalti:16,gemi:20},TBUILD={ok:7,top:10,hava:9,roket:14,duvar:2.5},WMAX=12,RUNWAY_COST=200,MS_COST=100,MS_T=10,MS_HP=120,RUNWAY_T=12,YARD_COST=100,YARD_T=15,MAX_SHIPS=4,PLANE_T=12,SHIP_SEE=80,SHIP_STAND=95,SUB_TIME=16,WALL=3,START_MONEY=200*2.5,CASTLE_HP=500,TRICKLE=0.5,MAX_TOWERS=40;
 // a base trains one soldier at a time and fields a limited army, so nobody can flood the map
-let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='37';
+let TRAIN={piyade:2,atli:3,koc:7,balon:6},POP={piyade:1,atli:1,koc:3,balon:2},POP_CAP=40,FUZE_CD=6,DBR_FIX=100,VER='38';
 // the lesson: an empty 1v1 map where nothing costs anything and nothing has to be waited for
 const TUT=!!(A&&A.tutorial);
 if(TUT){BUILD_T={denizalti:.5,gemi:.5};for(const k in TBUILD)TBUILD[k]=.2;RUNWAY_T=YARD_T=PLANE_T=.5;FUZE_CD=.5;TRAIN={piyade:.2,atli:.2,koc:.2,balon:.2}}
@@ -733,7 +733,7 @@ function scanFoes(D){
     let best=bump||(u.type==='isci'?6:u.from===D.seat?(u.rs!=null?28:22):7),f=null;for(const e of all){if(allied(e.from,u.from)||(e.nav&&u.type!=='dalgic')||(u.ign===e.id&&tnow<u.ignT))continue;const d=Math.hypot(e.x-u.x,e.z-u.z);if(d<best){best=d;f=e}}
     u.foe=f}
   // balloons drift apart from each other instead of stacking up in one spot
-  for(const a of D.units){if(a.type!=='balon'||a.fall!=null||a.done)continue;for(const b of D.units){if(b===a||b.type!=='balon'||b.fall!=null||b.done)continue;const dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz)||.01;if(d<8.5){const k=(8.5-d)/d*.15;a.x-=dx*k;a.z-=dz*k;b.x+=dx*k;b.z+=dz*k;a.lx-=dx*k;a.lz-=dz*k;b.lx+=dx*k;b.lz+=dz*k}}}
+  for(const a of D.units){if(a.type!=='balon'||a.fall!=null||a.done)continue;for(const b of D.units){if(b===a||b.type!=='balon'||b.fall!=null||b.done)continue;const dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz)||.01;if(d<8.5){const k=(8.5-d)/d*.4;a.x-=dx*k;a.z-=dz*k;b.x+=dx*k;b.z+=dz*k;a.lx-=dx*k;a.lz-=dz*k;b.lx+=dx*k;b.lz+=dz*k}}}
   const n=D.units.length;
   for(let i=0;i<n;i++){const a=D.units[i];if(!fighter(a.type)||a.ret)continue;const ra=a.type==='koc'?2.3:a.type==='atli'?1.8:.95;
     for(let j=i+1;j<n;j++){const b=D.units[j];if(!fighter(b.type)||b.ret)continue;const m=ra+(b.type==='koc'?2.3:b.type==='atli'?1.8:.95),dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz)||.01;
@@ -909,7 +909,7 @@ function simDefender(D,dt){
       const t=u.tgt;u.atk=true;u.cdM=.45;u.face=Math.atan2(t.x-u.x,t.z-u.z);
       if(u.cd<=0){u.cd=.45;t.hp-=2.4;t.shake=.12;gunFx(D,u,t.x,heightAt(t.x,t.z)+2.5,t.z);if(t.hp<=0){explode(t.x,t.z,2);crater(t.x,t.z,3.6);removeTower(D,t);u.tgt=null}}}
     else if(u.tgt){               // surround the nearest defence and tear it down
-      const t=u.tgt,a=u.id*2.399,r=u.type==='koc'?4.6:air?0:3,gx=t.x+Math.cos(a)*r,gz=t.z+Math.sin(a)*r,d=Math.hypot(gx-u.x,gz-u.z);
+      const t=u.tgt,a=u.id*2.399,r=u.type==='koc'?4.6:air?3.5+(u.id%3)*2.6:3,gx=t.x+Math.cos(a)*r,gz=t.z+Math.sin(a)*r,d=Math.hypot(gx-u.x,gz-u.z);
       if(d>.8){if(!u.off)u.dep={x:u.x,z:u.z};u.x+=(gx-u.x)/d*step;u.z+=(gz-u.z)/d*step;u.off=true;u.reS=false;u.face=Math.atan2(gx-u.x,gz-u.z)}
       else{u.atk=!air;u.cdM=1.2;u.face=Math.atan2(t.x-u.x,t.z-u.z);
        if(air?u.bomb<=0:u.cd<=0){
@@ -932,7 +932,8 @@ function simDefender(D,dt){
       const c=air||u.type==='koc'?0:u.lane;let nx=p.x+(q.z-p.z)/l*c+u.lx,nz=p.z-(q.x-p.x)/l*c+u.lz;
       if(!air&&U.yol!=='deniz'&&nearDeck(nx,nz)&&!canStand(u,nx,nz)){u.lx*=.5;u.lz*=.5;nx=p.x;nz=p.z}     // a side-step that would leave the bridge or the bank keeps to the middle of the way
       u.x=nx;u.z=nz;u.face=null;u.road=true}
-    else if(!own&&u.cmd&&u.siege&&dh>(air?7:CH+5.5)){            // sent at the castle but not there yet: close in, never strike from afar
+    else if(air&&!own&&u.cmd&&u.siege&&(()=>{const a=u.id*2.399,r=5+(u.id%3)*3.2,tx=home.x+Math.cos(a)*r,tz=home.z+Math.sin(a)*r,d=Math.hypot(tx-u.x,tz-u.z);if(d<1.2)return false;const k=Math.min(d,step);u.x+=(tx-u.x)/d*k;u.z+=(tz-u.z)/d*k;return true})()){}     // each balloon takes its own spot over the castle, never the same one
+    else if(!own&&u.cmd&&u.siege&&dh>(air?13:CH+5.5)){            // sent at the castle but not there yet: close in, never strike from afar
       if(air){u.x+=(home.x-u.x)/dh*step;u.z+=(home.z-u.z)/dh*step}
       else if(!u.rp){u.rp=1;const gq=gateApproach(D.seat,u),n=U.yol==='kara'?nav({x:u.x,z:u.z},gq):[{x:u.x,z:u.z},gq];if(n){u.path=polyPath(n);u.s=0;u.end=Math.max(0,u.path.len-1)}else u.siege=false}
       else u.siege=false}
@@ -2597,10 +2598,11 @@ function drawBirds(){if(!BIRDS){const mk=up=>{     // a gull: a white body and h
   BIRDS.a.count=na;BIRDS.b.count=nb;BIRDS.a.instanceMatrix.needsUpdate=BIRDS.b.instanceMatrix.needsUpdate=true;drawWind(T)}
 // from high up the wind shows: long faint streaks of air sliding over the sea and land
 let WINDM=null;
-function drawWind(T){const far=clamp((view.d-170)/160,0,1);if(!WINDM){const g=new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2);const m=new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending});WINDM=new THREE.InstancedMesh(g,m,60);WINDM.frustumCulled=false;scene.add(WINDM)}
-  WINDM.visible=far>0;if(!far)return;WINDM.material.opacity=.22*far;const wx=Math.cos(.6),wz=Math.sin(.6),span=900;let n=0;
+function drawWind(T){const far=clamp((view.d-170)/160,0,1);if(!WINDM){const g=new THREE.PlaneGeometry(1,1,1,24).rotateX(-Math.PI/2);{const P=g.attributes.position;for(let i=0;i<P.count;i++){const z=P.getZ(i),w=1-Math.abs(z*2)**2;P.setX(i,P.getX(i)*w*.12+Math.sin(z*Math.PI*2.2)*1);P.setY(i,Math.sin(z*Math.PI*3+1)*.4)}}     // each streak a thin, tapered, gently wavy curl of air
+  const m=new THREE.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending});WINDM=new THREE.InstancedMesh(g,m,60);WINDM.frustumCulled=false;scene.add(WINDM)}
+  WINDM.visible=far>0;if(!far)return;WINDM.material.opacity=.3*far;const wx=Math.cos(.6),wz=Math.sin(.6),span=900;let n=0;
   for(let k=0;k<60;k++){const ph=(T*(22+k%7*3)+k*137)%span-span/2,side=((k*97)%span)-span/2,x=view.x+wx*ph-wz*side,z=view.z+wz*ph+wx*side,y=30+(k%5)*4,len=26+(k%4)*12,a=Math.sin(Math.PI*((ph+span/2)/span));
-    mt.compose(vp.set(x,y,z),qr.setFromAxisAngle(UP,Math.atan2(wx,wz)),vs.set(.5+a*.6,1,len*a+1));WINDM.setMatrixAt(n++,mt)}vs.set(1,1,1);WINDM.count=n;WINDM.instanceMatrix.needsUpdate=true}
+    qr.setFromAxisAngle(UP,Math.atan2(wx,wz)+Math.sin(T*.3+k)*.12);mt.compose(vp.set(x,y,z),qr,vs.set((2.5+a*2)*(1+.6*Math.sin(T*.7+k*1.3)),1+Math.sin(T+k)*2,len*a+1));WINDM.setMatrixAt(n++,mt)}vs.set(1,1,1);WINDM.count=n;WINDM.instanceMatrix.needsUpdate=true}
 function crater(x,z,r,remote){
   if(shoreOf(x,z)<WL-1.2||onDeck(x,z))return;
   for(let k=0;k<4;k++){const w=RWY[k],D=P[k];if(!w||!D||!D.rwState)continue;const dx=x-w.c.x,dz=z-w.c.z;if(Math.abs(dx*w.ux+dz*w.uz)<w.len/2+r&&Math.abs(-dx*w.uz+dz*w.ux)<6+r)return}     // a runway cracks (its own decals) instead of the ground under it caving in     // on a beach the hole goes below the waterline and the sea runs into it
@@ -2660,7 +2662,7 @@ cv.addEventListener('pointermove',e=>{
   if(draft&&ptr.size===1){bozShow(e);drawRoute(e.clientX,e.clientY);return}
   if(paintAt&&ptr.size===1){paintTo(e.clientX,e.clientY);if(build!=='sil')hover(e.clientX,e.clientY);return}
   if(ptr.size===2){const[a,b]=[...ptr.values()],d=Math.hypot(a.x-b.x,a.y-b.y),an=Math.atan2(b.y-a.y,b.x-a.x);if(pinch)view.td=clamp(view.td*pinch/d,DMIN,DMAX);pinch=d;
-    if(twist!=null){let da=an-twist;da=Math.atan2(Math.sin(da),Math.cos(da));view.tyaw-=da;view.yaw-=da}twist=an;     // two fingers turned on the screen turn the map with them
+
     const s=view.d/innerHeight*1.3*.5;panBy(-dx*s,-dy*s*1.25);return}
   if(press&&Math.hypot(e.clientX-press.x,e.clientY-press.y)>9)press.moved=true;
   if(press&&press.moved){const s=view.d/innerHeight*1.3;panBy(-dx*s,-dy*s*1.25)}
@@ -2920,7 +2922,7 @@ function mkSettings(){
    ['Missile','Missile → tap a spot, or tap an enemy unit and it follows it.'],
    ['Ships','Shipyard first, then Ship. Tap your ship and draw where it goes, or tap an enemy to fight it.'],
    ['Bomber','Runway first, then Plane. Drag the bomb line anywhere over the enemy base and turn it any way; the bombs land on the red dots.']]:[
-   ['Kamera','Bir parmakla kaydır, iki parmakla yakınlaştır. Sağdaki ⟲ ⟳ düğmeleri ya da iki parmakla çevirmek haritayı döndürür.'],
+   ['Kamera','Bir parmakla kaydır, iki parmakla yakınlaştır. Sağdaki ⟲ ⟳ düğmeleri haritayı döndürür.'],
    ['Savunma','Bir kule seç, sonra kendi toprağına dokun. Kuleye dokunup yükseltebilir ya da silebilirsin.'],
    ['Ordu','Saldırı → asker eğit. Askerler kalenin önündeki bayraklı alanda bekler ve orada iyileşir.'],
    ['Gönder','Ordu → Seç ve gönder, sonra düşman kulesine ya da kalesine dokun ya da parmağınla yol çiz.'],

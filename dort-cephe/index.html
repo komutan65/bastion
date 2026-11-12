@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Dört Cephe</title>
 <script type="importmap">{"imports":{"three":"../three.min.js"}}</script>
-<link rel="stylesheet" href="lobby.css?v=20261112a">
+<link rel="stylesheet" href="lobby.css?v=20261112b">
 <style>
 /* Georgia draws numbers at uneven heights (old-style figures): every digit in the game comes from an even, upright font instead */
 @font-face{font-family:'Rakam';src:local('Helvetica Neue'),local('HelveticaNeue'),local('Arial'),local('Roboto'),local('Segoe UI');unicode-range:U+0030-0039,U+002E,U+002C,U+002B,U+002F,U+0025}
@@ -140,7 +140,7 @@ body.chatting #eye,body.chatting #ver{display:none}
 <button id="eye" title="Ekranı gizle" aria-label="Ekranı gizle" hidden>👁</button>
 <div id="rot"><button id="rotL" title="Haritayı sola döndür" aria-label="Haritayı sola döndür">⟲</button><button id="rotR" title="Haritayı sağa döndür" aria-label="Haritayı sağa döndür">⟳</button></div>
 
-<div id="ver" data-en="Version 37">Sürüm 37</div>
+<div id="ver" data-en="Version 38">Sürüm 38</div>
 <div id="lobby"><div class="lbox">
   <h1 data-en="FOUR FRONTS">DÖRT CEPHE</h1>
   <p id="lOnline" hidden></p>
@@ -172,6 +172,6 @@ body.chatting #eye,body.chatting #ver{display:none}
 </div></div>
 <div id="arenaEnd" hidden><div class="lbox"><h1 id="aeTitle"></h1><p class="sub" id="aeText"></p><button id="aeAgain" class="go" data-en="New match">Yeni maç</button><button id="aeWatch" data-en="Watch the match">Maçı izle</button></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="lobby.js?v=20261112a"></script>
+<script src="lobby.js?v=20261112b"></script>
 </body>
 </html>
